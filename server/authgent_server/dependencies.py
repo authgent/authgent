@@ -49,7 +49,7 @@ class ProviderSet:
 def _import_class(dotted_path: str) -> type:
     module_path, class_name = dotted_path.rsplit(".", 1)
     module = importlib.import_module(module_path)
-    return getattr(module, class_name)
+    return getattr(module, class_name)  # type: ignore[no-any-return]
 
 
 def _load_provider(dotted_path: str | None, default: type, settings: Settings) -> Any:

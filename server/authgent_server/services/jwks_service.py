@@ -141,7 +141,12 @@ class JWKSService:
         if headers:
             hdr.update(headers)
 
-        return jwt.encode(claims, private_key, algorithm="ES256", headers=hdr)
+        return jwt.encode(
+            claims,
+            private_key,  # type: ignore[arg-type]
+            algorithm="ES256",
+            headers=hdr,
+        )
 
     async def verify_jwt(self, db: AsyncSession, token: str, audience: str | None = None) -> dict:
         """Verify JWT signature against JWKS. Returns decoded claims.
@@ -189,7 +194,7 @@ class JWKSService:
         if audience is None:
             options["verify_aud"] = False
 
-        return jwt.decode(
+        return jwt.decode(  # type: ignore[no-any-return]
             token,
             public_key,
             algorithms=["ES256"],

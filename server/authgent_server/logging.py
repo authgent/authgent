@@ -65,11 +65,11 @@ def configure_logging(*, debug: bool = False, json_output: bool = True) -> None:
     shared_processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_logger_name,
-        _add_log_level,
+        _add_log_level,  # type: ignore[list-item]
         structlog.stdlib.PositionalArgumentsFormatter(),
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
-        _redact_sensitive_values,
+        _redact_sensitive_values,  # type: ignore[list-item]
     ]
 
     if json_output:

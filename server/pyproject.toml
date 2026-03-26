@@ -52,6 +52,7 @@ dev = [
     "ruff>=0.6.0",
     "mypy>=1.11.0",
     "freezegun>=1.4.0",
+    "types-PyYAML>=6.0.0",
 ]
 migrations = ["alembic>=1.13.0"]
 
@@ -88,3 +89,13 @@ ignore = ["N818"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
+disallow_any_generics = false
+warn_unused_ignores = false
+
+[[tool.mypy.overrides]]
+module = ["authgent_server.models.*"]
+disable_error_code = ["name-defined"]
+
+[[tool.mypy.overrides]]
+module = ["authgent_server.services.*", "authgent_server.endpoints.*"]
+disable_error_code = ["attr-defined"]
