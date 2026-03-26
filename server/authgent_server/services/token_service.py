@@ -130,7 +130,8 @@ class TokenService:
         access_token = await self._jwks.sign_jwt(db, claims)
 
         await self._audit.log(
-            db, "token.issued",
+            db,
+            "token.issued",
             actor=client_id,
             subject=claims["sub"],
             client_id=client_id,
@@ -229,7 +230,8 @@ class TokenService:
         await db.commit()
 
         await self._audit.log(
-            db, "token.issued",
+            db,
+            "token.issued",
             actor=auth_code.subject,
             subject=auth_code.subject,
             client_id=client_id,
@@ -284,14 +286,13 @@ class TokenService:
             )
             # Revoke all tokens in family
             await db.execute(
-                update(RefreshToken)
-                .where(RefreshToken.family_id == rt.family_id)
-                .values(used=True)
+                update(RefreshToken).where(RefreshToken.family_id == rt.family_id).values(used=True)
             )
             await db.commit()
 
             await self._audit.log(
-                db, "token.replay_detected",
+                db,
+                "token.replay_detected",
                 client_id=client_id,
                 metadata={"family_id": rt.family_id, "jti": rt.jti},
             )
@@ -401,7 +402,8 @@ class TokenService:
         access_token = await self._jwks.sign_jwt(db, claims)
 
         await self._audit.log(
-            db, "token.exchanged",
+            db,
+            "token.exchanged",
             actor=f"client:{client_id}",
             subject=claims.get("sub"),
             client_id=client_id,
@@ -471,13 +473,14 @@ class TokenService:
             client_id=client_id,
             scope=record.scope,
             subject=record.subject,
-            **{k: v for k, v in kwargs.items()
-               if k not in ("device_code", "code", "scope", "subject")},
+            **{
+                k: v
+                for k, v in kwargs.items()
+                if k not in ("device_code", "code", "scope", "subject")
+            },
         )
 
-    async def revoke_token(
-        self, db: AsyncSession, token: str, client_id: str
-    ) -> None:
+    async def revoke_token(self, db: AsyncSession, token: str, client_id: str) -> None:
         """Revoke a token by adding its JTI to the blocklist."""
         try:
             claims = await self._jwks.verify_jwt(db, token)
@@ -505,7 +508,8 @@ class TokenService:
             return
 
         await self._audit.log(
-            db, "token.revoked",
+            db,
+            "token.revoked",
             client_id=client_id,
             metadata={"jti": jti},
         )

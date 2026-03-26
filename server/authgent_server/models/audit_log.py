@@ -11,9 +11,7 @@ from authgent_server.models.base import Base, ULIDMixin
 class AuditLog(ULIDMixin, Base):
     __tablename__ = "audit_log"
 
-    timestamp: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC)
-    )
+    timestamp: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     action: Mapped[str] = mapped_column(String(50), nullable=False)
     actor: Mapped[str | None] = mapped_column(String(255), nullable=True)
     subject: Mapped[str | None] = mapped_column(String(255), nullable=True)

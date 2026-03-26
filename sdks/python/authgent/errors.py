@@ -15,24 +15,29 @@ class AuthgentError(Exception):
 
 class InvalidTokenError(AuthgentError):
     """Token verification failed."""
+
     error_code = "invalid_token"
 
 
 class DelegationError(AuthgentError):
     """Delegation chain validation failed."""
+
     error_code = "delegation_error"
 
 
 class DPoPError(AuthgentError):
     """DPoP proof verification failed."""
+
     error_code = "dpop_error"
 
 
 class ServerError(AuthgentError):
     """Server communication error."""
+
     error_code = "server_error"
 
 
 class InsufficientScopeError(AuthgentError):
     """Required scopes not present in token."""
+
     error_code = "insufficient_scope"

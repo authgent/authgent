@@ -48,9 +48,7 @@ class ProtectedResourceMetadata:
     resource: str
     authorization_servers: list[str]
     scopes_supported: list[str] = field(default_factory=list)
-    bearer_methods_supported: list[str] = field(
-        default_factory=lambda: ["header"]
-    )
+    bearer_methods_supported: list[str] = field(default_factory=lambda: ["header"])
     resource_signing_alg_values_supported: list[str] = field(
         default_factory=lambda: ["ES256"]
     )

@@ -16,25 +16,25 @@ _REDACT_PATTERNS = [
     re.compile(r"(Bearer|DPoP|Basic)\s+[A-Za-z0-9\-_.~+/]+=*", re.IGNORECASE),
 ]
 
-_NEVER_LOG_KEYS = frozenset({
-    "client_secret",
-    "client_secret_hash",
-    "previous_secret_hash",
-    "secret_key",
-    "private_key_pem",
-    "password",
-    "code_verifier",
-    "refresh_token",
-    "access_token",
-    "subject_token",
-    "actor_token",
-    "authorization",
-})
+_NEVER_LOG_KEYS = frozenset(
+    {
+        "client_secret",
+        "client_secret_hash",
+        "previous_secret_hash",
+        "secret_key",
+        "private_key_pem",
+        "password",
+        "code_verifier",
+        "refresh_token",
+        "access_token",
+        "subject_token",
+        "actor_token",
+        "authorization",
+    }
+)
 
 
-def _redact_sensitive_values(
-    logger: object, method_name: str, event_dict: dict
-) -> dict:
+def _redact_sensitive_values(logger: object, method_name: str, event_dict: dict) -> dict:
     """Processor that redacts sensitive keys from log events."""
     for key in list(event_dict.keys()):
         if key in _NEVER_LOG_KEYS:
@@ -47,9 +47,7 @@ def _redact_sensitive_values(
     return event_dict
 
 
-def _add_log_level(
-    logger: object, method_name: str, event_dict: dict
-) -> dict:
+def _add_log_level(logger: object, method_name: str, event_dict: dict) -> dict:
     """Add log level to event dict for JSON output."""
     event_dict["level"] = method_name
     return event_dict
@@ -106,6 +104,4 @@ def configure_logging(*, debug: bool = False, json_output: bool = True) -> None:
 
     # Suppress noisy libraries
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-    logging.getLogger("sqlalchemy.engine").setLevel(
-        logging.INFO if debug else logging.WARNING
-    )
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO if debug else logging.WARNING)

@@ -18,8 +18,8 @@ from authgent_server.errors import InvalidDPoPProof, UseDPoPNonce
 logger = structlog.get_logger()
 
 BUCKET_DURATION = 300  # 5-minute buckets
-GRACE_BUCKETS = 1      # accept current + previous bucket
-MAX_CLOCK_SKEW = 60    # seconds
+GRACE_BUCKETS = 1  # accept current + previous bucket
+MAX_CLOCK_SKEW = 60  # seconds
 
 
 class DPoPService:
@@ -43,9 +43,7 @@ class DPoPService:
         }
 
     def _hmac_nonce(self, bucket: int) -> str:
-        return hmac.new(
-            self._dpop_key, str(bucket).encode(), "sha256"
-        ).hexdigest()[:32]
+        return hmac.new(self._dpop_key, str(bucket).encode(), "sha256").hexdigest()[:32]
 
     def verify_dpop_proof(
         self,
@@ -119,9 +117,11 @@ class DPoPService:
 
         # 6. Verify ath (access token hash) if access_token provided
         if access_token:
-            expected_ath = base64.urlsafe_b64encode(
-                hashlib.sha256(access_token.encode()).digest()
-            ).rstrip(b"=").decode()
+            expected_ath = (
+                base64.urlsafe_b64encode(hashlib.sha256(access_token.encode()).digest())
+                .rstrip(b"=")
+                .decode()
+            )
             if payload.get("ath") != expected_ath:
                 raise InvalidDPoPProof("DPoP proof ath mismatch")
 
@@ -130,9 +130,7 @@ class DPoPService:
 
         # 8. Verify expected_jkt if provided (cnf.jkt binding)
         if expected_jkt and jkt != expected_jkt:
-            raise InvalidDPoPProof(
-                f"DPoP proof JWK thumbprint mismatch: expected {expected_jkt}"
-            )
+            raise InvalidDPoPProof(f"DPoP proof JWK thumbprint mismatch: expected {expected_jkt}")
 
         # 9. Nonce validation
         proof_nonce = payload.get("nonce")

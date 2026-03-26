@@ -50,6 +50,7 @@ def init(
         os.environ["AUTHGENT_DATABASE_URL"] = database_url
 
         from authgent_server.config import get_settings, reset_settings
+
         reset_settings()
         settings = get_settings()
 
@@ -212,6 +213,7 @@ def openapi(
     if fmt == "yaml":
         try:
             import yaml
+
             content = yaml.dump(spec, default_flow_style=False, sort_keys=False)
         except ImportError:
             typer.echo("  PyYAML not installed. Install with: pip install pyyaml")

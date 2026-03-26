@@ -98,9 +98,7 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
     # Start background cleanup tasks
     shutdown_event = asyncio.Event()
     cleanup_tasks = [
-        asyncio.create_task(
-            _cleanup_loop(table, interval, shutdown_event, session_factory)
-        )
+        asyncio.create_task(_cleanup_loop(table, interval, shutdown_event, session_factory))
         for table, interval in _CLEANUP_INTERVALS.items()
     ]
 

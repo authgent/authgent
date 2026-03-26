@@ -16,7 +16,5 @@ class SigningKey(Base):
     private_key_pem: Mapped[str] = mapped_column(Text, nullable=False)
     public_key_jwk: Mapped[dict] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="active")
-    created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC)
-    )
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     rotated_at: Mapped[datetime | None] = mapped_column(nullable=True)

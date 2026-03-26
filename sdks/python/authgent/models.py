@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 @dataclass
 class DelegationChain:
     """Parsed delegation chain from nested act claims."""
+
     actors: list[dict] = field(default_factory=list)
     depth: int = 0
     human_root: bool = False
@@ -19,6 +20,7 @@ class DelegationChain:
 @dataclass
 class TokenClaims:
     """Raw token claims wrapper."""
+
     raw: dict = field(default_factory=dict)
 
     def get(self, key: str, default: object = None) -> object:
@@ -40,6 +42,7 @@ class TokenClaims:
 @dataclass
 class AgentIdentity:
     """Verified agent identity — attached to request context by middleware."""
+
     subject: str
     scopes: list[str]
     delegation_chain: DelegationChain

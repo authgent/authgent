@@ -22,6 +22,4 @@ class RefreshToken(Base):
     dpop_jkt: Mapped[str | None] = mapped_column(String(255), nullable=True)
     used: Mapped[bool] = mapped_column(Boolean, default=False)
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC)
-    )
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

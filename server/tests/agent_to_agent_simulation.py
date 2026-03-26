@@ -80,9 +80,9 @@ def check(name: str, passed: bool, detail: str = ""):
 
 
 def scenario_header(num: int, title: str, description: str):
-    print(f"\n{'━'*70}")
+    print(f"\n{'━' * 70}")
     print(f"  {BOLD}{CYAN}SCENARIO {num}: {title}{RESET}")
-    print(f"{'━'*70}")
+    print(f"{'━' * 70}")
     narrate(description)
     print()
 
@@ -93,9 +93,11 @@ def sub_section(title: str):
 
 # ── Helper: Register an agent with full identity ─────────────────────
 
+
 @dataclass
 class AgentIdentity:
     """Represents a fully registered agent with credentials."""
+
     name: str
     agent_id: str = ""
     client_id: str = ""
@@ -120,16 +122,19 @@ def register_agent(
 ) -> AgentIdentity:
     """Register an agent in the registry + get OAuth credentials."""
     # 1. Create agent identity
-    r = httpx.post(f"{BASE}/agents", json={
-        "name": name,
-        "owner": "platform@acme-corp.com",
-        "allowed_scopes": scopes,
-        "capabilities": capabilities or [],
-        "agent_type": agent_type,
-        "agent_model": model,
-        "agent_version": "1.0.0",
-        "agent_provider": "acme-corp",
-    })
+    r = httpx.post(
+        f"{BASE}/agents",
+        json={
+            "name": name,
+            "owner": "platform@acme-corp.com",
+            "allowed_scopes": scopes,
+            "capabilities": capabilities or [],
+            "agent_type": agent_type,
+            "agent_model": model,
+            "agent_version": "1.0.0",
+            "agent_provider": "acme-corp",
+        },
+    )
     data = r.json()
 
     agent = AgentIdentity(
@@ -160,12 +165,15 @@ def register_agent(
 
 def get_token(agent: AgentIdentity, scopes: str | None = None) -> str:
     """Get an access token for an agent via client_credentials."""
-    r = httpx.post(f"{BASE}/token", data={
-        "grant_type": "client_credentials",
-        "client_id": agent.client_id,
-        "client_secret": agent.client_secret,
-        "scope": scopes or " ".join(agent.scopes),
-    })
+    r = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": agent.client_id,
+            "client_secret": agent.client_secret,
+            "scope": scopes or " ".join(agent.scopes),
+        },
+    )
     if r.status_code != 200:
         return ""
     tok = r.json()
@@ -181,14 +189,17 @@ def exchange_token(
     scope: str,
 ) -> dict:
     """Exchange a parent token for a delegated downstream token."""
-    r = httpx.post(f"{BASE}/token", data={
-        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-        "client_id": agent.client_id,
-        "client_secret": agent.client_secret,
-        "subject_token": subject_token,
-        "audience": audience,
-        "scope": scope,
-    })
+    r = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "client_id": agent.client_id,
+            "client_secret": agent.client_secret,
+            "subject_token": subject_token,
+            "audience": audience,
+            "scope": scope,
+        },
+    )
     return {"status": r.status_code, "body": r.json()}
 
 
@@ -209,13 +220,17 @@ def revoke(token: str, client_id: str = "") -> int:
 # Human → Orchestrator Agent → Search Agent → Database Agent
 # ══════════════════════════════════════════════════════════════════════
 
+
 def scenario_1_enterprise_pipeline():
-    scenario_header(1, "Enterprise AI Pipeline",
+    scenario_header(
+        1,
+        "Enterprise AI Pipeline",
         "A human user asks their AI assistant to research a topic. "
         "The orchestrator agent delegates to a search agent, which then "
         "delegates to a database agent to fetch structured data. Each hop "
         "in the delegation chain reduces scope and creates audit-traceable "
-        "act claims. This is the core use case for MCP + A2A workflows.")
+        "act claims. This is the core use case for MCP + A2A workflows.",
+    )
 
     # ── Setup: Register 3 agents ──
     sub_section("Setup: Register Agent Fleet")
@@ -224,8 +239,12 @@ def scenario_1_enterprise_pipeline():
         "orchestrator-agent",
         scopes=["search:execute", "db:read", "summarize"],
         capabilities=["orchestration", "planning"],
-        grant_types=["client_credentials", "authorization_code", "refresh_token",
-                     "urn:ietf:params:oauth:grant-type:token-exchange"],
+        grant_types=[
+            "client_credentials",
+            "authorization_code",
+            "refresh_token",
+            "urn:ietf:params:oauth:grant-type:token-exchange",
+        ],
         redirect_uris=["http://localhost:3000/callback"],
     )
     actor("Platform", f"Registered {orchestrator.name} (id={orchestrator.agent_id[:12]}...)")
@@ -251,31 +270,40 @@ def scenario_1_enterprise_pipeline():
 
     # Simulate PKCE auth code flow
     code_verifier = secrets.token_urlsafe(64)
-    challenge = base64.urlsafe_b64encode(
-        hashlib.sha256(code_verifier.encode()).digest()
-    ).rstrip(b"=").decode()
+    challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
+        .rstrip(b"=")
+        .decode()
+    )
 
     actor("Human (Dhruv)", "Opens browser, clicks 'Allow' on consent page")
-    r = httpx.get(f"{BASE}/authorize", params={
-        "response_type": "code",
-        "client_id": orchestrator.client_id,
-        "redirect_uri": "http://localhost:3000/callback",
-        "scope": "search:execute db:read summarize",
-        "state": "user_session_abc",
-        "code_challenge": challenge,
-        "code_challenge_method": "S256",
-    }, follow_redirects=False)
+    r = httpx.get(
+        f"{BASE}/authorize",
+        params={
+            "response_type": "code",
+            "client_id": orchestrator.client_id,
+            "redirect_uri": "http://localhost:3000/callback",
+            "scope": "search:execute db:read summarize",
+            "state": "user_session_abc",
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+        },
+        follow_redirects=False,
+    )
     code = r.headers.get("location", "").split("code=")[1].split("&")[0]
     actor("authgent", f"Issued authorization code: {code[:20]}...")
 
-    r2 = httpx.post(f"{BASE}/token", data={
-        "grant_type": "authorization_code",
-        "client_id": orchestrator.client_id,
-        "client_secret": orchestrator.client_secret,
-        "code": code,
-        "code_verifier": code_verifier,
-        "redirect_uri": "http://localhost:3000/callback",
-    })
+    r2 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "authorization_code",
+            "client_id": orchestrator.client_id,
+            "client_secret": orchestrator.client_secret,
+            "code": code,
+            "code_verifier": code_verifier,
+            "redirect_uri": "http://localhost:3000/callback",
+        },
+    )
     human_token_data = r2.json()
     human_delegated_token = human_token_data["access_token"]
     orchestrator.refresh_token = human_token_data.get("refresh_token", "")
@@ -289,9 +317,11 @@ def scenario_1_enterprise_pipeline():
     sub_section("Step 2: Orchestrator Delegates to Search Agent (Token Exchange)")
 
     actor("Orchestrator", "Needs search results → exchanges token for search-agent")
-    narrate("The orchestrator reduces scope from 'search:execute db:read summarize' "
-            "down to 'search:execute db:read' — dropping 'summarize' per least-privilege. "
-            "The search agent keeps db:read so it can delegate further to the DB agent.")
+    narrate(
+        "The orchestrator reduces scope from 'search:execute db:read summarize' "
+        "down to 'search:execute db:read' — dropping 'summarize' per least-privilege. "
+        "The search agent keeps db:read so it can delegate further to the DB agent."
+    )
 
     exch1 = exchange_token(
         search_agent,
@@ -311,15 +341,19 @@ def scenario_1_enterprise_pipeline():
     check("  Has act claim (delegation chain)", intro1.get("act") is not None)
     act_claim = intro1.get("act", {})
     actor("Introspection", f"act claim: {json.dumps(act_claim, indent=2)}")
-    narrate("The act claim shows WHO is acting on behalf of the original subject. "
-            "This is how MCP servers verify the full delegation chain — every hop is recorded.")
+    narrate(
+        "The act claim shows WHO is acting on behalf of the original subject. "
+        "This is how MCP servers verify the full delegation chain — every hop is recorded."
+    )
 
     # ── Step 3: Search Agent delegates to DB Agent ──
     sub_section("Step 3: Search Agent Delegates to DB Agent (2-hop chain)")
 
     actor("Search Agent", "Needs structured data → exchanges token for db-agent")
-    narrate("Search agent further reduces scope from 'search:execute' to 'db:read'. "
-            "Now we have a 2-hop delegation chain: Human → Orchestrator → Search → DB.")
+    narrate(
+        "Search agent further reduces scope from 'search:execute' to 'db:read'. "
+        "Now we have a 2-hop delegation chain: Human → Orchestrator → Search → DB."
+    )
 
     exch2 = exchange_token(
         db_agent,
@@ -341,24 +375,30 @@ def scenario_1_enterprise_pipeline():
     check("  Nested act claim (2-hop chain visible)", has_nested)
     actor("Introspection", f"Full delegation chain:\n{json.dumps(nested_act, indent=4)}")
 
-    narrate("The nested act claim structure shows: "
-            "db-agent is acting on behalf of search-agent, who is acting on behalf of "
-            "the orchestrator, who received delegation from the human. "
-            "Any MCP server receiving this token can verify the ENTIRE chain of custody.")
+    narrate(
+        "The nested act claim structure shows: "
+        "db-agent is acting on behalf of search-agent, who is acting on behalf of "
+        "the orchestrator, who received delegation from the human. "
+        "Any MCP server receiving this token can verify the ENTIRE chain of custody."
+    )
 
     # ── Step 4: DB Agent uses token to call MCP tool server ──
     sub_section("Step 4: DB Agent Calls MCP Tool Server (simulated)")
 
     actor("DB Agent", "Presents token to MCP tool server: Authorization: Bearer <token>")
-    narrate("In production, the MCP server would fetch the JWKS from authgent's "
-            "/.well-known/jwks.json, verify the JWT signature, check the act claim "
-            "chain, and evaluate scope. We simulate this via introspection.")
+    narrate(
+        "In production, the MCP server would fetch the JWKS from authgent's "
+        "/.well-known/jwks.json, verify the JWT signature, check the act claim "
+        "chain, and evaluate scope. We simulate this via introspection."
+    )
 
     check("  Token scope is db:read (least privilege)", intro2.get("scope") == "db:read")
     check("  Original subject preserved across chain", bool(intro2.get("sub")))
 
     actor("MCP Server", "Verified token ✓, delegation chain ✓, scope ✓ → executing db:read query")
-    print(f"\n  {GREEN}{BOLD}  ✓ Full 3-hop pipeline complete: Human → Orchestrator → Search → DB{RESET}")
+    print(
+        f"\n  {GREEN}{BOLD}  ✓ Full 3-hop pipeline complete: Human → Orchestrator → Search → DB{RESET}"
+    )
 
     return orchestrator, search_agent, db_agent, human_delegated_token, search_token, db_token
 
@@ -367,18 +407,24 @@ def scenario_1_enterprise_pipeline():
 # SCENARIO 2: Privilege Escalation Attack
 # ══════════════════════════════════════════════════════════════════════
 
+
 def scenario_2_privilege_escalation(search_agent: AgentIdentity, parent_token: str):
-    scenario_header(2, "Privilege Escalation Attack",
+    scenario_header(
+        2,
+        "Privilege Escalation Attack",
         "A compromised search agent tries to escalate its privileges by "
         "requesting scopes it wasn't granted. authgent must reject these "
-        "attempts — this is critical for zero-trust agent security.")
+        "attempts — this is critical for zero-trust agent security.",
+    )
 
     # ── Attack 1: Request admin scope via token exchange ──
     sub_section("Attack 1: Scope Escalation via Token Exchange")
 
     actor("Compromised Search Agent", "Tries to exchange token for 'admin:all' scope")
-    narrate("The attacker has a valid search:execute token but tries to get admin "
-            "privileges by requesting admin:all during token exchange.")
+    narrate(
+        "The attacker has a valid search:execute token but tries to get admin "
+        "privileges by requesting admin:all during token exchange."
+    )
 
     result = exchange_token(
         search_agent,
@@ -388,36 +434,49 @@ def scenario_2_privilege_escalation(search_agent: AgentIdentity, parent_token: s
     )
     check("Scope escalation BLOCKED (403)", result["status"] == 403)
     error = result["body"]
-    check("  Error type is scope_escalation",
-          error.get("error") == "scope_escalation"
-          or "scope" in error.get("error_description", "").lower()
-          or "scope" in error.get("detail", "").lower())
-    actor("authgent", f"DENIED: {error.get('error_description', error.get('detail', 'scope violation'))}")
+    check(
+        "  Error type is scope_escalation",
+        error.get("error") == "scope_escalation"
+        or "scope" in error.get("error_description", "").lower()
+        or "scope" in error.get("detail", "").lower(),
+    )
+    actor(
+        "authgent",
+        f"DENIED: {error.get('error_description', error.get('detail', 'scope violation'))}",
+    )
 
     # ── Attack 2: Try to get a token with unauthorized grant type ──
     sub_section("Attack 2: Unauthorized Grant Type")
 
     actor("Compromised Agent", "Tries refresh_token grant (not in its allowed grant types)")
-    r = httpx.post(f"{BASE}/token", data={
-        "grant_type": "refresh_token",
-        "client_id": search_agent.client_id,
-        "client_secret": search_agent.client_secret,
-        "refresh_token": "fake_refresh_token",
-    })
+    r = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id": search_agent.client_id,
+            "client_secret": search_agent.client_secret,
+            "refresh_token": "fake_refresh_token",
+        },
+    )
     check("Unauthorized grant type BLOCKED (400)", r.status_code == 400)
 
     # ── Attack 3: Use someone else's client secret ──
     sub_section("Attack 3: Credential Stuffing")
 
     actor("Attacker", "Tries search-agent's client_id with a guessed secret")
-    r2 = httpx.post(f"{BASE}/token", data={
-        "grant_type": "client_credentials",
-        "client_id": search_agent.client_id,
-        "client_secret": "sec_guessed_wrong_password_12345",
-    })
+    r2 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": search_agent.client_id,
+            "client_secret": "sec_guessed_wrong_password_12345",
+        },
+    )
     check("Wrong secret BLOCKED (401)", r2.status_code == 401)
-    narrate("authgent uses bcrypt with timing-safe comparison, making credential "
-            "stuffing attacks impractical even at scale.")
+    narrate(
+        "authgent uses bcrypt with timing-safe comparison, making credential "
+        "stuffing attacks impractical even at scale."
+    )
 
     print(f"\n  {GREEN}{BOLD}  ✓ All privilege escalation attempts blocked{RESET}")
 
@@ -426,12 +485,16 @@ def scenario_2_privilege_escalation(search_agent: AgentIdentity, parent_token: s
 # SCENARIO 3: Token Theft, Revocation & Blast Radius
 # ══════════════════════════════════════════════════════════════════════
 
+
 def scenario_3_token_theft(orchestrator: AgentIdentity):
-    scenario_header(3, "Token Theft, Revocation & Blast Radius Containment",
+    scenario_header(
+        3,
+        "Token Theft, Revocation & Blast Radius Containment",
         "An attacker steals an orchestrator agent's access token from a log file. "
         "The security team detects the breach and revokes the token. We verify "
         "that the stolen token immediately becomes unusable, and that tokens "
-        "derived from it (via delegation) are also neutralized.")
+        "derived from it (via delegation) are also neutralized.",
+    )
 
     # ── Setup: Get a fresh token and derive a downstream token ──
     sub_section("Setup: Active Token + Downstream Delegation")
@@ -465,8 +528,10 @@ def scenario_3_token_theft(orchestrator: AgentIdentity):
     recon = introspect(stolen_token)
     check("Attacker can use stolen token (pre-revocation)", recon.get("active") is True)
     actor("Attacker", f"Sees scopes: {recon.get('scope')}, client: {recon.get('client_id')}")
-    narrate("This is why short TTLs matter — even stolen tokens expire quickly. "
-            "But we don't want to wait; the security team revokes immediately.")
+    narrate(
+        "This is why short TTLs matter — even stolen tokens expire quickly. "
+        "But we don't want to wait; the security team revokes immediately."
+    )
 
     # ── Response: Security team revokes the token ──
     sub_section("Response: Security Team Revokes Stolen Token")
@@ -491,33 +556,43 @@ def scenario_3_token_theft(orchestrator: AgentIdentity):
     downstream_check = introspect(downstream_token)
     downstream_active = downstream_check.get("active", False)
     if downstream_active:
-        narrate("NOTE: The downstream token is still active because it's an "
-                "independently-signed JWT. This is a known tradeoff in stateless "
-                "JWT architectures — short TTLs (5 min default) limit exposure. "
-                "For immediate cascade revocation, the parent token's jti can be "
-                "checked during delegation chain verification.")
+        narrate(
+            "NOTE: The downstream token is still active because it's an "
+            "independently-signed JWT. This is a known tradeoff in stateless "
+            "JWT architectures — short TTLs (5 min default) limit exposure. "
+            "For immediate cascade revocation, the parent token's jti can be "
+            "checked during delegation chain verification."
+        )
         check("Downstream token still valid (expected — short TTL mitigates)", True)
     else:
         check("Downstream token also revoked (cascade)", True)
 
     # ── Verify: Refresh token family is intact separately ──
-    narrate("The revoked access token doesn't affect the refresh token family. "
-            "However, if the refresh token itself is compromised, the entire family "
-            "gets revoked (demonstrated in Scenario 10).")
+    narrate(
+        "The revoked access token doesn't affect the refresh token family. "
+        "However, if the refresh token itself is compromised, the entire family "
+        "gets revoked (demonstrated in Scenario 10)."
+    )
 
-    print(f"\n  {GREEN}{BOLD}  ✓ Breach contained: stolen token revoked, attacker locked out{RESET}")
+    print(
+        f"\n  {GREEN}{BOLD}  ✓ Breach contained: stolen token revoked, attacker locked out{RESET}"
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════
 # SCENARIO 4: Delegation Chain Depth Limit
 # ══════════════════════════════════════════════════════════════════════
 
+
 def scenario_4_depth_limit():
-    scenario_header(4, "Delegation Chain Depth Limit Enforcement",
+    scenario_header(
+        4,
+        "Delegation Chain Depth Limit Enforcement",
         "An agent tries to build an excessively deep delegation chain: "
         "Agent A → B → C → D → E → ... authgent enforces a configurable "
         "max_delegation_depth (default: 5) to prevent unbounded chain growth, "
-        "which could lead to token bloat and confused deputy attacks.")
+        "which could lead to token bloat and confused deputy attacks.",
+    )
 
     sub_section("Building Delegation Chain: Hop by Hop")
 
@@ -538,7 +613,7 @@ def scenario_4_depth_limit():
 
     # Chain exchange: each agent exchanges the previous token
     for i in range(1, 7):
-        actor(f"Agent-{i}", f"Exchanges token from Agent-{i-1} (hop {i})")
+        actor(f"Agent-{i}", f"Exchanges token from Agent-{i - 1} (hop {i})")
         result = exchange_token(
             agents[i],
             subject_token=current_token,
@@ -548,7 +623,7 @@ def scenario_4_depth_limit():
 
         if result["status"] == 200:
             current_token = result["body"]["access_token"]
-            check(f"  Hop {i}: Agent-{i-1} → Agent-{i} ALLOWED", True)
+            check(f"  Hop {i}: Agent-{i - 1} → Agent-{i} ALLOWED", True)
 
             # Show chain depth
             intro = introspect(current_token)
@@ -559,17 +634,22 @@ def scenario_4_depth_limit():
                 act = act.get("act")
             actor("authgent", f"Chain depth is now {depth}")
         else:
-            check(f"  Hop {i}: Agent-{i-1} → Agent-{i} BLOCKED (depth limit)", True)
+            check(f"  Hop {i}: Agent-{i - 1} → Agent-{i} BLOCKED (depth limit)", True)
             error = result["body"]
-            actor("authgent", f"DENIED: {error.get('error_description', error.get('detail', 'depth exceeded'))}")
+            actor(
+                "authgent",
+                f"DENIED: {error.get('error_description', error.get('detail', 'depth exceeded'))}",
+            )
             break
     else:
         check("Chain should have been blocked before 7 hops", False, "depth limit not enforced")
 
-    narrate("The delegation depth limit prevents runaway chain growth. In production, "
-            "this protects against: (1) token size bloat from deeply nested act claims, "
-            "(2) confused deputy attacks where accountability becomes unclear, "
-            "(3) performance degradation from chain verification.")
+    narrate(
+        "The delegation depth limit prevents runaway chain growth. In production, "
+        "this protects against: (1) token size bloat from deeply nested act claims, "
+        "(2) confused deputy attacks where accountability becomes unclear, "
+        "(3) performance degradation from chain verification."
+    )
 
     print(f"\n  {GREEN}{BOLD}  ✓ Delegation depth limit enforced{RESET}")
 
@@ -578,12 +658,16 @@ def scenario_4_depth_limit():
 # SCENARIO 5: HITL Step-Up for Dangerous Operation
 # ══════════════════════════════════════════════════════════════════════
 
+
 def scenario_5_hitl_stepup():
-    scenario_header(5, "Human-in-the-Loop Step-Up Authorization",
+    scenario_header(
+        5,
+        "Human-in-the-Loop Step-Up Authorization",
         "An autonomous agent needs to perform a dangerous action (deleting a "
         "production database). authgent's HITL step-up mechanism pauses the "
         "agent and requires a human to explicitly approve the action before "
-        "it can proceed. This is crucial for safety-critical AI operations.")
+        "it can proceed. This is crucial for safety-critical AI operations.",
+    )
 
     # ── Setup ──
     sub_section("Setup: Agent Encounters Sensitive Operation")
@@ -600,20 +684,25 @@ def scenario_5_hitl_stepup():
     sub_section("Step 1: Agent Requests Step-Up Authorization")
 
     actor("Cleanup Agent", "Wants to DELETE production_users table → requests human approval")
-    narrate("Before executing the dangerous DELETE, the agent creates a step-up "
-            "request. It CANNOT proceed until a human approves.")
+    narrate(
+        "Before executing the dangerous DELETE, the agent creates a step-up "
+        "request. It CANNOT proceed until a human approves."
+    )
 
-    r = httpx.post(f"{BASE}/stepup", json={
-        "agent_id": dangerous_agent.agent_id,
-        "action": "DELETE FROM production_users WHERE inactive = true",
-        "scope": "db:delete",
-        "resource": "https://db.acme-corp.com/production_users",
-        "metadata": {
-            "rows_affected_estimate": 15000,
-            "table": "production_users",
-            "reason": "GDPR compliance — removing inactive accounts",
+    r = httpx.post(
+        f"{BASE}/stepup",
+        json={
+            "agent_id": dangerous_agent.agent_id,
+            "action": "DELETE FROM production_users WHERE inactive = true",
+            "scope": "db:delete",
+            "resource": "https://db.acme-corp.com/production_users",
+            "metadata": {
+                "rows_affected_estimate": 15000,
+                "table": "production_users",
+                "reason": "GDPR compliance — removing inactive accounts",
+            },
         },
-    })
+    )
     stepup = r.json()
     stepup_id = stepup["id"]
     check("Step-up request created (202 Accepted)", r.status_code == 202)
@@ -627,7 +716,7 @@ def scenario_5_hitl_stepup():
     for i in range(3):
         r2 = httpx.get(f"{BASE}/stepup/{stepup_id}")
         status = r2.json()["status"]
-        actor("authgent", f"Poll {i+1}: status={status}")
+        actor("authgent", f"Poll {i + 1}: status={status}")
         if status != "pending":
             break
     check("Agent correctly waiting (status=pending)", status == "pending")
@@ -638,9 +727,12 @@ def scenario_5_hitl_stepup():
     actor("Human Reviewer (DBA)", "Reviews request: DELETE 15K rows from production_users")
     actor("Human Reviewer (DBA)", "Checks GDPR compliance ticket → APPROVES")
 
-    r3 = httpx.post(f"{BASE}/stepup/{stepup_id}/approve", json={
-        "approved_by": "dba_sarah@acme-corp.com",
-    })
+    r3 = httpx.post(
+        f"{BASE}/stepup/{stepup_id}/approve",
+        json={
+            "approved_by": "dba_sarah@acme-corp.com",
+        },
+    )
     check("Step-up approved", r3.status_code == 200)
     check("  Status is 'approved'", r3.json()["status"] == "approved")
     check("  Approved by recorded", r3.json()["approved_by"] == "dba_sarah@acme-corp.com")
@@ -658,13 +750,16 @@ def scenario_5_hitl_stepup():
     sub_section("Step 5: Alternate Path — Human DENIES a Request")
 
     actor("Cleanup Agent", "Requests to DROP entire database")
-    r5 = httpx.post(f"{BASE}/stepup", json={
-        "agent_id": dangerous_agent.agent_id,
-        "action": "DROP DATABASE production",
-        "scope": "db:admin",
-        "resource": "https://db.acme-corp.com/",
-        "metadata": {"reason": "Agent hallucinated this was needed"},
-    })
+    r5 = httpx.post(
+        f"{BASE}/stepup",
+        json={
+            "agent_id": dangerous_agent.agent_id,
+            "action": "DROP DATABASE production",
+            "scope": "db:admin",
+            "resource": "https://db.acme-corp.com/",
+            "metadata": {"reason": "Agent hallucinated this was needed"},
+        },
+    )
     deny_id = r5.json()["id"]
 
     actor("Human Reviewer (DBA)", "Reviews request: DROP DATABASE production → ABSOLUTELY NOT!")
@@ -673,9 +768,11 @@ def scenario_5_hitl_stepup():
     check("  Status is 'denied'", r6.json()["status"] == "denied")
     actor("Cleanup Agent", "Step-up DENIED → aborting operation")
 
-    narrate("HITL step-up is the last line of defense against AI agents performing "
-            "irreversible actions. Even if an agent has the right scopes, dangerous "
-            "operations require explicit human approval in real-time.")
+    narrate(
+        "HITL step-up is the last line of defense against AI agents performing "
+        "irreversible actions. Even if an agent has the right scopes, dangerous "
+        "operations require explicit human approval in real-time."
+    )
 
     print(f"\n  {GREEN}{BOLD}  ✓ HITL step-up works: approve + deny paths verified{RESET}")
 
@@ -684,22 +781,29 @@ def scenario_5_hitl_stepup():
 # SCENARIO 6: Device Grant for Headless CLI Agent
 # ══════════════════════════════════════════════════════════════════════
 
+
 def scenario_6_device_grant():
-    scenario_header(6, "Device Authorization Grant for CLI Agent",
+    scenario_header(
+        6,
+        "Device Authorization Grant for CLI Agent",
         "A developer's CLI agent (running in a terminal with no browser) needs "
         "to authenticate. It uses the Device Authorization Grant (RFC 8628) — "
         "the agent displays a code, the human enters it on another device, "
         "and the agent polls until approved. This is how tools like GitHub CLI "
-        "and gcloud authenticate.")
+        "and gcloud authenticate.",
+    )
 
     # ── Setup ──
     sub_section("Setup: Register CLI Agent")
 
-    cli_reg = httpx.post(f"{BASE}/register", json={
-        "client_name": "acme-cli-agent",
-        "grant_types": ["urn:ietf:params:oauth:grant-type:device_code", "client_credentials"],
-        "scope": "tools:execute code:read code:write",
-    })
+    cli_reg = httpx.post(
+        f"{BASE}/register",
+        json={
+            "client_name": "acme-cli-agent",
+            "grant_types": ["urn:ietf:params:oauth:grant-type:device_code", "client_credentials"],
+            "scope": "tools:execute code:read code:write",
+        },
+    )
     cli = cli_reg.json()
     actor("Platform", f"Registered CLI agent: {cli['client_id'][:20]}...")
 
@@ -707,10 +811,13 @@ def scenario_6_device_grant():
     sub_section("Step 1: CLI Agent Requests Device Code")
 
     actor("CLI Agent", "Running in terminal, no browser → initiates device flow")
-    r = httpx.post(f"{BASE}/device/authorize", data={
-        "client_id": cli["client_id"],
-        "scope": "tools:execute code:read",
-    })
+    r = httpx.post(
+        f"{BASE}/device/authorize",
+        data={
+            "client_id": cli["client_id"],
+            "scope": "tools:execute code:read",
+        },
+    )
     dev = r.json()
     check("Device authorization request succeeds", r.status_code == 200)
     check("  Got device_code", bool(dev.get("device_code")))
@@ -720,17 +827,22 @@ def scenario_6_device_grant():
     print(f"  {BOLD}  │  To authorize, visit:                    │{RESET}")
     print(f"  {BOLD}  │  {CYAN}{dev['verification_uri']}{RESET}{BOLD}              │{RESET}")
     print(f"  {BOLD}  │                                           │{RESET}")
-    print(f"  {BOLD}  │  Enter code: {YELLOW}{dev['user_code']}{RESET}{BOLD}                    │{RESET}")
+    print(
+        f"  {BOLD}  │  Enter code: {YELLOW}{dev['user_code']}{RESET}{BOLD}                    │{RESET}"
+    )
     print(f"  {BOLD}  └─────────────────────────────────────────┘{RESET}")
 
     # ── Step 2: Agent polls (pending) ──
     sub_section("Step 2: Agent Polls While Waiting")
 
     actor("CLI Agent", "Polling for approval...")
-    r2 = httpx.post(f"{BASE}/device/token", data={
-        "device_code": dev["device_code"],
-        "client_id": cli["client_id"],
-    })
+    r2 = httpx.post(
+        f"{BASE}/device/token",
+        data={
+            "device_code": dev["device_code"],
+            "client_id": cli["client_id"],
+        },
+    )
     check("Poll returns authorization_pending (400)", r2.status_code == 400)
     check("  Error is authorization_pending", r2.json().get("error") == "authorization_pending")
     actor("CLI Agent", "Still waiting... ⏳ (would poll every 5s in production)")
@@ -741,21 +853,27 @@ def scenario_6_device_grant():
     actor("Developer (on phone)", f"Visits {dev['verification_uri']}")
     actor("Developer (on phone)", f"Enters code: {dev['user_code']} → APPROVE")
 
-    r3 = httpx.post(f"{BASE}/device/complete", json={
-        "user_code": dev["user_code"],
-        "subject": "developer:dhruv@acme-corp.com",
-        "action": "approve",
-    })
+    r3 = httpx.post(
+        f"{BASE}/device/complete",
+        json={
+            "user_code": dev["user_code"],
+            "subject": "developer:dhruv@acme-corp.com",
+            "action": "approve",
+        },
+    )
     check("Human approval succeeds", r3.status_code == 200)
 
     # ── Step 4: Agent's next poll gets the token ──
     sub_section("Step 4: Agent Receives Token")
 
     actor("CLI Agent", "Polls again...")
-    r4 = httpx.post(f"{BASE}/device/token", data={
-        "device_code": dev["device_code"],
-        "client_id": cli["client_id"],
-    })
+    r4 = httpx.post(
+        f"{BASE}/device/token",
+        data={
+            "device_code": dev["device_code"],
+            "client_id": cli["client_id"],
+        },
+    )
     check("Agent receives token (200)", r4.status_code == 200)
     tok = r4.json()
     check("  access_token present", bool(tok.get("access_token")))
@@ -764,30 +882,42 @@ def scenario_6_device_grant():
     # ── Step 5: Device code is consumed (one-time use) ──
     sub_section("Step 5: Device Code Consumed (One-Time Use)")
 
-    r5 = httpx.post(f"{BASE}/device/token", data={
-        "device_code": dev["device_code"],
-        "client_id": cli["client_id"],
-    })
+    r5 = httpx.post(
+        f"{BASE}/device/token",
+        data={
+            "device_code": dev["device_code"],
+            "client_id": cli["client_id"],
+        },
+    )
     check("Device code cannot be reused (400)", r5.status_code == 400)
 
     # ── Bonus: Denial flow ──
     sub_section("Bonus: Human Denies Device Request")
 
-    r_new = httpx.post(f"{BASE}/device/authorize", data={
-        "client_id": cli["client_id"],
-        "scope": "admin:all",
-    })
+    r_new = httpx.post(
+        f"{BASE}/device/authorize",
+        data={
+            "client_id": cli["client_id"],
+            "scope": "admin:all",
+        },
+    )
     dev2 = r_new.json()
     actor("Developer", "Sees suspicious scope 'admin:all' → DENIES")
-    httpx.post(f"{BASE}/device/complete", json={
-        "user_code": dev2["user_code"],
-        "subject": "developer:dhruv@acme-corp.com",
-        "action": "deny",
-    })
-    r_denied = httpx.post(f"{BASE}/device/token", data={
-        "device_code": dev2["device_code"],
-        "client_id": cli["client_id"],
-    })
+    httpx.post(
+        f"{BASE}/device/complete",
+        json={
+            "user_code": dev2["user_code"],
+            "subject": "developer:dhruv@acme-corp.com",
+            "action": "deny",
+        },
+    )
+    r_denied = httpx.post(
+        f"{BASE}/device/token",
+        data={
+            "device_code": dev2["device_code"],
+            "client_id": cli["client_id"],
+        },
+    )
     check("Denied device code returns error (400)", r_denied.status_code == 400)
 
     print(f"\n  {GREEN}{BOLD}  ✓ Device grant flow complete: approve + deny paths{RESET}")
@@ -797,11 +927,15 @@ def scenario_6_device_grant():
 # SCENARIO 7: Agent Deactivation (Fired Agent)
 # ══════════════════════════════════════════════════════════════════════
 
+
 def scenario_7_deactivation():
-    scenario_header(7, "Agent Deactivation — Revoking a Compromised Agent's Access",
+    scenario_header(
+        7,
+        "Agent Deactivation — Revoking a Compromised Agent's Access",
         "An AI agent is found to be misbehaving (hallucinating actions, making "
         "unauthorized API calls). The platform operator deactivates the agent. "
-        "We verify the agent can no longer obtain new tokens.")
+        "We verify the agent can no longer obtain new tokens.",
+    )
 
     # ── Setup ──
     sub_section("Setup: Agent Operating Normally")
@@ -830,13 +964,17 @@ def scenario_7_deactivation():
     sub_section("Step 2: Verify Pre-Existing Token")
 
     intro = introspect(token)
-    narrate("The old token was issued before deactivation. In a stateless JWT "
-            "system, it remains valid until expiry (short TTL). For immediate "
-            "revocation, explicit token revocation is needed.")
+    narrate(
+        "The old token was issued before deactivation. In a stateless JWT "
+        "system, it remains valid until expiry (short TTL). For immediate "
+        "revocation, explicit token revocation is needed."
+    )
     if intro.get("active"):
         check("Old token still valid (expected — short TTL mitigates)", True)
-        narrate("In production: combine agent deactivation with explicit token "
-                "revocation for immediate effect.")
+        narrate(
+            "In production: combine agent deactivation with explicit token "
+            "revocation for immediate effect."
+        )
     else:
         check("Old token immediately invalidated", True)
 
@@ -847,9 +985,11 @@ def scenario_7_deactivation():
     check("Agent still in registry (soft delete)", r2.status_code == 200)
     check("  Status confirmed 'inactive'", r2.json()["status"] == "inactive")
 
-    narrate("The agent is soft-deleted — its record remains for audit purposes "
-            "but it's marked inactive. MCP servers checking agent status will see "
-            "it's deactivated and refuse to serve requests.")
+    narrate(
+        "The agent is soft-deleted — its record remains for audit purposes "
+        "but it's marked inactive. MCP servers checking agent status will see "
+        "it's deactivated and refuse to serve requests."
+    )
 
     print(f"\n  {GREEN}{BOLD}  ✓ Agent deactivation lifecycle verified{RESET}")
 
@@ -858,11 +998,15 @@ def scenario_7_deactivation():
 # SCENARIO 8: Cross-Agent Impersonation Attempt
 # ══════════════════════════════════════════════════════════════════════
 
+
 def scenario_8_impersonation():
-    scenario_header(8, "Cross-Agent Impersonation Attempt",
+    scenario_header(
+        8,
+        "Cross-Agent Impersonation Attempt",
         "Agent B tries to impersonate Agent A by using Agent A's client_id "
         "with Agent B's secret, or by forging tokens. authgent must prevent "
-        "all forms of agent identity spoofing.")
+        "all forms of agent identity spoofing.",
+    )
 
     # ── Setup ──
     sub_section("Setup: Two Legitimate Agents")
@@ -876,11 +1020,14 @@ def scenario_8_impersonation():
     sub_section("Attack 1: Client ID Swap")
 
     actor("Agent B", "Uses Agent A's client_id with its own secret")
-    r = httpx.post(f"{BASE}/token", data={
-        "grant_type": "client_credentials",
-        "client_id": agent_a.client_id,
-        "client_secret": agent_b.client_secret,  # Wrong secret!
-    })
+    r = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": agent_a.client_id,
+            "client_secret": agent_b.client_secret,  # Wrong secret!
+        },
+    )
     check("Client ID swap BLOCKED (401)", r.status_code == 401)
     actor("authgent", "Secret does not match client_id → DENIED")
 
@@ -888,11 +1035,14 @@ def scenario_8_impersonation():
     sub_section("Attack 2: Reverse Client ID Swap")
 
     actor("Agent B", "Uses its own client_id with Agent A's secret")
-    r2 = httpx.post(f"{BASE}/token", data={
-        "grant_type": "client_credentials",
-        "client_id": agent_b.client_id,
-        "client_secret": agent_a.client_secret,
-    })
+    r2 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": agent_b.client_id,
+            "client_secret": agent_a.client_secret,
+        },
+    )
     check("Reverse swap BLOCKED (401)", r2.status_code == 401)
 
     # ── Attack 3: Forge a JWT token ──
@@ -900,26 +1050,36 @@ def scenario_8_impersonation():
 
     actor("Agent B", "Crafts a fake JWT claiming to be Agent A")
     # Create a fake JWT header.payload (not properly signed)
-    fake_header = base64.urlsafe_b64encode(
-        json.dumps({"alg": "ES256", "typ": "JWT", "kid": "fake"}).encode()
-    ).rstrip(b"=").decode()
-    fake_payload = base64.urlsafe_b64encode(
-        json.dumps({
-            "sub": f"client:{agent_a.client_id}",
-            "scope": "billing:read billing:write",
-            "iss": BASE,
-            "exp": int(time.time()) + 3600,
-        }).encode()
-    ).rstrip(b"=").decode()
+    fake_header = (
+        base64.urlsafe_b64encode(json.dumps({"alg": "ES256", "typ": "JWT", "kid": "fake"}).encode())
+        .rstrip(b"=")
+        .decode()
+    )
+    fake_payload = (
+        base64.urlsafe_b64encode(
+            json.dumps(
+                {
+                    "sub": f"client:{agent_a.client_id}",
+                    "scope": "billing:read billing:write",
+                    "iss": BASE,
+                    "exp": int(time.time()) + 3600,
+                }
+            ).encode()
+        )
+        .rstrip(b"=")
+        .decode()
+    )
     forged_token = f"{fake_header}.{fake_payload}.fake_signature_here"
 
     intro = introspect(forged_token)
     check("Forged token rejected (active=false)", intro.get("active") is False)
     actor("authgent", "Invalid signature → token rejected")
 
-    narrate("authgent uses ES256 (ECDSA with P-256) for token signing. Without the "
-            "server's private key, forging a valid token is computationally infeasible. "
-            "The JWKS endpoint only publishes public keys.")
+    narrate(
+        "authgent uses ES256 (ECDSA with P-256) for token signing. Without the "
+        "server's private key, forging a valid token is computationally infeasible. "
+        "The JWKS endpoint only publishes public keys."
+    )
 
     print(f"\n  {GREEN}{BOLD}  ✓ All impersonation attempts blocked{RESET}")
 
@@ -928,13 +1088,17 @@ def scenario_8_impersonation():
 # SCENARIO 9: Scope Reduction Across Delegation Chain
 # ══════════════════════════════════════════════════════════════════════
 
+
 def scenario_9_scope_reduction():
-    scenario_header(9, "Scope Reduction — Least Privilege in Delegation",
+    scenario_header(
+        9,
+        "Scope Reduction — Least Privilege in Delegation",
         "In a proper delegation chain, each hop MUST reduce (or maintain) "
         "scope — never escalate. This scenario demonstrates how authgent "
         "enforces the principle of least privilege across multi-hop chains, "
         "ensuring downstream agents can never gain more access than their "
-        "parent.")
+        "parent.",
+    )
 
     sub_section("Setup: Agent with Broad Permissions")
 
@@ -966,8 +1130,10 @@ def scenario_9_scope_reduction():
     check("Reduced-scope delegation succeeds (200)", result1["status"] == 200)
 
     intro = introspect(result1["body"]["access_token"])
-    check("  Delegated token scope is 'db:read db:write'",
-          set(intro.get("scope", "").split()) == {"db:read", "db:write"})
+    check(
+        "  Delegated token scope is 'db:read db:write'",
+        set(intro.get("scope", "").split()) == {"db:read", "db:write"},
+    )
     actor("Worker Agent", "Has exactly the permissions needed, nothing more")
 
     # ── Good: Further reduce ──
@@ -1018,9 +1184,11 @@ def scenario_9_scope_reduction():
     check("Write escalation from readonly token BLOCKED", result4["status"] != 200)
     actor("authgent", "DENIED: db:write exceeds parent scope (db:read only)")
 
-    narrate("Each hop in the delegation chain acts as a scope filter. Scopes can "
-            "only decrease or stay the same — never increase. This guarantees that "
-            "deeply nested agents can never gain more access than their root delegator.")
+    narrate(
+        "Each hop in the delegation chain acts as a scope filter. Scopes can "
+        "only decrease or stay the same — never increase. This guarantees that "
+        "deeply nested agents can never gain more access than their root delegator."
+    )
 
     print(f"\n  {GREEN}{BOLD}  ✓ Scope reduction enforced at every delegation hop{RESET}")
 
@@ -1029,48 +1197,64 @@ def scenario_9_scope_reduction():
 # SCENARIO 10: Refresh Token Rotation Under Attack
 # ══════════════════════════════════════════════════════════════════════
 
+
 def scenario_10_refresh_rotation():
-    scenario_header(10, "Refresh Token Rotation & Family Revocation",
+    scenario_header(
+        10,
+        "Refresh Token Rotation & Family Revocation",
         "An attacker steals a refresh token. The legitimate agent and the "
         "attacker both try to use it. authgent detects the replay and "
         "revokes the ENTIRE token family — both old and new tokens become "
-        "invalid. This is the gold standard for refresh token security.")
+        "invalid. This is the gold standard for refresh token security.",
+    )
 
     # ── Setup: Get tokens via auth code flow ──
     sub_section("Setup: Agent Gets Access + Refresh Token")
 
-    agent_reg = httpx.post(f"{BASE}/register", json={
-        "client_name": "long-lived-agent",
-        "grant_types": ["authorization_code", "refresh_token"],
-        "redirect_uris": ["http://localhost:3000/callback"],
-        "scope": "tools:execute",
-    })
+    agent_reg = httpx.post(
+        f"{BASE}/register",
+        json={
+            "client_name": "long-lived-agent",
+            "grant_types": ["authorization_code", "refresh_token"],
+            "redirect_uris": ["http://localhost:3000/callback"],
+            "scope": "tools:execute",
+        },
+    )
     agent = agent_reg.json()
 
     code_verifier = secrets.token_urlsafe(64)
-    challenge = base64.urlsafe_b64encode(
-        hashlib.sha256(code_verifier.encode()).digest()
-    ).rstrip(b"=").decode()
+    challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
+        .rstrip(b"=")
+        .decode()
+    )
 
-    r_auth = httpx.get(f"{BASE}/authorize", params={
-        "response_type": "code",
-        "client_id": agent["client_id"],
-        "redirect_uri": "http://localhost:3000/callback",
-        "scope": "tools:execute",
-        "state": "s",
-        "code_challenge": challenge,
-        "code_challenge_method": "S256",
-    }, follow_redirects=False)
+    r_auth = httpx.get(
+        f"{BASE}/authorize",
+        params={
+            "response_type": "code",
+            "client_id": agent["client_id"],
+            "redirect_uri": "http://localhost:3000/callback",
+            "scope": "tools:execute",
+            "state": "s",
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+        },
+        follow_redirects=False,
+    )
     code = r_auth.headers["location"].split("code=")[1].split("&")[0]
 
-    r_tok = httpx.post(f"{BASE}/token", data={
-        "grant_type": "authorization_code",
-        "client_id": agent["client_id"],
-        "client_secret": agent["client_secret"],
-        "code": code,
-        "code_verifier": code_verifier,
-        "redirect_uri": "http://localhost:3000/callback",
-    })
+    r_tok = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "authorization_code",
+            "client_id": agent["client_id"],
+            "client_secret": agent["client_secret"],
+            "code": code,
+            "code_verifier": code_verifier,
+            "redirect_uri": "http://localhost:3000/callback",
+        },
+    )
     original_access = r_tok.json()["access_token"]
     original_refresh = r_tok.json()["refresh_token"]
 
@@ -1081,12 +1265,15 @@ def scenario_10_refresh_rotation():
     sub_section("Step 1: Legitimate Agent Rotates Token (Normal)")
 
     actor("Agent", "Access token nearing expiry → uses refresh token")
-    r_refresh = httpx.post(f"{BASE}/token", data={
-        "grant_type": "refresh_token",
-        "client_id": agent["client_id"],
-        "client_secret": agent["client_secret"],
-        "refresh_token": original_refresh,
-    })
+    r_refresh = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id": agent["client_id"],
+            "client_secret": agent["client_secret"],
+            "refresh_token": original_refresh,
+        },
+    )
     gen2 = r_refresh.json()
     gen2_access = gen2["access_token"]
     gen2_refresh = gen2["refresh_token"]
@@ -1099,50 +1286,64 @@ def scenario_10_refresh_rotation():
     # ── Step 2: Attacker tries the STOLEN (old) refresh token ──
     sub_section("Step 2: Attacker Replays Stolen Refresh Token")
 
-    narrate("The attacker stole the original refresh token from a compromised log. "
-            "They try to use it, not knowing the legitimate agent already rotated it.")
+    narrate(
+        "The attacker stole the original refresh token from a compromised log. "
+        "They try to use it, not knowing the legitimate agent already rotated it."
+    )
 
     actor("Attacker", f"Uses stolen refresh token: {original_refresh[:25]}...")
-    r_attack = httpx.post(f"{BASE}/token", data={
-        "grant_type": "refresh_token",
-        "client_id": agent["client_id"],
-        "client_secret": agent["client_secret"],
-        "refresh_token": original_refresh,
-    })
+    r_attack = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id": agent["client_id"],
+            "client_secret": agent["client_secret"],
+            "refresh_token": original_refresh,
+        },
+    )
     check("Stolen refresh token REJECTED (400)", r_attack.status_code == 400)
     error = r_attack.json()
     actor("authgent", f"⚠ REPLAY DETECTED: {error.get('error_description', '')}")
 
-    narrate("authgent detected that this refresh token was already used. This "
-            "triggers FAMILY REVOCATION — every token in this family (including "
-            "the legitimate agent's new tokens) is immediately invalidated.")
+    narrate(
+        "authgent detected that this refresh token was already used. This "
+        "triggers FAMILY REVOCATION — every token in this family (including "
+        "the legitimate agent's new tokens) is immediately invalidated."
+    )
 
     # ── Step 3: Legitimate agent's new token is ALSO revoked ──
     sub_section("Step 3: Family Revocation — Legitimate Agent Also Locked Out")
 
     actor("Agent", "Tries to use its generation-2 refresh token...")
-    r_family = httpx.post(f"{BASE}/token", data={
-        "grant_type": "refresh_token",
-        "client_id": agent["client_id"],
-        "client_secret": agent["client_secret"],
-        "refresh_token": gen2_refresh,
-    })
+    r_family = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id": agent["client_id"],
+            "client_secret": agent["client_secret"],
+            "refresh_token": gen2_refresh,
+        },
+    )
     check("Generation-2 refresh token ALSO revoked (400)", r_family.status_code == 400)
     actor("authgent", "Entire token family revoked — both parties locked out")
 
-    narrate("This is intentional! When replay is detected, authgent assumes the "
-            "worst case: SOMEONE has a stolen token. The safest response is to "
-            "revoke ALL tokens in the family, forcing the legitimate user to "
-            "re-authenticate from scratch. This limits the blast radius of "
-            "any refresh token compromise to zero ongoing access.")
+    narrate(
+        "This is intentional! When replay is detected, authgent assumes the "
+        "worst case: SOMEONE has a stolen token. The safest response is to "
+        "revoke ALL tokens in the family, forcing the legitimate user to "
+        "re-authenticate from scratch. This limits the blast radius of "
+        "any refresh token compromise to zero ongoing access."
+    )
 
     # ── Step 4: Agent must re-authenticate ──
     sub_section("Step 4: Agent Must Re-Authenticate (Clean Slate)")
 
     actor("Agent", "Re-initiates authorization code flow (clean slate)")
-    narrate("The agent must go through the full auth flow again. This ensures "
-            "that even if tokens were compromised, the window of unauthorized "
-            "access is minimal.")
+    narrate(
+        "The agent must go through the full auth flow again. This ensures "
+        "that even if tokens were compromised, the window of unauthorized "
+        "access is minimal."
+    )
 
     print(f"\n  {GREEN}{BOLD}  ✓ Refresh token family revocation working perfectly{RESET}")
 
@@ -1150,6 +1351,7 @@ def scenario_10_refresh_rotation():
 # ══════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════
+
 
 def main():
     print(f"""
@@ -1173,8 +1375,9 @@ def main():
         sys.exit(1)
 
     # Run all scenarios
-    orchestrator, search_agent, db_agent, human_token, search_token, db_token = \
+    orchestrator, search_agent, db_agent, human_token, search_token, db_token = (
         scenario_1_enterprise_pipeline()
+    )
 
     scenario_2_privilege_escalation(search_agent, human_token)
     scenario_3_token_theft(orchestrator)
@@ -1192,9 +1395,9 @@ def main():
     failed = sum(1 for _, p, _ in results if not p)
 
     print(f"""
-{'━'*70}
+{"━" * 70}
 {BOLD}  FINAL RESULTS: {GREEN}{passed}/{total} checks passed{RESET}{BOLD}, {RED if failed else GREEN}{failed} failed{RESET}
-{'━'*70}""")
+{"━" * 70}""")
 
     if failed > 0:
         print(f"\n  {RED}Failed checks:{RESET}")

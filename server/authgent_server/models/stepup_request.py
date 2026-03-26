@@ -21,6 +21,4 @@ class StepUpRequest(ULIDMixin, Base):
     approved_at: Mapped[datetime | None] = mapped_column(nullable=True)
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC)
-    )
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

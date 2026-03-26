@@ -26,12 +26,8 @@ class OAuthClient(Base):
         String(50), default="client_secret_post"
     )
     dpop_bound_access_tokens: Mapped[bool] = mapped_column(Boolean, default=False)
-    agent_id: Mapped[str | None] = mapped_column(
-        String(26), ForeignKey("agents.id"), nullable=True
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC)
-    )
+    agent_id: Mapped[str | None] = mapped_column(String(26), ForeignKey("agents.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
     # Relationships
     agent: Mapped["Agent | None"] = relationship(  # noqa: F821

@@ -133,9 +133,7 @@ class ClientService:
             return  # no restrictions
         if self._settings.resource_match == "exact":
             if resource not in client.allowed_resources:
-                raise InvalidRequest(
-                    f"Resource '{resource}' not in client's allowed_resources"
-                )
+                raise InvalidRequest(f"Resource '{resource}' not in client's allowed_resources")
         elif self._settings.resource_match == "origin":
             req_parsed = urlparse(resource)
             req_origin = f"{req_parsed.scheme}://{req_parsed.netloc}"

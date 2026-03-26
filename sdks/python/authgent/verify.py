@@ -95,6 +95,7 @@ async def verify_token(
     token_size = len(token)
     if token_size > 4096:
         import warnings
+
         warnings.warn(
             f"Token size ({token_size} bytes) exceeds 4KB — "
             "may exceed reverse proxy header limits with deep delegation chains",

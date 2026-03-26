@@ -24,18 +24,15 @@ logger = structlog.get_logger()
 def _generate_kid() -> str:
     """Generate a short, URL-safe key ID."""
     import secrets
+
     return secrets.token_urlsafe(16)
 
 
 def _ec_key_to_jwk(public_key: ec.EllipticCurvePublicKey, kid: str) -> dict:
     """Convert an EC public key to JWK format."""
     numbers = public_key.public_numbers()
-    x = base64.urlsafe_b64encode(
-        numbers.x.to_bytes(32, byteorder="big")
-    ).rstrip(b"=").decode()
-    y = base64.urlsafe_b64encode(
-        numbers.y.to_bytes(32, byteorder="big")
-    ).rstrip(b"=").decode()
+    x = base64.urlsafe_b64encode(numbers.x.to_bytes(32, byteorder="big")).rstrip(b"=").decode()
+    y = base64.urlsafe_b64encode(numbers.y.to_bytes(32, byteorder="big")).rstrip(b"=").decode()
     return {
         "kty": "EC",
         "crv": "P-256",
@@ -146,9 +143,7 @@ class JWKSService:
 
         return jwt.encode(claims, private_key, algorithm="ES256", headers=hdr)
 
-    async def verify_jwt(
-        self, db: AsyncSession, token: str, audience: str | None = None
-    ) -> dict:
+    async def verify_jwt(self, db: AsyncSession, token: str, audience: str | None = None) -> dict:
         """Verify JWT signature against JWKS. Returns decoded claims.
 
         Validates: signature, kid, expiry, issuer. Optionally audience.

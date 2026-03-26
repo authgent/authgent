@@ -42,19 +42,25 @@ def test_dpop_client_jkt():
 def test_dpop_client_proof_with_ath():
     client = DPoPClient()
     access_token = "test_access_token_value"
-    proof = client.create_proof("GET", "https://example.com/resource", access_token=access_token)
+    proof = client.create_proof(
+        "GET", "https://example.com/resource", access_token=access_token
+    )
 
     # Verify ath is present
     payload = jwt.decode(proof, options={"verify_signature": False})
-    expected_ath = base64.urlsafe_b64encode(
-        hashlib.sha256(access_token.encode()).digest()
-    ).rstrip(b"=").decode()
+    expected_ath = (
+        base64.urlsafe_b64encode(hashlib.sha256(access_token.encode()).digest())
+        .rstrip(b"=")
+        .decode()
+    )
     assert payload["ath"] == expected_ath
 
 
 def test_dpop_client_proof_with_nonce():
     client = DPoPClient()
-    proof = client.create_proof("POST", "https://example.com/token", nonce="server_nonce_123")
+    proof = client.create_proof(
+        "POST", "https://example.com/token", nonce="server_nonce_123"
+    )
     payload = jwt.decode(proof, options={"verify_signature": False})
     assert payload["nonce"] == "server_nonce_123"
 

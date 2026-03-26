@@ -30,7 +30,7 @@ from authgent_server.utils import is_expired, utcnow
 router = APIRouter(tags=["device"])
 
 DEVICE_CODE_TTL = 600  # 10 minutes
-POLLING_INTERVAL = 5   # seconds
+POLLING_INTERVAL = 5  # seconds
 
 
 class DeviceAuthResponse(BaseModel):

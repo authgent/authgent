@@ -75,7 +75,9 @@ def upgrade() -> None:
     op.create_table(
         "authorization_codes",
         sa.Column("code", sa.String(255), primary_key=True),
-        sa.Column("client_id", sa.String(255), sa.ForeignKey("oauth_clients.client_id"), nullable=False),
+        sa.Column(
+            "client_id", sa.String(255), sa.ForeignKey("oauth_clients.client_id"), nullable=False
+        ),
         sa.Column("redirect_uri", sa.Text, nullable=False),
         sa.Column("scope", sa.Text, nullable=True),
         sa.Column("resource", sa.Text, nullable=True),
@@ -91,7 +93,9 @@ def upgrade() -> None:
     op.create_table(
         "refresh_tokens",
         sa.Column("jti", sa.String(255), primary_key=True),
-        sa.Column("client_id", sa.String(255), sa.ForeignKey("oauth_clients.client_id"), nullable=False),
+        sa.Column(
+            "client_id", sa.String(255), sa.ForeignKey("oauth_clients.client_id"), nullable=False
+        ),
         sa.Column("subject", sa.String(255), nullable=True),
         sa.Column("scope", sa.Text, nullable=True),
         sa.Column("resource", sa.Text, nullable=True),
@@ -108,7 +112,9 @@ def upgrade() -> None:
         "device_codes",
         sa.Column("device_code", sa.String(255), primary_key=True),
         sa.Column("user_code", sa.String(20), unique=True, nullable=False),
-        sa.Column("client_id", sa.String(255), sa.ForeignKey("oauth_clients.client_id"), nullable=False),
+        sa.Column(
+            "client_id", sa.String(255), sa.ForeignKey("oauth_clients.client_id"), nullable=False
+        ),
         sa.Column("scope", sa.Text, nullable=True),
         sa.Column("resource", sa.Text, nullable=True),
         sa.Column("status", sa.String(20), server_default="pending", nullable=False),
@@ -123,12 +129,16 @@ def upgrade() -> None:
         "consents",
         sa.Column("id", sa.String(26), primary_key=True),
         sa.Column("subject", sa.String(255), nullable=False),
-        sa.Column("client_id", sa.String(255), sa.ForeignKey("oauth_clients.client_id"), nullable=False),
+        sa.Column(
+            "client_id", sa.String(255), sa.ForeignKey("oauth_clients.client_id"), nullable=False
+        ),
         sa.Column("scope", sa.Text, nullable=False),
         sa.Column("resource", sa.Text, nullable=True),
         sa.Column("granted_at", sa.DateTime, nullable=False),
         sa.Column("expires_at", sa.DateTime, nullable=True),
-        sa.UniqueConstraint("subject", "client_id", "resource", name="uq_consent_subject_client_resource"),
+        sa.UniqueConstraint(
+            "subject", "client_id", "resource", name="uq_consent_subject_client_resource"
+        ),
     )
 
     # --- token_blocklist ---

@@ -48,18 +48,14 @@ class DelegationService:
             requested = set(requested_scopes)
             if parent_scopes and not requested.issubset(parent_scopes):
                 escalated = requested - parent_scopes
-                raise ScopeEscalation(
-                    f"Downstream scopes exceed parent: {', '.join(escalated)}"
-                )
+                raise ScopeEscalation(f"Downstream scopes exceed parent: {', '.join(escalated)}")
 
         # 3. Check may_act authorization
         may_act = parent_claims.get("may_act")
         if may_act and isinstance(may_act, dict):
             allowed_subs = may_act.get("sub", [])
             if isinstance(allowed_subs, list) and actor_id not in allowed_subs:
-                raise MayActViolation(
-                    f"Actor '{actor_id}' not in may_act.sub: {allowed_subs}"
-                )
+                raise MayActViolation(f"Actor '{actor_id}' not in may_act.sub: {allowed_subs}")
 
         # 4. Build nested act claims
         new_act = {"sub": actor_id}
@@ -76,8 +72,13 @@ class DelegationService:
         }
 
         # 6. Carry forward OIDC-A claims from parent
-        for key in ("agent_type", "agent_model", "agent_version",
-                     "agent_provider", "agent_instance_id"):
+        for key in (
+            "agent_type",
+            "agent_model",
+            "agent_version",
+            "agent_provider",
+            "agent_instance_id",
+        ):
             if key in parent_claims:
                 claims[key] = parent_claims[key]
 
@@ -104,9 +105,7 @@ class DelegationService:
         depth = len(chain)
 
         if depth > max_depth:
-            raise DelegationDepthExceeded(
-                f"Chain depth {depth} exceeds max {max_depth}"
-            )
+            raise DelegationDepthExceeded(f"Chain depth {depth} exceeds max {max_depth}")
 
         human_root = False
         if chain:
@@ -119,9 +118,7 @@ class DelegationService:
         if allowed_actors:
             for actor in chain:
                 if actor.get("sub") not in allowed_actors:
-                    raise MayActViolation(
-                        f"Actor '{actor.get('sub')}' not in allowed actors"
-                    )
+                    raise MayActViolation(f"Actor '{actor.get('sub')}' not in allowed actors")
 
         return DelegationChain(
             actors=chain,

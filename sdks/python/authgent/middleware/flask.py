@@ -22,6 +22,7 @@ def _run_async(coro: Any) -> Any:
 
     if loop and loop.is_running():
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor() as pool:
             return pool.submit(asyncio.run, coro).result()
     else:
@@ -69,9 +70,11 @@ class AgentAuthMiddleware:
 def get_agent_identity() -> AgentIdentity:
     """Get the verified AgentIdentity from Flask's g context."""
     from flask import g
+
     identity = getattr(g, "authgent_identity", None)
     if identity is None:
         from flask import abort
+
         abort(401, description="No valid agent identity")
     return identity  # type: ignore[return-value]
 
@@ -91,7 +94,10 @@ def require_agent_auth(scopes: list[str] | None = None) -> Callable:
             if scopes:
                 missing = [s for s in scopes if s not in identity.scopes]
                 if missing:
-                    abort(403, description=f"Insufficient scope. Missing: {', '.join(missing)}")
+                    abort(
+                        403,
+                        description=f"Insufficient scope. Missing: {', '.join(missing)}",
+                    )
 
             return func(*args, **kwargs)
 

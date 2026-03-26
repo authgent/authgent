@@ -97,6 +97,7 @@ def reset_providers() -> None:
 
 # --- FastAPI dependency functions ---
 
+
 async def get_db_session(request: Request) -> AsyncGenerator[AsyncSession, None]:
     settings = get_settings()
     async for session in _get_db(settings):

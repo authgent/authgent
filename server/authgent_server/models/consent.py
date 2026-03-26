@@ -12,7 +12,9 @@ class Consent(ULIDMixin, Base):
     __tablename__ = "consents"
     __table_args__ = (
         UniqueConstraint(
-            "subject", "client_id", "resource",
+            "subject",
+            "client_id",
+            "resource",
             name="uq_consent_subject_client_resource",
         ),
     )
@@ -23,7 +25,5 @@ class Consent(ULIDMixin, Base):
     )
     scope: Mapped[str] = mapped_column(Text, nullable=False)
     resource: Mapped[str | None] = mapped_column(Text, nullable=True)
-    granted_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC)
-    )
+    granted_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     expires_at: Mapped[datetime | None] = mapped_column(nullable=True)

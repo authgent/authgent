@@ -57,9 +57,11 @@ def _make_dpop_proof(
         "jti": secrets.token_hex(16),
     }
     if access_token:
-        ath = base64.urlsafe_b64encode(
-            hashlib.sha256(access_token.encode()).digest()
-        ).rstrip(b"=").decode()
+        ath = (
+            base64.urlsafe_b64encode(hashlib.sha256(access_token.encode()).digest())
+            .rstrip(b"=")
+            .decode()
+        )
         payload["ath"] = ath
     if nonce:
         payload["nonce"] = nonce
@@ -81,12 +83,14 @@ def _compute_jkt(jwk: dict) -> str:
 
 # ── Unit tests for DPoPService ──
 
+
 class TestDPoPServiceUnit:
     """Direct unit tests for DPoPService methods."""
 
     def _get_service(self):
         from authgent_server.config import get_settings
         from authgent_server.services.dpop_service import DPoPService
+
         return DPoPService(get_settings())
 
     def test_nonce_generation_deterministic(self):
@@ -131,6 +135,7 @@ class TestDPoPServiceUnit:
         proof = _make_dpop_proof(priv, jwk, htm="POST")
 
         from authgent_server.errors import InvalidDPoPProof
+
         with pytest.raises(InvalidDPoPProof):
             svc.verify_dpop_proof(
                 proof_jwt=proof,
@@ -146,6 +151,7 @@ class TestDPoPServiceUnit:
         proof = _make_dpop_proof(priv, jwk, htu="http://localhost:8000/token")
 
         from authgent_server.errors import InvalidDPoPProof
+
         with pytest.raises(InvalidDPoPProof):
             svc.verify_dpop_proof(
                 proof_jwt=proof,
@@ -161,6 +167,7 @@ class TestDPoPServiceUnit:
         proof = _make_dpop_proof(priv, jwk, iat=int(time.time()) - 300)
 
         from authgent_server.errors import InvalidDPoPProof
+
         with pytest.raises(InvalidDPoPProof, match="iat too old"):
             svc.verify_dpop_proof(
                 proof_jwt=proof,
@@ -176,6 +183,7 @@ class TestDPoPServiceUnit:
         proof = _make_dpop_proof(priv, jwk, access_token="real-token")
 
         from authgent_server.errors import InvalidDPoPProof
+
         with pytest.raises(InvalidDPoPProof, match="ath mismatch"):
             svc.verify_dpop_proof(
                 proof_jwt=proof,
@@ -195,6 +203,7 @@ class TestDPoPServiceUnit:
         other_jkt = _compute_jkt(other_jwk)
 
         from authgent_server.errors import InvalidDPoPProof
+
         with pytest.raises(InvalidDPoPProof, match="thumbprint mismatch"):
             svc.verify_dpop_proof(
                 proof_jwt=proof,
@@ -227,6 +236,7 @@ class TestDPoPServiceUnit:
         proof = _make_dpop_proof(priv, jwk)  # no nonce
 
         from authgent_server.errors import UseDPoPNonce
+
         with pytest.raises(UseDPoPNonce):
             svc.verify_dpop_proof(
                 proof_jwt=proof,
@@ -257,6 +267,7 @@ class TestDPoPServiceUnit:
         svc = self._get_service()
 
         from authgent_server.errors import InvalidDPoPProof
+
         with pytest.raises(InvalidDPoPProof):
             svc.verify_dpop_proof(
                 proof_jwt="not-a-jwt",
@@ -281,6 +292,7 @@ class TestDPoPServiceUnit:
         proof = jwt.encode(payload, priv, algorithm="ES256", headers=headers)
 
         from authgent_server.errors import InvalidDPoPProof
+
         with pytest.raises(InvalidDPoPProof, match="typ=dpop\\+jwt"):
             svc.verify_dpop_proof(
                 proof_jwt=proof,

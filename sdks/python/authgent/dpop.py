@@ -126,12 +126,12 @@ class DPoPClient:
         self._jwk = {
             "kty": "EC",
             "crv": "P-256",
-            "x": base64.urlsafe_b64encode(
-                numbers.x.to_bytes(32, "big")
-            ).rstrip(b"=").decode(),
-            "y": base64.urlsafe_b64encode(
-                numbers.y.to_bytes(32, "big")
-            ).rstrip(b"=").decode(),
+            "x": base64.urlsafe_b64encode(numbers.x.to_bytes(32, "big"))
+            .rstrip(b"=")
+            .decode(),
+            "y": base64.urlsafe_b64encode(numbers.y.to_bytes(32, "big"))
+            .rstrip(b"=")
+            .decode(),
         }
         self._jkt = _compute_jkt(self._jwk)
 
@@ -158,9 +158,11 @@ class DPoPClient:
         }
 
         if access_token:
-            ath = base64.urlsafe_b64encode(
-                hashlib.sha256(access_token.encode()).digest()
-            ).rstrip(b"=").decode()
+            ath = (
+                base64.urlsafe_b64encode(hashlib.sha256(access_token.encode()).digest())
+                .rstrip(b"=")
+                .decode()
+            )
             payload["ath"] = ath
 
         if nonce:
@@ -172,7 +174,9 @@ class DPoPClient:
             "jwk": self._jwk,
         }
 
-        return jwt.encode(payload, self._private_key, algorithm="ES256", headers=headers)
+        return jwt.encode(
+            payload, self._private_key, algorithm="ES256", headers=headers
+        )
 
     def create_proof_headers(
         self,

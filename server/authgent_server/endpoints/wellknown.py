@@ -55,11 +55,13 @@ async def openid_configuration(
     """OIDC Discovery alias — same metadata as RFC 8414 + OIDC fields."""
     base_meta = await oauth_server_metadata(settings)
     base = settings.server_url.rstrip("/")
-    base_meta.update({
-        "userinfo_endpoint": f"{base}/userinfo",
-        "id_token_signing_alg_values_supported": ["ES256"],
-        "subject_types_supported": ["public"],
-    })
+    base_meta.update(
+        {
+            "userinfo_endpoint": f"{base}/userinfo",
+            "id_token_signing_alg_values_supported": ["ES256"],
+            "subject_types_supported": ["public"],
+        }
+    )
     return base_meta
 
 

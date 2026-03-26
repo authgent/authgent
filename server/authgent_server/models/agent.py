@@ -9,9 +9,7 @@ from authgent_server.models.base import Base, TimestampMixin, ULIDMixin
 class Agent(ULIDMixin, TimestampMixin, Base):
     __tablename__ = "agents"
 
-    oauth_client_id: Mapped[str | None] = mapped_column(
-        String(255), unique=True, nullable=True
-    )
+    oauth_client_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     owner: Mapped[str | None] = mapped_column(String(255), nullable=True)

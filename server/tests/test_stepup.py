@@ -6,12 +6,15 @@ import pytest
 @pytest.mark.asyncio
 async def test_stepup_create_and_poll(test_client):
     """Create a step-up request and poll its status."""
-    resp = test_client.post("/stepup", json={
-        "agent_id": "agnt_test",
-        "action": "delete_database",
-        "scope": "db:delete",
-        "resource": "https://api.example.com/db",
-    })
+    resp = test_client.post(
+        "/stepup",
+        json={
+            "agent_id": "agnt_test",
+            "action": "delete_database",
+            "scope": "db:delete",
+            "resource": "https://api.example.com/db",
+        },
+    )
     assert resp.status_code == 202
     body = resp.json()
     assert body["status"] == "pending"
@@ -29,16 +32,22 @@ async def test_stepup_create_and_poll(test_client):
 @pytest.mark.asyncio
 async def test_stepup_approve(test_client):
     """Approve a pending step-up request."""
-    create = test_client.post("/stepup", json={
-        "agent_id": "agnt_test",
-        "action": "send_email",
-        "scope": "email:send",
-    })
+    create = test_client.post(
+        "/stepup",
+        json={
+            "agent_id": "agnt_test",
+            "action": "send_email",
+            "scope": "email:send",
+        },
+    )
     request_id = create.json()["id"]
 
-    resp = test_client.post(f"/stepup/{request_id}/approve", json={
-        "approved_by": "alice@example.com",
-    })
+    resp = test_client.post(
+        f"/stepup/{request_id}/approve",
+        json={
+            "approved_by": "alice@example.com",
+        },
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "approved"
@@ -49,11 +58,14 @@ async def test_stepup_approve(test_client):
 @pytest.mark.asyncio
 async def test_stepup_deny(test_client):
     """Deny a pending step-up request."""
-    create = test_client.post("/stepup", json={
-        "agent_id": "agnt_test",
-        "action": "transfer_funds",
-        "scope": "bank:write",
-    })
+    create = test_client.post(
+        "/stepup",
+        json={
+            "agent_id": "agnt_test",
+            "action": "transfer_funds",
+            "scope": "bank:write",
+        },
+    )
     request_id = create.json()["id"]
 
     resp = test_client.post(f"/stepup/{request_id}/deny", json={})
@@ -64,11 +76,14 @@ async def test_stepup_deny(test_client):
 @pytest.mark.asyncio
 async def test_stepup_double_approve_fails(test_client):
     """Cannot approve an already-approved request."""
-    create = test_client.post("/stepup", json={
-        "agent_id": "agnt_test",
-        "action": "action",
-        "scope": "scope",
-    })
+    create = test_client.post(
+        "/stepup",
+        json={
+            "agent_id": "agnt_test",
+            "action": "action",
+            "scope": "scope",
+        },
+    )
     request_id = create.json()["id"]
 
     test_client.post(f"/stepup/{request_id}/approve", json={"approved_by": "alice"})
