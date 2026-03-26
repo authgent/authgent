@@ -9,7 +9,7 @@ OAuth 2.1 authorization server with multi-agent delegation, DPoP sender-constrai
 [![CI](https://github.com/authgent/authgent/actions/workflows/ci.yml/badge.svg)](https://github.com/authgent/authgent/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg)](https://python.org)
-[![Node 18+](https://img.shields.io/badge/node-18+-339933.svg)](https://nodejs.org)
+[![Node 20+](https://img.shields.io/badge/node-20+-339933.svg)](https://nodejs.org)
 
 [Quick Start](#quick-start) · [Why authgent?](#why-authgent) · [SDKs](#sdks) · [Docs](https://authgent.dev/docs) · [Contributing](CONTRIBUTING.md)
 

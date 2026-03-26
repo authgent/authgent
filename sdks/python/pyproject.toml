@@ -22,13 +22,6 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Security",
 ]
-
-[project.urls]
-Homepage = "https://github.com/authgent/authgent"
-Documentation = "https://github.com/authgent/authgent/tree/main/sdks/python"
-Repository = "https://github.com/authgent/authgent"
-Changelog = "https://github.com/authgent/authgent/blob/main/CHANGELOG.md"
-Issues = "https://github.com/authgent/authgent/issues"
 dependencies = [
     "PyJWT>=2.9.0",
     "cryptography>=43.0.0",
@@ -44,6 +37,13 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "ruff>=0.6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/authgent/authgent"
+Documentation = "https://github.com/authgent/authgent/tree/main/sdks/python"
+Repository = "https://github.com/authgent/authgent"
+Changelog = "https://github.com/authgent/authgent/blob/main/CHANGELOG.md"
+Issues = "https://github.com/authgent/authgent/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["authgent"]
