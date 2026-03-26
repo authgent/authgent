@@ -141,7 +141,7 @@ class DPoPService:
                 raise UseDPoPNonce(self.generate_nonce())
 
         payload["jkt"] = jkt
-        return payload
+        return payload  # type: ignore[no-any-return]
 
     @staticmethod
     def _compute_jkt(jwk: dict) -> str:
