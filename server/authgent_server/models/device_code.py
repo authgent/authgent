@@ -22,6 +22,4 @@ class DeviceCode(Base):
     subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
     interval: Mapped[int] = mapped_column(Integer, default=5)
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC)
-    )
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

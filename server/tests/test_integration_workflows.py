@@ -34,6 +34,7 @@ from fastapi.testclient import TestClient
 
 # ─── Helpers ──────────────────────────────────────────────────────────
 
+
 def _register(
     c: TestClient,
     *,
@@ -73,30 +74,39 @@ def _create_agent(c: TestClient, *, name: str, scopes: list[str] | None = None, 
 
 def _cc_token(c: TestClient, creds: dict, scope: str = "read") -> dict:
     """Get a client_credentials token."""
-    resp = c.post("/token", data={
-        "grant_type": "client_credentials",
-        "client_id": creds["client_id"],
-        "client_secret": creds["client_secret"],
-        "scope": scope,
-    })
+    resp = c.post(
+        "/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+            "scope": scope,
+        },
+    )
     assert resp.status_code == 200, f"Token failed: {resp.json()}"
     return resp.json()
 
 
 def _exchange(
-    c: TestClient, creds: dict, subject_token: str,
-    audience: str = "https://api.example.com", scope: str = "read",
+    c: TestClient,
+    creds: dict,
+    subject_token: str,
+    audience: str = "https://api.example.com",
+    scope: str = "read",
 ) -> tuple[int, dict]:
     """Perform token exchange, returning (status_code, body)."""
-    resp = c.post("/token", data={
-        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-        "client_id": creds["client_id"],
-        "client_secret": creds["client_secret"],
-        "subject_token": subject_token,
-        "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
-        "audience": audience,
-        "scope": scope,
-    })
+    resp = c.post(
+        "/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+            "subject_token": subject_token,
+            "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+            "audience": audience,
+            "scope": scope,
+        },
+    )
     return resp.status_code, resp.json()
 
 
@@ -120,8 +130,11 @@ def _pkce() -> tuple[str, str]:
 
 
 def _auth_code_flow(
-    c: TestClient, creds: dict, scope: str = "read",
-    resource: str = "", nonce: str = "",
+    c: TestClient,
+    creds: dict,
+    scope: str = "read",
+    resource: str = "",
+    nonce: str = "",
 ) -> dict:
     """Run full auth code + PKCE flow, return token response body."""
     verifier, challenge = _pkce()
@@ -144,14 +157,17 @@ def _auth_code_flow(
     location = auth_resp.headers["location"]
     code = parse_qs(urlparse(location).query)["code"][0]
 
-    token_resp = c.post("/token", data={
-        "grant_type": "authorization_code",
-        "client_id": creds["client_id"],
-        "client_secret": creds["client_secret"],
-        "code": code,
-        "code_verifier": verifier,
-        "redirect_uri": "http://localhost:3000/callback",
-    })
+    token_resp = c.post(
+        "/token",
+        data={
+            "grant_type": "authorization_code",
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+            "code": code,
+            "code_verifier": verifier,
+            "redirect_uri": "http://localhost:3000/callback",
+        },
+    )
     assert token_resp.status_code == 200, f"Token exchange failed: {token_resp.json()}"
     return token_resp.json()
 
@@ -161,6 +177,7 @@ def _auth_code_flow(
 #    Human → Orchestrator → Search Agent → DB Agent
 # ═════════════════════════════════════════════════════════════════════
 
+
 class TestMultiHopDelegationPipeline:
     """Real-world: Human delegates to an orchestrator which fans out
     to specialized agents, each with progressively narrower scope."""
@@ -169,19 +186,26 @@ class TestMultiHopDelegationPipeline:
         """Full 3-hop chain: human token → orchestrator → search → db."""
         # Register 3 agents with token exchange capability
         orchestrator = _register(
-            test_client, name="orchestrator",
-            grant_types=["client_credentials", "authorization_code",
-                         "refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"],
+            test_client,
+            name="orchestrator",
+            grant_types=[
+                "client_credentials",
+                "authorization_code",
+                "refresh_token",
+                "urn:ietf:params:oauth:grant-type:token-exchange",
+            ],
             scope="search:exec db:read summarize",
             redirect_uris=["http://localhost:3000/callback"],
         )
         search = _register(
-            test_client, name="search-agent",
+            test_client,
+            name="search-agent",
             grant_types=["client_credentials", "urn:ietf:params:oauth:grant-type:token-exchange"],
             scope="search:exec db:read",
         )
         db = _register(
-            test_client, name="db-agent",
+            test_client,
+            name="db-agent",
             grant_types=["client_credentials", "urn:ietf:params:oauth:grant-type:token-exchange"],
             scope="db:read",
         )
@@ -191,8 +215,9 @@ class TestMultiHopDelegationPipeline:
         human_token = tokens["access_token"]
 
         # Hop 1: Orchestrator → Search (drop summarize)
-        s1, body1 = _exchange(test_client, search, human_token,
-                              audience="agent:search", scope="search:exec db:read")
+        s1, body1 = _exchange(
+            test_client, search, human_token, audience="agent:search", scope="search:exec db:read"
+        )
         assert s1 == 200
         search_token = body1["access_token"]
 
@@ -202,8 +227,7 @@ class TestMultiHopDelegationPipeline:
         assert "sub" in intro1["act"]
 
         # Hop 2: Search → DB (drop search:exec)
-        s2, body2 = _exchange(test_client, db, search_token,
-                              audience="agent:db", scope="db:read")
+        s2, body2 = _exchange(test_client, db, search_token, audience="agent:db", scope="db:read")
         assert s2 == 200
         db_token = body2["access_token"]
 
@@ -226,8 +250,9 @@ class TestMultiHopDelegationPipeline:
         parent_intro = _introspect(test_client, parent_tok["access_token"])
         original_sub = parent_intro["sub"]
 
-        _, body = _exchange(test_client, child, parent_tok["access_token"],
-                            audience="downstream", scope="a")
+        _, body = _exchange(
+            test_client, child, parent_tok["access_token"], audience="downstream", scope="a"
+        )
         child_intro = _introspect(test_client, body["access_token"])
 
         assert child_intro["sub"] == original_sub
@@ -236,14 +261,16 @@ class TestMultiHopDelegationPipeline:
         """The act.sub in the exchanged token identifies the exchanging client."""
         parent = _register(test_client, scope="read write")
         child = _register(
-            test_client, name="actor-child",
+            test_client,
+            name="actor-child",
             grant_types=["client_credentials", "urn:ietf:params:oauth:grant-type:token-exchange"],
             scope="read",
         )
 
         parent_tok = _cc_token(test_client, parent, scope="read write")
-        _, body = _exchange(test_client, child, parent_tok["access_token"],
-                            audience="target", scope="read")
+        _, body = _exchange(
+            test_client, child, parent_tok["access_token"], audience="target", scope="read"
+        )
         intro = _introspect(test_client, body["access_token"])
 
         assert intro["act"]["sub"].startswith("client:")
@@ -252,6 +279,7 @@ class TestMultiHopDelegationPipeline:
 # ═════════════════════════════════════════════════════════════════════
 # 2. SCOPE REDUCTION ENFORCEMENT
 # ═════════════════════════════════════════════════════════════════════
+
 
 class TestScopeReductionEnforcement:
     """Scopes can only decrease across delegation hops — never escalate."""
@@ -264,8 +292,7 @@ class TestScopeReductionEnforcement:
             scope="a",
         )
         tok = _cc_token(test_client, parent, scope="a b c")
-        status, body = _exchange(test_client, child, tok["access_token"],
-                                 audience="x", scope="a")
+        status, body = _exchange(test_client, child, tok["access_token"], audience="x", scope="a")
         assert status == 200
         intro = _introspect(test_client, body["access_token"])
         assert intro["scope"] == "a"
@@ -279,8 +306,9 @@ class TestScopeReductionEnforcement:
             scope="read admin",
         )
         tok = _cc_token(test_client, parent, scope="read")
-        status, body = _exchange(test_client, child, tok["access_token"],
-                                 audience="x", scope="admin")
+        status, body = _exchange(
+            test_client, child, tok["access_token"], audience="x", scope="admin"
+        )
         assert status == 403
 
     def test_multi_hop_scope_narrows_monotonically(self, test_client):
@@ -297,8 +325,7 @@ class TestScopeReductionEnforcement:
         _, b1 = _exchange(test_client, agents[1], tok, audience="hop1", scope="a b")
         assert _introspect(test_client, b1["access_token"])["scope"] == "a b"
 
-        _, b2 = _exchange(test_client, agents[2], b1["access_token"],
-                          audience="hop2", scope="a")
+        _, b2 = _exchange(test_client, agents[2], b1["access_token"], audience="hop2", scope="a")
         assert _introspect(test_client, b2["access_token"])["scope"] == "a"
 
     def test_scope_re_escalation_blocked_after_reduction(self, test_client):
@@ -328,6 +355,7 @@ class TestScopeReductionEnforcement:
 # 3. REFRESH TOKEN FAMILY REVOCATION
 # ═════════════════════════════════════════════════════════════════════
 
+
 class TestRefreshTokenFamilyRevocation:
     """Refresh token replay triggers revocation of entire token family."""
 
@@ -346,12 +374,15 @@ class TestRefreshTokenFamilyRevocation:
         rt1 = tok["refresh_token"]
         at1 = tok["access_token"]
 
-        resp = test_client.post("/token", data={
-            "grant_type": "refresh_token",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "refresh_token": rt1,
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "refresh_token": rt1,
+            },
+        )
         assert resp.status_code == 200
         body = resp.json()
         assert body["access_token"] != at1
@@ -369,31 +400,40 @@ class TestRefreshTokenFamilyRevocation:
         rt_gen1 = tok["refresh_token"]
 
         # Rotate once → gen2
-        r2 = test_client.post("/token", data={
-            "grant_type": "refresh_token",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "refresh_token": rt_gen1,
-        })
+        r2 = test_client.post(
+            "/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "refresh_token": rt_gen1,
+            },
+        )
         assert r2.status_code == 200
         rt_gen2 = r2.json()["refresh_token"]
 
         # Replay gen1 (attacker) → should trigger family revocation
-        r_replay = test_client.post("/token", data={
-            "grant_type": "refresh_token",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "refresh_token": rt_gen1,
-        })
+        r_replay = test_client.post(
+            "/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "refresh_token": rt_gen1,
+            },
+        )
         assert r_replay.status_code == 400
 
         # gen2 should ALSO be revoked now (family revocation)
-        r_gen2 = test_client.post("/token", data={
-            "grant_type": "refresh_token",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "refresh_token": rt_gen2,
-        })
+        r_gen2 = test_client.post(
+            "/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "refresh_token": rt_gen2,
+            },
+        )
         assert r_gen2.status_code == 400
 
     def test_three_generation_rotation_then_replay(self, test_client):
@@ -408,37 +448,49 @@ class TestRefreshTokenFamilyRevocation:
         gen1 = tok["refresh_token"]
 
         # Rotate: gen1 → gen2 → gen3
-        r2 = test_client.post("/token", data={
-            "grant_type": "refresh_token",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "refresh_token": gen1,
-        })
+        r2 = test_client.post(
+            "/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "refresh_token": gen1,
+            },
+        )
         gen2 = r2.json()["refresh_token"]
 
-        r3 = test_client.post("/token", data={
-            "grant_type": "refresh_token",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "refresh_token": gen2,
-        })
+        r3 = test_client.post(
+            "/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "refresh_token": gen2,
+            },
+        )
         gen3 = r3.json()["refresh_token"]
 
         # Replay gen1
-        test_client.post("/token", data={
-            "grant_type": "refresh_token",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "refresh_token": gen1,
-        })
+        test_client.post(
+            "/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "refresh_token": gen1,
+            },
+        )
 
         # gen3 should be dead
-        r_g3 = test_client.post("/token", data={
-            "grant_type": "refresh_token",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "refresh_token": gen3,
-        })
+        r_g3 = test_client.post(
+            "/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "refresh_token": gen3,
+            },
+        )
         assert r_g3.status_code == 400
 
 
@@ -446,18 +498,21 @@ class TestRefreshTokenFamilyRevocation:
 # 4. AGENT LIFECYCLE → TOKEN IMPACT
 # ═════════════════════════════════════════════════════════════════════
 
+
 class TestAgentLifecycle:
     """Agent registry operations and their impact on the system."""
 
     def test_agent_creation_returns_usable_credentials(self, test_client):
         """Credentials from agent creation can immediately get tokens."""
-        agent = _create_agent(test_client, name="usable-agent",
-                              scopes=["search:execute"])
-        tok = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": agent["client_id"],
-            "client_secret": agent["client_secret"],
-        })
+        agent = _create_agent(test_client, name="usable-agent", scopes=["search:execute"])
+        tok = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": agent["client_id"],
+                "client_secret": agent["client_secret"],
+            },
+        )
         assert tok.status_code == 200
         assert "access_token" in tok.json()
 
@@ -474,17 +529,23 @@ class TestAgentLifecycle:
 
     def test_update_agent_metadata(self, test_client):
         """Agent metadata updates (version, description, capabilities) persist."""
-        agent = _create_agent(test_client, name="versioned-agent",
-                              agent_type="supervised",
-                              agent_model="gpt-4o",
-                              agent_version="1.0.0",
-                              agent_provider="acme")
+        agent = _create_agent(
+            test_client,
+            name="versioned-agent",
+            agent_type="supervised",
+            agent_model="gpt-4o",
+            agent_version="1.0.0",
+            agent_provider="acme",
+        )
         agent_id = agent["id"]
 
-        resp = test_client.patch(f"/agents/{agent_id}", json={
-            "agent_version": "2.0.0",
-            "description": "Updated to v2",
-        })
+        resp = test_client.patch(
+            f"/agents/{agent_id}",
+            json={
+                "agent_version": "2.0.0",
+                "description": "Updated to v2",
+            },
+        )
         assert resp.status_code == 200
         body = resp.json()
         assert body["agent_version"] == "2.0.0"
@@ -526,6 +587,7 @@ class TestAgentLifecycle:
 # 5. CROSS-CLIENT TOKEN ISOLATION
 # ═════════════════════════════════════════════════════════════════════
 
+
 class TestCrossClientIsolation:
     """Tokens from one client cannot be used by another client."""
 
@@ -533,11 +595,14 @@ class TestCrossClientIsolation:
         a = _register(test_client, name="client-a")
         b = _register(test_client, name="client-b")
 
-        resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": a["client_id"],
-            "client_secret": b["client_secret"],
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": a["client_id"],
+                "client_secret": b["client_secret"],
+            },
+        )
         assert resp.status_code == 401
 
     def test_revoke_only_affects_target_token(self, test_client):
@@ -567,6 +632,7 @@ class TestCrossClientIsolation:
 # 6. TOKEN INTROSPECTION COMPLETENESS
 # ═════════════════════════════════════════════════════════════════════
 
+
 class TestTokenIntrospectionCompleteness:
     """Introspection returns all expected RFC 7662 + delegation fields."""
 
@@ -593,8 +659,9 @@ class TestTokenIntrospectionCompleteness:
             scope="read",
         )
         tok = _cc_token(test_client, parent, scope="read write")
-        _, body = _exchange(test_client, child, tok["access_token"],
-                            audience="target", scope="read")
+        _, body = _exchange(
+            test_client, child, tok["access_token"], audience="target", scope="read"
+        )
         intro = _introspect(test_client, body["access_token"])
 
         assert intro["active"] is True
@@ -622,44 +689,58 @@ class TestTokenIntrospectionCompleteness:
 # 7. DEVICE GRANT → TOKEN EXCHANGE PIPELINE
 # ═════════════════════════════════════════════════════════════════════
 
+
 class TestDeviceGrantPipeline:
     """CLI agent authenticates via device grant, then exchanges token downstream."""
 
     def test_device_grant_token_can_be_exchanged(self, test_client):
         """Token from device grant is a normal access token usable in exchange."""
         cli = _register(
-            test_client, name="cli-agent",
+            test_client,
+            name="cli-agent",
             grant_types=["client_credentials", "urn:ietf:params:oauth:grant-type:device_code"],
             scope="read write",
         )
         downstream = _register(
-            test_client, name="downstream",
+            test_client,
+            name="downstream",
             grant_types=["client_credentials", "urn:ietf:params:oauth:grant-type:token-exchange"],
             scope="read",
         )
 
         # Device flow
-        dev_resp = test_client.post("/device/authorize", data={
-            "client_id": cli["client_id"], "scope": "read write",
-        })
+        dev_resp = test_client.post(
+            "/device/authorize",
+            data={
+                "client_id": cli["client_id"],
+                "scope": "read write",
+            },
+        )
         dev = dev_resp.json()
 
-        test_client.post("/device/complete", json={
-            "user_code": dev["user_code"],
-            "subject": "user:developer",
-            "action": "approve",
-        })
+        test_client.post(
+            "/device/complete",
+            json={
+                "user_code": dev["user_code"],
+                "subject": "user:developer",
+                "action": "approve",
+            },
+        )
 
-        tok_resp = test_client.post("/device/token", data={
-            "device_code": dev["device_code"],
-            "client_id": cli["client_id"],
-        })
+        tok_resp = test_client.post(
+            "/device/token",
+            data={
+                "device_code": dev["device_code"],
+                "client_id": cli["client_id"],
+            },
+        )
         assert tok_resp.status_code == 200
         device_token = tok_resp.json()["access_token"]
 
         # Exchange the device-granted token
-        status, body = _exchange(test_client, downstream, device_token,
-                                 audience="agent:worker", scope="read")
+        status, body = _exchange(
+            test_client, downstream, device_token, audience="agent:worker", scope="read"
+        )
         assert status == 200
         intro = _introspect(test_client, body["access_token"])
         assert intro["active"] is True
@@ -668,32 +749,45 @@ class TestDeviceGrantPipeline:
     def test_device_code_consumed_after_use(self, test_client):
         """Device code can only be redeemed once (one-time use)."""
         cli = _register(
-            test_client, name="single-use",
+            test_client,
+            name="single-use",
             grant_types=["client_credentials", "urn:ietf:params:oauth:grant-type:device_code"],
         )
 
-        dev = test_client.post("/device/authorize", data={
-            "client_id": cli["client_id"],
-        }).json()
+        dev = test_client.post(
+            "/device/authorize",
+            data={
+                "client_id": cli["client_id"],
+            },
+        ).json()
 
-        test_client.post("/device/complete", json={
-            "user_code": dev["user_code"],
-            "subject": "user:dev",
-            "action": "approve",
-        })
+        test_client.post(
+            "/device/complete",
+            json={
+                "user_code": dev["user_code"],
+                "subject": "user:dev",
+                "action": "approve",
+            },
+        )
 
         # First poll → success
-        r1 = test_client.post("/device/token", data={
-            "device_code": dev["device_code"],
-            "client_id": cli["client_id"],
-        })
+        r1 = test_client.post(
+            "/device/token",
+            data={
+                "device_code": dev["device_code"],
+                "client_id": cli["client_id"],
+            },
+        )
         assert r1.status_code == 200
 
         # Second poll → consumed
-        r2 = test_client.post("/device/token", data={
-            "device_code": dev["device_code"],
-            "client_id": cli["client_id"],
-        })
+        r2 = test_client.post(
+            "/device/token",
+            data={
+                "device_code": dev["device_code"],
+                "client_id": cli["client_id"],
+            },
+        )
         assert r2.status_code == 400
 
     def test_device_denial_prevents_token_issuance(self, test_client):
@@ -701,20 +795,29 @@ class TestDeviceGrantPipeline:
             test_client,
             grant_types=["client_credentials", "urn:ietf:params:oauth:grant-type:device_code"],
         )
-        dev = test_client.post("/device/authorize", data={
-            "client_id": cli["client_id"],
-        }).json()
+        dev = test_client.post(
+            "/device/authorize",
+            data={
+                "client_id": cli["client_id"],
+            },
+        ).json()
 
-        test_client.post("/device/complete", json={
-            "user_code": dev["user_code"],
-            "subject": "user:dev",
-            "action": "deny",
-        })
+        test_client.post(
+            "/device/complete",
+            json={
+                "user_code": dev["user_code"],
+                "subject": "user:dev",
+                "action": "deny",
+            },
+        )
 
-        r = test_client.post("/device/token", data={
-            "device_code": dev["device_code"],
-            "client_id": cli["client_id"],
-        })
+        r = test_client.post(
+            "/device/token",
+            data={
+                "device_code": dev["device_code"],
+                "client_id": cli["client_id"],
+            },
+        )
         assert r.status_code == 400
 
 
@@ -722,16 +825,20 @@ class TestDeviceGrantPipeline:
 # 8. HITL STEP-UP INTEGRATED WORKFLOW
 # ═════════════════════════════════════════════════════════════════════
 
+
 class TestHITLStepUpWorkflow:
     """Agent encounters sensitive operation → requests step-up → human decides."""
 
     def test_full_approve_flow(self, test_client):
-        resp = test_client.post("/stepup", json={
-            "agent_id": "agent:cleanup-bot",
-            "action": "DELETE FROM users WHERE inactive=true",
-            "scope": "db:delete",
-            "resource": "https://db.example.com/users",
-        })
+        resp = test_client.post(
+            "/stepup",
+            json={
+                "agent_id": "agent:cleanup-bot",
+                "action": "DELETE FROM users WHERE inactive=true",
+                "scope": "db:delete",
+                "resource": "https://db.example.com/users",
+            },
+        )
         assert resp.status_code == 202
         req_id = resp.json()["id"]
         assert resp.json()["status"] == "pending"
@@ -741,9 +848,12 @@ class TestHITLStepUpWorkflow:
         assert poll.json()["status"] == "pending"
 
         # Approve
-        approve = test_client.post(f"/stepup/{req_id}/approve", json={
-            "approved_by": "dba@company.com",
-        })
+        approve = test_client.post(
+            f"/stepup/{req_id}/approve",
+            json={
+                "approved_by": "dba@company.com",
+            },
+        )
         assert approve.status_code == 200
         assert approve.json()["status"] == "approved"
         assert approve.json()["approved_by"] == "dba@company.com"
@@ -754,11 +864,14 @@ class TestHITLStepUpWorkflow:
         assert final.json()["status"] == "approved"
 
     def test_full_deny_flow(self, test_client):
-        resp = test_client.post("/stepup", json={
-            "agent_id": "agent:rogue",
-            "action": "DROP DATABASE production",
-            "scope": "db:admin",
-        })
+        resp = test_client.post(
+            "/stepup",
+            json={
+                "agent_id": "agent:rogue",
+                "action": "DROP DATABASE production",
+                "scope": "db:admin",
+            },
+        )
         req_id = resp.json()["id"]
 
         deny = test_client.post(f"/stepup/{req_id}/deny")
@@ -766,9 +879,14 @@ class TestHITLStepUpWorkflow:
         assert deny.json()["status"] == "denied"
 
     def test_cannot_approve_already_approved(self, test_client):
-        resp = test_client.post("/stepup", json={
-            "agent_id": "x", "action": "y", "scope": "z",
-        })
+        resp = test_client.post(
+            "/stepup",
+            json={
+                "agent_id": "x",
+                "action": "y",
+                "scope": "z",
+            },
+        )
         req_id = resp.json()["id"]
         test_client.post(f"/stepup/{req_id}/approve", json={"approved_by": "a"})
 
@@ -776,9 +894,14 @@ class TestHITLStepUpWorkflow:
         assert double.status_code == 400
 
     def test_cannot_deny_already_denied(self, test_client):
-        resp = test_client.post("/stepup", json={
-            "agent_id": "x", "action": "y", "scope": "z",
-        })
+        resp = test_client.post(
+            "/stepup",
+            json={
+                "agent_id": "x",
+                "action": "y",
+                "scope": "z",
+            },
+        )
         req_id = resp.json()["id"]
         test_client.post(f"/stepup/{req_id}/deny")
 
@@ -787,17 +910,20 @@ class TestHITLStepUpWorkflow:
 
     def test_stepup_with_metadata(self, test_client):
         """Step-up request can carry arbitrary context for the reviewer."""
-        resp = test_client.post("/stepup", json={
-            "agent_id": "agent:data-bot",
-            "action": "export_pii",
-            "scope": "data:export",
-            "resource": "https://api.example.com/users/export",
-            "metadata": {
-                "rows": 50000,
-                "reason": "GDPR data subject access request",
-                "ticket": "JIRA-12345",
+        resp = test_client.post(
+            "/stepup",
+            json={
+                "agent_id": "agent:data-bot",
+                "action": "export_pii",
+                "scope": "data:export",
+                "resource": "https://api.example.com/users/export",
+                "metadata": {
+                    "rows": 50000,
+                    "reason": "GDPR data subject access request",
+                    "ticket": "JIRA-12345",
+                },
             },
-        })
+        )
         assert resp.status_code == 202
         assert resp.json()["status"] == "pending"
 
@@ -805,6 +931,7 @@ class TestHITLStepUpWorkflow:
 # ═════════════════════════════════════════════════════════════════════
 # 9. AUTHORIZATION CODE FLOW — EDGE CASES
 # ═════════════════════════════════════════════════════════════════════
+
 
 class TestAuthCodeEdgeCases:
     """Auth code flow: redirect URI validation, nonce, resource indicators."""
@@ -817,14 +944,17 @@ class TestAuthCodeEdgeCases:
             redirect_uris=["http://localhost:3000/callback"],
         )
         verifier, challenge = _pkce()
-        resp = test_client.get("/authorize", params={
-            "response_type": "code",
-            "client_id": creds["client_id"],
-            "redirect_uri": "http://evil.com/steal",
-            "scope": "read",
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-        })
+        resp = test_client.get(
+            "/authorize",
+            params={
+                "response_type": "code",
+                "client_id": creds["client_id"],
+                "redirect_uri": "http://evil.com/steal",
+                "scope": "read",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+            },
+        )
         assert resp.status_code == 400
 
     def test_missing_pkce_rejected(self, test_client):
@@ -834,12 +964,15 @@ class TestAuthCodeEdgeCases:
             grant_types=["authorization_code"],
             redirect_uris=["http://localhost:3000/callback"],
         )
-        resp = test_client.get("/authorize", params={
-            "response_type": "code",
-            "client_id": creds["client_id"],
-            "redirect_uri": "http://localhost:3000/callback",
-            "scope": "read",
-        })
+        resp = test_client.get(
+            "/authorize",
+            params={
+                "response_type": "code",
+                "client_id": creds["client_id"],
+                "redirect_uri": "http://localhost:3000/callback",
+                "scope": "read",
+            },
+        )
         assert resp.status_code == 400
 
     def test_only_s256_challenge_method_accepted(self, test_client):
@@ -849,14 +982,17 @@ class TestAuthCodeEdgeCases:
             redirect_uris=["http://localhost:3000/callback"],
         )
         _, challenge = _pkce()
-        resp = test_client.get("/authorize", params={
-            "response_type": "code",
-            "client_id": creds["client_id"],
-            "redirect_uri": "http://localhost:3000/callback",
-            "scope": "read",
-            "code_challenge": challenge,
-            "code_challenge_method": "plain",
-        })
+        resp = test_client.get(
+            "/authorize",
+            params={
+                "response_type": "code",
+                "client_id": creds["client_id"],
+                "redirect_uri": "http://localhost:3000/callback",
+                "scope": "read",
+                "code_challenge": challenge,
+                "code_challenge_method": "plain",
+            },
+        )
         assert resp.status_code == 400
 
     def test_state_preserved_in_redirect(self, test_client):
@@ -866,15 +1002,19 @@ class TestAuthCodeEdgeCases:
             redirect_uris=["http://localhost:3000/callback"],
         )
         _, challenge = _pkce()
-        resp = test_client.get("/authorize", params={
-            "response_type": "code",
-            "client_id": creds["client_id"],
-            "redirect_uri": "http://localhost:3000/callback",
-            "scope": "read",
-            "state": "csrf_random_789",
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-        }, follow_redirects=False)
+        resp = test_client.get(
+            "/authorize",
+            params={
+                "response_type": "code",
+                "client_id": creds["client_id"],
+                "redirect_uri": "http://localhost:3000/callback",
+                "scope": "read",
+                "state": "csrf_random_789",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+            },
+            follow_redirects=False,
+        )
         assert resp.status_code == 302
         assert "state=csrf_random_789" in resp.headers["location"]
 
@@ -886,8 +1026,9 @@ class TestAuthCodeEdgeCases:
             redirect_uris=["http://localhost:3000/callback"],
             scope="read",
         )
-        tokens = _auth_code_flow(test_client, creds, scope="read",
-                                 resource="https://mcp.example.com/")
+        tokens = _auth_code_flow(
+            test_client, creds, scope="read", resource="https://mcp.example.com/"
+        )
         assert "access_token" in tokens
 
 
@@ -895,49 +1036,61 @@ class TestAuthCodeEdgeCases:
 # 10. HTTP BASIC AUTH & TOKEN ENDPOINT VARIANTS
 # ═════════════════════════════════════════════════════════════════════
 
+
 class TestTokenEndpointAuth:
     """Token endpoint supports multiple authentication methods."""
 
     def test_http_basic_auth(self, test_client):
         creds = _register(test_client, scope="read")
-        basic = base64.b64encode(
-            f"{creds['client_id']}:{creds['client_secret']}".encode()
-        ).decode()
-        resp = test_client.post("/token",
+        basic = base64.b64encode(f"{creds['client_id']}:{creds['client_secret']}".encode()).decode()
+        resp = test_client.post(
+            "/token",
             data={"grant_type": "client_credentials", "scope": "read"},
-            headers={"authorization": f"Basic {basic}"})
+            headers={"authorization": f"Basic {basic}"},
+        )
         assert resp.status_code == 200
         assert "access_token" in resp.json()
 
     def test_client_secret_in_form_body(self, test_client):
         creds = _register(test_client, scope="read")
-        resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "scope": "read",
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "scope": "read",
+            },
+        )
         assert resp.status_code == 200
 
     def test_missing_client_id_returns_401(self, test_client):
-        resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+            },
+        )
         assert resp.status_code == 401
 
     def test_wrong_content_type_returns_400(self, test_client):
-        resp = test_client.post("/token",
+        resp = test_client.post(
+            "/token",
             json={"grant_type": "client_credentials"},
-            headers={"content-type": "application/json"})
+            headers={"content-type": "application/json"},
+        )
         assert resp.status_code == 400
 
     def test_unsupported_grant_type(self, test_client):
         creds = _register(test_client)
-        resp = test_client.post("/token", data={
-            "grant_type": "password",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "password",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+            },
+        )
         assert resp.status_code == 400
         assert resp.json()["error"] in ("unsupported_grant_type", "invalid_request")
 
@@ -945,6 +1098,7 @@ class TestTokenEndpointAuth:
 # ═════════════════════════════════════════════════════════════════════
 # 11. REVOCATION BLAST RADIUS
 # ═════════════════════════════════════════════════════════════════════
+
 
 class TestRevocationBlastRadius:
     """Verify revocation affects only the intended tokens."""
@@ -990,6 +1144,7 @@ class TestRevocationBlastRadius:
 # ═════════════════════════════════════════════════════════════════════
 # 12. DISCOVERY METADATA ACCURACY
 # ═════════════════════════════════════════════════════════════════════
+
 
 class TestDiscoveryMetadata:
     """Verify discovery documents are accurate and consistent."""
@@ -1065,13 +1220,17 @@ class TestDiscoveryMetadata:
         meta = test_client.get("/.well-known/oauth-authorization-server").json()
 
         # Token endpoint
-        r = test_client.post(meta["token_endpoint"].replace("http://localhost:8000", ""),
-                             data={"grant_type": "client_credentials"})
+        r = test_client.post(
+            meta["token_endpoint"].replace("http://localhost:8000", ""),
+            data={"grant_type": "client_credentials"},
+        )
         assert r.status_code in (400, 401)  # expected error, but endpoint is alive
 
         # Registration
-        r2 = test_client.post(meta["registration_endpoint"].replace("http://localhost:8000", ""),
-                              json={"client_name": "probe"})
+        r2 = test_client.post(
+            meta["registration_endpoint"].replace("http://localhost:8000", ""),
+            json={"client_name": "probe"},
+        )
         assert r2.status_code == 201
 
         # JWKS
@@ -1084,48 +1243,68 @@ class TestDiscoveryMetadata:
 # 13. CLIENT REGISTRATION VALIDATION
 # ═════════════════════════════════════════════════════════════════════
 
+
 class TestClientRegistrationValidation:
     """Input validation on Dynamic Client Registration (RFC 7591)."""
 
     def test_register_with_all_valid_grant_types(self, test_client):
-        for gt in ["client_credentials", "authorization_code", "refresh_token",
-                    "urn:ietf:params:oauth:grant-type:token-exchange",
-                    "urn:ietf:params:oauth:grant-type:device_code"]:
-            resp = test_client.post("/register", json={
-                "client_name": f"test-{gt[:10]}",
-                "grant_types": [gt],
-            })
+        for gt in [
+            "client_credentials",
+            "authorization_code",
+            "refresh_token",
+            "urn:ietf:params:oauth:grant-type:token-exchange",
+            "urn:ietf:params:oauth:grant-type:device_code",
+        ]:
+            resp = test_client.post(
+                "/register",
+                json={
+                    "client_name": f"test-{gt[:10]}",
+                    "grant_types": [gt],
+                },
+            )
             assert resp.status_code == 201, f"Failed for grant_type: {gt}"
 
     def test_invalid_grant_type_rejected(self, test_client):
-        resp = test_client.post("/register", json={
-            "client_name": "bad",
-            "grant_types": ["password"],
-        })
+        resp = test_client.post(
+            "/register",
+            json={
+                "client_name": "bad",
+                "grant_types": ["password"],
+            },
+        )
         assert resp.status_code == 422
 
     def test_redirect_uri_fragment_rejected(self, test_client):
-        resp = test_client.post("/register", json={
-            "client_name": "bad",
-            "grant_types": ["authorization_code"],
-            "redirect_uris": ["http://localhost:3000/callback#fragment"],
-        })
+        resp = test_client.post(
+            "/register",
+            json={
+                "client_name": "bad",
+                "grant_types": ["authorization_code"],
+                "redirect_uris": ["http://localhost:3000/callback#fragment"],
+            },
+        )
         assert resp.status_code == 422
 
     def test_redirect_uri_non_https_non_localhost_rejected(self, test_client):
-        resp = test_client.post("/register", json={
-            "client_name": "bad",
-            "grant_types": ["authorization_code"],
-            "redirect_uris": ["http://evil.com/callback"],
-        })
+        resp = test_client.post(
+            "/register",
+            json={
+                "client_name": "bad",
+                "grant_types": ["authorization_code"],
+                "redirect_uris": ["http://evil.com/callback"],
+            },
+        )
         assert resp.status_code == 422
 
     def test_redirect_uri_localhost_http_allowed(self, test_client):
-        resp = test_client.post("/register", json={
-            "client_name": "local-dev",
-            "grant_types": ["authorization_code"],
-            "redirect_uris": ["http://localhost:3000/cb"],
-        })
+        resp = test_client.post(
+            "/register",
+            json={
+                "client_name": "local-dev",
+                "grant_types": ["authorization_code"],
+                "redirect_uris": ["http://localhost:3000/cb"],
+            },
+        )
         assert resp.status_code == 201
 
     def test_client_ids_are_unique(self, test_client):
@@ -1143,13 +1322,15 @@ class TestClientRegistrationValidation:
 # 14. MULTI-GRANT CLIENT LIFECYCLE
 # ═════════════════════════════════════════════════════════════════════
 
+
 class TestMultiGrantClientLifecycle:
     """A single client uses multiple grant types in sequence."""
 
     def test_client_uses_cc_then_auth_code_then_refresh(self, test_client):
         """One client exercises client_credentials, auth_code, and refresh."""
         creds = _register(
-            test_client, name="multi-grant",
+            test_client,
+            name="multi-grant",
             grant_types=["client_credentials", "authorization_code", "refresh_token"],
             scope="read write",
             redirect_uris=["http://localhost:3000/callback"],
@@ -1165,12 +1346,15 @@ class TestMultiGrantClientLifecycle:
         assert ac_tok["refresh_token"]
 
         # 3. Refresh token
-        r = test_client.post("/token", data={
-            "grant_type": "refresh_token",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "refresh_token": ac_tok["refresh_token"],
-        })
+        r = test_client.post(
+            "/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "refresh_token": ac_tok["refresh_token"],
+            },
+        )
         assert r.status_code == 200
         assert r.json()["access_token"] != ac_tok["access_token"]
 
@@ -1178,7 +1362,8 @@ class TestMultiGrantClientLifecycle:
         """A client can both get its own token and exchange another's."""
         provider = _register(test_client, scope="a b c")
         dual = _register(
-            test_client, name="dual-mode",
+            test_client,
+            name="dual-mode",
             grant_types=["client_credentials", "urn:ietf:params:oauth:grant-type:token-exchange"],
             scope="a b",
         )
@@ -1189,8 +1374,7 @@ class TestMultiGrantClientLifecycle:
 
         # Exchange someone else's token
         provider_tok = _cc_token(test_client, provider, scope="a b c")["access_token"]
-        status, body = _exchange(test_client, dual, provider_tok,
-                                 audience="target", scope="a")
+        status, body = _exchange(test_client, dual, provider_tok, audience="target", scope="a")
         assert status == 200
 
 
@@ -1198,46 +1382,58 @@ class TestMultiGrantClientLifecycle:
 # 15. RESOURCE INDICATOR VALIDATION (RFC 8707)
 # ═════════════════════════════════════════════════════════════════════
 
+
 class TestResourceIndicators:
     """RFC 8707 resource indicators — audience binding for tokens."""
 
     def test_resource_in_allowed_list_accepted(self, test_client):
         creds = _register(
-            test_client, scope="read",
+            test_client,
+            scope="read",
             allowed_resources=["https://api.example.com/", "https://mcp.example.com/"],
         )
-        resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "scope": "read",
-            "resource": "https://api.example.com/",
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "scope": "read",
+                "resource": "https://api.example.com/",
+            },
+        )
         assert resp.status_code == 200
 
     def test_resource_not_in_allowed_list_rejected(self, test_client):
         creds = _register(
-            test_client, scope="read",
+            test_client,
+            scope="read",
             allowed_resources=["https://api.example.com/"],
         )
-        resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "scope": "read",
-            "resource": "https://evil.com/",
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "scope": "read",
+                "resource": "https://evil.com/",
+            },
+        )
         assert resp.status_code == 400
 
     def test_no_allowed_resources_means_unrestricted(self, test_client):
         creds = _register(test_client, scope="read")  # no allowed_resources
-        resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "scope": "read",
-            "resource": "https://anything.example.com/",
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "scope": "read",
+                "resource": "https://anything.example.com/",
+            },
+        )
         assert resp.status_code == 200
 
 
@@ -1245,8 +1441,8 @@ class TestResourceIndicators:
 # 16. HEALTH ENDPOINTS
 # ═════════════════════════════════════════════════════════════════════
 
-class TestHealthEndpoints:
 
+class TestHealthEndpoints:
     def test_liveness(self, test_client):
         r = test_client.get("/health")
         assert r.status_code == 200
@@ -1264,15 +1460,19 @@ class TestHealthEndpoints:
 # 17. ERROR FORMAT COMPLIANCE
 # ═════════════════════════════════════════════════════════════════════
 
+
 class TestErrorFormats:
     """OAuth endpoints use RFC 6749 error format; others use RFC 9457."""
 
     def test_token_endpoint_returns_oauth_error_format(self, test_client):
-        resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": "nonexistent",
-            "client_secret": "bad",
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": "nonexistent",
+                "client_secret": "bad",
+            },
+        )
         body = resp.json()
         assert "error" in body
         assert "error_description" in body
@@ -1297,8 +1497,8 @@ class TestErrorFormats:
 # 18. SCOPE VALIDATION ON REGISTRATION & TOKEN REQUEST
 # ═════════════════════════════════════════════════════════════════════
 
-class TestScopeValidation:
 
+class TestScopeValidation:
     def test_request_scope_subset_of_registration(self, test_client):
         creds = _register(test_client, scope="read write admin")
         tok = _cc_token(test_client, creds, scope="read")
@@ -1308,20 +1508,26 @@ class TestScopeValidation:
 
     def test_request_scope_exceeding_registration_rejected(self, test_client):
         creds = _register(test_client, scope="read")
-        resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "scope": "read admin",
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "scope": "read admin",
+            },
+        )
         assert resp.status_code in (400, 403)
 
     def test_empty_scope_defaults_to_client_scope(self, test_client):
         creds = _register(test_client, scope="read write")
-        resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            # no scope param
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                # no scope param
+            },
+        )
         assert resp.status_code == 200

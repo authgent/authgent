@@ -10,22 +10,28 @@ from freezegun import freeze_time
 
 
 def _register(c, scope="read"):
-    resp = c.post("/register", json={
-        "client_name": f"test-{secrets.token_hex(4)}",
-        "grant_types": ["client_credentials"],
-        "scope": scope,
-    })
+    resp = c.post(
+        "/register",
+        json={
+            "client_name": f"test-{secrets.token_hex(4)}",
+            "grant_types": ["client_credentials"],
+            "scope": scope,
+        },
+    )
     assert resp.status_code == 201
     return resp.json()
 
 
 def _cc_token(c, creds, scope="read"):
-    resp = c.post("/token", data={
-        "grant_type": "client_credentials",
-        "client_id": creds["client_id"],
-        "client_secret": creds["client_secret"],
-        "scope": scope,
-    })
+    resp = c.post(
+        "/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+            "scope": scope,
+        },
+    )
     assert resp.status_code == 200
     return resp.json()
 

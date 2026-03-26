@@ -22,6 +22,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 # ─── DPoP Proof Builder ─────────────────────────────────────────────
 
+
 def _ec_keypair() -> tuple[ec.EllipticCurvePrivateKey, dict]:
     """Generate an ephemeral ES256 key pair + JWK representation."""
     private_key = ec.generate_private_key(ec.SECP256R1())
@@ -48,9 +49,9 @@ def _compute_jkt(jwk: dict) -> str:
         separators=(",", ":"),
         sort_keys=True,
     )
-    return base64.urlsafe_b64encode(
-        hashlib.sha256(canonical.encode()).digest()
-    ).rstrip(b"=").decode()
+    return (
+        base64.urlsafe_b64encode(hashlib.sha256(canonical.encode()).digest()).rstrip(b"=").decode()
+    )
 
 
 def _dpop_proof(
@@ -74,9 +75,11 @@ def _dpop_proof(
         "jti": secrets.token_urlsafe(16),
     }
     if access_token:
-        ath = base64.urlsafe_b64encode(
-            hashlib.sha256(access_token.encode()).digest()
-        ).rstrip(b"=").decode()
+        ath = (
+            base64.urlsafe_b64encode(hashlib.sha256(access_token.encode()).digest())
+            .rstrip(b"=")
+            .decode()
+        )
         payload["ath"] = ath
     if nonce:
         payload["nonce"] = nonce
@@ -85,6 +88,7 @@ def _dpop_proof(
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────
+
 
 def _register(c, **kw):
     body = {
@@ -109,6 +113,7 @@ def _introspect(c, token):
 # DPoP END-TO-END INTEGRATION TESTS
 # ═════════════════════════════════════════════════════════════════════
 
+
 class TestDPoPClientCredentialsFlow:
     """Client sends DPoP proof with client_credentials grant → gets DPoP-bound token."""
 
@@ -121,13 +126,15 @@ class TestDPoPClientCredentialsFlow:
         # Build DPoP proof for POST /token
         # TestClient uses http://testserver as base URL
         proof = _dpop_proof(
-            private_key, jwk,
+            private_key,
+            jwk,
             htm="POST",
             htu="http://testserver/token",
         )
 
         # Send token request with DPoP header
-        resp = test_client.post("/token",
+        resp = test_client.post(
+            "/token",
             data={
                 "grant_type": "client_credentials",
                 "client_id": creds["client_id"],
@@ -156,7 +163,8 @@ class TestDPoPClientCredentialsFlow:
 
         proof = _dpop_proof(private_key, jwk, htm="POST", htu="http://testserver/token")
 
-        resp = test_client.post("/token",
+        resp = test_client.post(
+            "/token",
             data={
                 "grant_type": "client_credentials",
                 "client_id": creds["client_id"],
@@ -177,12 +185,15 @@ class TestDPoPClientCredentialsFlow:
         """Without DPoP header, token is regular Bearer (no cnf)."""
         creds = _register(test_client, scope="read")
 
-        resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "scope": "read",
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "scope": "read",
+            },
+        )
         assert resp.status_code == 200
         body = resp.json()
         assert body["token_type"] == "Bearer"
@@ -197,7 +208,8 @@ class TestDPoPProofValidation:
     def test_malformed_dpop_proof_rejected(self, test_client):
         """Garbage DPoP header → 401 (InvalidDPoPProof per RFC 9449)."""
         creds = _register(test_client)
-        resp = test_client.post("/token",
+        resp = test_client.post(
+            "/token",
             data={
                 "grant_type": "client_credentials",
                 "client_id": creds["client_id"],
@@ -214,7 +226,8 @@ class TestDPoPProofValidation:
 
         proof = _dpop_proof(private_key, jwk, htm="GET", htu="http://testserver/token")
 
-        resp = test_client.post("/token",
+        resp = test_client.post(
+            "/token",
             data={
                 "grant_type": "client_credentials",
                 "client_id": creds["client_id"],
@@ -230,12 +243,14 @@ class TestDPoPProofValidation:
         private_key, jwk = _ec_keypair()
 
         proof = _dpop_proof(
-            private_key, jwk,
+            private_key,
+            jwk,
             htm="POST",
             htu="http://evil.com/token",  # wrong URI
         )
 
-        resp = test_client.post("/token",
+        resp = test_client.post(
+            "/token",
             data={
                 "grant_type": "client_credentials",
                 "client_id": creds["client_id"],
@@ -261,7 +276,8 @@ class TestDPoPProofValidation:
         }
         bad_proof = jwt.encode(payload, signing_key, algorithm="ES256", headers=headers)
 
-        resp = test_client.post("/token",
+        resp = test_client.post(
+            "/token",
             data={
                 "grant_type": "client_credentials",
                 "client_id": creds["client_id"],
@@ -285,12 +301,15 @@ class TestDPoPTokenExchange:
         )
 
         # Parent gets a regular Bearer token
-        parent_resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": parent["client_id"],
-            "client_secret": parent["client_secret"],
-            "scope": "read write",
-        })
+        parent_resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": parent["client_id"],
+                "client_secret": parent["client_secret"],
+                "scope": "read write",
+            },
+        )
         parent_token = parent_resp.json()["access_token"]
 
         # Child exchanges with DPoP proof
@@ -299,7 +318,8 @@ class TestDPoPTokenExchange:
 
         proof = _dpop_proof(child_key, child_jwk, htm="POST", htu="http://testserver/token")
 
-        exchange_resp = test_client.post("/token",
+        exchange_resp = test_client.post(
+            "/token",
             data={
                 "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
                 "client_id": child["client_id"],
@@ -338,19 +358,23 @@ class TestDPoPTokenExchange:
             scope="read",
         )
 
-        parent_token = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": parent["client_id"],
-            "client_secret": parent["client_secret"],
-            "scope": "read write",
-        }).json()["access_token"]
+        parent_token = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": parent["client_id"],
+                "client_secret": parent["client_secret"],
+                "scope": "read write",
+            },
+        ).json()["access_token"]
 
         # Agent A exchanges with its key
         key_a, jwk_a = _ec_keypair()
         jkt_a = _compute_jkt(jwk_a)
         proof_a = _dpop_proof(key_a, jwk_a, htm="POST", htu="http://testserver/token")
 
-        resp_a = test_client.post("/token",
+        resp_a = test_client.post(
+            "/token",
             data={
                 "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
                 "client_id": child_a["client_id"],
@@ -370,7 +394,8 @@ class TestDPoPTokenExchange:
         jkt_b = _compute_jkt(jwk_b)
         proof_b = _dpop_proof(key_b, jwk_b, htm="POST", htu="http://testserver/token")
 
-        resp_b = test_client.post("/token",
+        resp_b = test_client.post(
+            "/token",
             data={
                 "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
                 "client_id": child_b["client_id"],

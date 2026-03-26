@@ -16,6 +16,4 @@ class DelegationReceipt(ULIDMixin, Base):
     actor_id: Mapped[str] = mapped_column(String(255), nullable=False)
     receipt_jwt: Mapped[str] = mapped_column(Text, nullable=False)
     chain_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(UTC)
-    )
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

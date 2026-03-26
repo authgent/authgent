@@ -29,9 +29,9 @@ def report(name: str, passed: bool, detail: str = ""):
 
 
 def section(title: str):
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  {title}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
 
 # ──────────────────────────────────────────────────────────
@@ -47,14 +47,22 @@ def test_discovery():
     report("  issuer is set", meta.get("issuer") == BASE)
     report("  token_endpoint present", "token_endpoint" in meta)
     report("  resource_indicators_supported", meta.get("resource_indicators_supported") is True)
-    report("  grant_types include client_credentials",
-           "client_credentials" in meta.get("grant_types_supported", []))
-    report("  grant_types include authorization_code",
-           "authorization_code" in meta.get("grant_types_supported", []))
-    report("  grant_types include token-exchange",
-           "urn:ietf:params:oauth:grant-type:token-exchange" in meta.get("grant_types_supported", []))
-    report("  code_challenge_methods include S256",
-           "S256" in meta.get("code_challenge_methods_supported", []))
+    report(
+        "  grant_types include client_credentials",
+        "client_credentials" in meta.get("grant_types_supported", []),
+    )
+    report(
+        "  grant_types include authorization_code",
+        "authorization_code" in meta.get("grant_types_supported", []),
+    )
+    report(
+        "  grant_types include token-exchange",
+        "urn:ietf:params:oauth:grant-type:token-exchange" in meta.get("grant_types_supported", []),
+    )
+    report(
+        "  code_challenge_methods include S256",
+        "S256" in meta.get("code_challenge_methods_supported", []),
+    )
 
     # OIDC Discovery alias
     r2 = httpx.get(f"{BASE}/.well-known/openid-configuration")
@@ -93,12 +101,18 @@ def test_client_registration():
     global client_a, client_b
 
     # Register client A (search-bot)
-    r = httpx.post(f"{BASE}/register", json={
-        "client_name": "search-bot",
-        "grant_types": ["client_credentials", "urn:ietf:params:oauth:grant-type:token-exchange"],
-        "scope": "search:execute db:read",
-        "allowed_resources": ["https://mcp-server.example.com/"],
-    })
+    r = httpx.post(
+        f"{BASE}/register",
+        json={
+            "client_name": "search-bot",
+            "grant_types": [
+                "client_credentials",
+                "urn:ietf:params:oauth:grant-type:token-exchange",
+            ],
+            "scope": "search:execute db:read",
+            "allowed_resources": ["https://mcp-server.example.com/"],
+        },
+    )
     report("Register client A returns 201", r.status_code == 201)
     data = r.json()
     report("  client_id starts with agnt_", data.get("client_id", "").startswith("agnt_"))
@@ -107,20 +121,26 @@ def test_client_registration():
     client_a = {"client_id": data["client_id"], "client_secret": data["client_secret"]}
 
     # Register client B (db-reader)
-    r2 = httpx.post(f"{BASE}/register", json={
-        "client_name": "db-reader",
-        "grant_types": ["client_credentials"],
-        "scope": "db:read db:write",
-    })
+    r2 = httpx.post(
+        f"{BASE}/register",
+        json={
+            "client_name": "db-reader",
+            "grant_types": ["client_credentials"],
+            "scope": "db:read db:write",
+        },
+    )
     report("Register client B returns 201", r2.status_code == 201)
     data2 = r2.json()
     client_b = {"client_id": data2["client_id"], "client_secret": data2["client_secret"]}
 
     # Invalid registration — bad grant type
-    r3 = httpx.post(f"{BASE}/register", json={
-        "client_name": "bad-client",
-        "grant_types": ["invalid_grant_type"],
-    })
+    r3 = httpx.post(
+        f"{BASE}/register",
+        json={
+            "client_name": "bad-client",
+            "grant_types": ["invalid_grant_type"],
+        },
+    )
     report("Invalid grant type rejected (422)", r3.status_code == 422)
 
 
@@ -136,13 +156,16 @@ def test_client_credentials():
     global access_token_a
 
     # Valid client_credentials
-    r = httpx.post(f"{BASE}/token", data={
-        "grant_type": "client_credentials",
-        "client_id": client_a["client_id"],
-        "client_secret": client_a["client_secret"],
-        "scope": "search:execute",
-        "resource": "https://mcp-server.example.com/",
-    })
+    r = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_a["client_id"],
+            "client_secret": client_a["client_secret"],
+            "scope": "search:execute",
+            "resource": "https://mcp-server.example.com/",
+        },
+    )
     report("Client credentials grant returns 200", r.status_code == 200)
     data = r.json()
     report("  access_token present", bool(data.get("access_token")))
@@ -152,33 +175,43 @@ def test_client_credentials():
     access_token_a = data.get("access_token", "")
 
     # Wrong secret
-    r2 = httpx.post(f"{BASE}/token", data={
-        "grant_type": "client_credentials",
-        "client_id": client_a["client_id"],
-        "client_secret": "wrong_secret",
-    })
+    r2 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_a["client_id"],
+            "client_secret": "wrong_secret",
+        },
+    )
     report("Wrong secret returns 401", r2.status_code == 401)
 
     # Wrong content type
-    r3 = httpx.post(f"{BASE}/token",
-                     json={"grant_type": "client_credentials"},
-                     headers={"content-type": "application/json"})
+    r3 = httpx.post(
+        f"{BASE}/token",
+        json={"grant_type": "client_credentials"},
+        headers={"content-type": "application/json"},
+    )
     report("Wrong content-type returns 400", r3.status_code == 400)
 
     # Missing grant_type
-    r4 = httpx.post(f"{BASE}/token", data={
-        "client_id": client_a["client_id"],
-        "client_secret": client_a["client_secret"],
-    })
+    r4 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "client_id": client_a["client_id"],
+            "client_secret": client_a["client_secret"],
+        },
+    )
     report("Missing grant_type returns 400", r4.status_code == 400)
 
     # HTTP Basic auth
     basic = base64.b64encode(
         f"{client_a['client_id']}:{client_a['client_secret']}".encode()
     ).decode()
-    r5 = httpx.post(f"{BASE}/token",
-                     data={"grant_type": "client_credentials", "scope": "search:execute"},
-                     headers={"authorization": f"Basic {basic}"})
+    r5 = httpx.post(
+        f"{BASE}/token",
+        data={"grant_type": "client_credentials", "scope": "search:execute"},
+        headers={"authorization": f"Basic {basic}"},
+    )
     report("HTTP Basic auth works", r5.status_code == 200)
 
 
@@ -213,12 +246,15 @@ def test_revocation():
     section("5. Token Revocation (RFC 7009)")
 
     # Get a fresh token to revoke
-    r = httpx.post(f"{BASE}/token", data={
-        "grant_type": "client_credentials",
-        "client_id": client_a["client_id"],
-        "client_secret": client_a["client_secret"],
-        "scope": "search:execute",
-    })
+    r = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_a["client_id"],
+            "client_secret": client_a["client_secret"],
+            "scope": "search:execute",
+        },
+    )
     tok = r.json()["access_token"]
 
     # Verify it's active
@@ -226,10 +262,13 @@ def test_revocation():
     report("Token active before revocation", r2.json().get("active") is True)
 
     # Revoke
-    r3 = httpx.post(f"{BASE}/revoke", data={
-        "token": tok,
-        "client_id": client_a["client_id"],
-    })
+    r3 = httpx.post(
+        f"{BASE}/revoke",
+        data={
+            "token": tok,
+            "client_id": client_a["client_id"],
+        },
+    )
     report("Revoke returns 200", r3.status_code == 200)
 
     # Verify revoked
@@ -248,12 +287,15 @@ def test_auth_code_pkce():
     section("6. Authorization Code + PKCE Flow")
 
     # Register a client with auth_code grant
-    r_reg = httpx.post(f"{BASE}/register", json={
-        "client_name": "mcp-client",
-        "grant_types": ["authorization_code", "refresh_token"],
-        "redirect_uris": ["http://localhost:3000/callback"],
-        "scope": "search:execute db:read",
-    })
+    r_reg = httpx.post(
+        f"{BASE}/register",
+        json={
+            "client_name": "mcp-client",
+            "grant_types": ["authorization_code", "refresh_token"],
+            "redirect_uris": ["http://localhost:3000/callback"],
+            "scope": "search:execute db:read",
+        },
+    )
     mcp = r_reg.json()
 
     # Generate PKCE
@@ -262,16 +304,20 @@ def test_auth_code_pkce():
     code_challenge = base64.urlsafe_b64encode(challenge).rstrip(b"=").decode()
 
     # GET /authorize (auto_approve mode)
-    r = httpx.get(f"{BASE}/authorize", params={
-        "response_type": "code",
-        "client_id": mcp["client_id"],
-        "redirect_uri": "http://localhost:3000/callback",
-        "scope": "search:execute",
-        "state": "test_state_123",
-        "code_challenge": code_challenge,
-        "code_challenge_method": "S256",
-        "resource": "https://mcp-server.example.com/",
-    }, follow_redirects=False)
+    r = httpx.get(
+        f"{BASE}/authorize",
+        params={
+            "response_type": "code",
+            "client_id": mcp["client_id"],
+            "redirect_uri": "http://localhost:3000/callback",
+            "scope": "search:execute",
+            "state": "test_state_123",
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+            "resource": "https://mcp-server.example.com/",
+        },
+        follow_redirects=False,
+    )
     report("Authorize redirects (302)", r.status_code == 302)
     location = r.headers.get("location", "")
     report("  redirect has code param", "code=" in location)
@@ -282,14 +328,17 @@ def test_auth_code_pkce():
     report("  extracted auth code", bool(code))
 
     # Exchange code for tokens
-    r2 = httpx.post(f"{BASE}/token", data={
-        "grant_type": "authorization_code",
-        "client_id": mcp["client_id"],
-        "client_secret": mcp["client_secret"],
-        "code": code,
-        "code_verifier": code_verifier,
-        "redirect_uri": "http://localhost:3000/callback",
-    })
+    r2 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "authorization_code",
+            "client_id": mcp["client_id"],
+            "client_secret": mcp["client_secret"],
+            "code": code,
+            "code_verifier": code_verifier,
+            "redirect_uri": "http://localhost:3000/callback",
+        },
+    )
     report("Token exchange returns 200", r2.status_code == 200)
     tok = r2.json()
     report("  access_token present", bool(tok.get("access_token")))
@@ -298,40 +347,56 @@ def test_auth_code_pkce():
 
     # PKCE failure: wrong verifier
     code_verifier_bad = secrets.token_urlsafe(64)
-    code_challenge_bad = base64.urlsafe_b64encode(
-        hashlib.sha256(code_verifier_bad.encode()).digest()
-    ).rstrip(b"=").decode()
+    code_challenge_bad = (
+        base64.urlsafe_b64encode(hashlib.sha256(code_verifier_bad.encode()).digest())
+        .rstrip(b"=")
+        .decode()
+    )
 
-    r_auth2 = httpx.get(f"{BASE}/authorize", params={
-        "response_type": "code",
-        "client_id": mcp["client_id"],
-        "redirect_uri": "http://localhost:3000/callback",
-        "scope": "search:execute",
-        "state": "s2",
-        "code_challenge": code_challenge_bad,
-        "code_challenge_method": "S256",
-    }, follow_redirects=False)
-    code2 = r_auth2.headers.get("location", "").split("code=")[1].split("&")[0] if "code=" in r_auth2.headers.get("location", "") else ""
+    r_auth2 = httpx.get(
+        f"{BASE}/authorize",
+        params={
+            "response_type": "code",
+            "client_id": mcp["client_id"],
+            "redirect_uri": "http://localhost:3000/callback",
+            "scope": "search:execute",
+            "state": "s2",
+            "code_challenge": code_challenge_bad,
+            "code_challenge_method": "S256",
+        },
+        follow_redirects=False,
+    )
+    code2 = (
+        r_auth2.headers.get("location", "").split("code=")[1].split("&")[0]
+        if "code=" in r_auth2.headers.get("location", "")
+        else ""
+    )
 
-    r3 = httpx.post(f"{BASE}/token", data={
-        "grant_type": "authorization_code",
-        "client_id": mcp["client_id"],
-        "client_secret": mcp["client_secret"],
-        "code": code2,
-        "code_verifier": "completely_wrong_verifier",
-        "redirect_uri": "http://localhost:3000/callback",
-    })
+    r3 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "authorization_code",
+            "client_id": mcp["client_id"],
+            "client_secret": mcp["client_secret"],
+            "code": code2,
+            "code_verifier": "completely_wrong_verifier",
+            "redirect_uri": "http://localhost:3000/callback",
+        },
+    )
     report("Wrong PKCE verifier rejected (400)", r3.status_code == 400)
 
     # Auth code replay: use same code again
-    r4 = httpx.post(f"{BASE}/token", data={
-        "grant_type": "authorization_code",
-        "client_id": mcp["client_id"],
-        "client_secret": mcp["client_secret"],
-        "code": code,
-        "code_verifier": code_verifier,
-        "redirect_uri": "http://localhost:3000/callback",
-    })
+    r4 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "authorization_code",
+            "client_id": mcp["client_id"],
+            "client_secret": mcp["client_secret"],
+            "code": code,
+            "code_verifier": code_verifier,
+            "redirect_uri": "http://localhost:3000/callback",
+        },
+    )
     report("Auth code replay rejected (400)", r4.status_code == 400)
 
     return tok.get("refresh_token"), mcp
@@ -348,12 +413,15 @@ def test_refresh_token(refresh_token: str, mcp: dict):
         return
 
     # Rotate refresh token
-    r = httpx.post(f"{BASE}/token", data={
-        "grant_type": "refresh_token",
-        "client_id": mcp["client_id"],
-        "client_secret": mcp["client_secret"],
-        "refresh_token": refresh_token,
-    })
+    r = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id": mcp["client_id"],
+            "client_secret": mcp["client_secret"],
+            "refresh_token": refresh_token,
+        },
+    )
     report("Refresh token rotation returns 200", r.status_code == 200)
     tok = r.json()
     new_refresh = tok.get("refresh_token")
@@ -362,23 +430,32 @@ def test_refresh_token(refresh_token: str, mcp: dict):
     report("  new refresh_token differs", new_refresh != refresh_token)
 
     # Replay old refresh token — should trigger family revocation
-    r2 = httpx.post(f"{BASE}/token", data={
-        "grant_type": "refresh_token",
-        "client_id": mcp["client_id"],
-        "client_secret": mcp["client_secret"],
-        "refresh_token": refresh_token,  # OLD token
-    })
+    r2 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id": mcp["client_id"],
+            "client_secret": mcp["client_secret"],
+            "refresh_token": refresh_token,  # OLD token
+        },
+    )
     report("Old refresh token replay rejected (400)", r2.status_code == 400)
-    report("  error says replay detected", "replay" in r2.json().get("error_description", "").lower()
-           or "already been used" in r2.json().get("error_description", "").lower())
+    report(
+        "  error says replay detected",
+        "replay" in r2.json().get("error_description", "").lower()
+        or "already been used" in r2.json().get("error_description", "").lower(),
+    )
 
     # New token should also be revoked (whole family)
-    r3 = httpx.post(f"{BASE}/token", data={
-        "grant_type": "refresh_token",
-        "client_id": mcp["client_id"],
-        "client_secret": mcp["client_secret"],
-        "refresh_token": new_refresh,
-    })
+    r3 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id": mcp["client_id"],
+            "client_secret": mcp["client_secret"],
+            "refresh_token": new_refresh,
+        },
+    )
     report("Family revocation: new token also rejected", r3.status_code == 400)
 
 
@@ -389,23 +466,29 @@ def test_token_exchange():
     section("8. Token Exchange / Delegation Chains (RFC 8693)")
 
     # Get a token for client A
-    r = httpx.post(f"{BASE}/token", data={
-        "grant_type": "client_credentials",
-        "client_id": client_a["client_id"],
-        "client_secret": client_a["client_secret"],
-        "scope": "search:execute db:read",
-    })
+    r = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_a["client_id"],
+            "client_secret": client_a["client_secret"],
+            "scope": "search:execute db:read",
+        },
+    )
     parent_token = r.json()["access_token"]
 
     # Exchange token for downstream audience
-    r2 = httpx.post(f"{BASE}/token", data={
-        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-        "client_id": client_a["client_id"],
-        "client_secret": client_a["client_secret"],
-        "subject_token": parent_token,
-        "audience": "agent:db-reader",
-        "scope": "db:read",
-    })
+    r2 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "client_id": client_a["client_id"],
+            "client_secret": client_a["client_secret"],
+            "subject_token": parent_token,
+            "audience": "agent:db-reader",
+            "scope": "db:read",
+        },
+    )
     report("Token exchange returns 200", r2.status_code == 200)
     exch = r2.json()
     report("  issued_token_type present", bool(exch.get("issued_token_type")))
@@ -419,14 +502,17 @@ def test_token_exchange():
     report("  act.sub is client:A", intro.get("act", {}).get("sub", "").startswith("client:"))
 
     # Scope escalation: request scope NOT in parent
-    r4 = httpx.post(f"{BASE}/token", data={
-        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-        "client_id": client_a["client_id"],
-        "client_secret": client_a["client_secret"],
-        "subject_token": parent_token,
-        "audience": "agent:db-reader",
-        "scope": "admin:all",
-    })
+    r4 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "client_id": client_a["client_id"],
+            "client_secret": client_a["client_secret"],
+            "subject_token": parent_token,
+            "audience": "agent:db-reader",
+            "scope": "admin:all",
+        },
+    )
     report("Scope escalation rejected (403)", r4.status_code == 403)
 
 
@@ -442,16 +528,19 @@ def test_agent_registry():
     global agent_id
 
     # Create agent
-    r = httpx.post(f"{BASE}/agents", json={
-        "name": "search-bot-v2",
-        "owner": "dhruv@example.com",
-        "allowed_scopes": ["search:execute", "db:read"],
-        "capabilities": ["search", "summarize"],
-        "agent_type": "autonomous",
-        "agent_model": "gpt-4o",
-        "agent_version": "2.0.0",
-        "agent_provider": "acme-corp",
-    })
+    r = httpx.post(
+        f"{BASE}/agents",
+        json={
+            "name": "search-bot-v2",
+            "owner": "dhruv@example.com",
+            "allowed_scopes": ["search:execute", "db:read"],
+            "capabilities": ["search", "summarize"],
+            "agent_type": "autonomous",
+            "agent_model": "gpt-4o",
+            "agent_version": "2.0.0",
+            "agent_provider": "acme-corp",
+        },
+    )
     report("Create agent returns 201", r.status_code == 201)
     data = r.json()
     agent_id = data.get("id", "")
@@ -472,10 +561,13 @@ def test_agent_registry():
     report("  total >= 1", r3.json().get("total", 0) >= 1)
 
     # Update agent
-    r4 = httpx.patch(f"{BASE}/agents/{agent_id}", json={
-        "description": "Updated search bot with improved capabilities",
-        "agent_version": "2.1.0",
-    })
+    r4 = httpx.patch(
+        f"{BASE}/agents/{agent_id}",
+        json={
+            "description": "Updated search bot with improved capabilities",
+            "agent_version": "2.1.0",
+        },
+    )
     report("Update agent returns 200", r4.status_code == 200)
     report("  version updated", r4.json().get("agent_version") == "2.1.0")
 
@@ -497,18 +589,24 @@ def test_device_grant():
     section("10. Device Authorization Grant (RFC 8628)")
 
     # Register a device client
-    r_reg = httpx.post(f"{BASE}/register", json={
-        "client_name": "cli-agent",
-        "grant_types": ["urn:ietf:params:oauth:grant-type:device_code", "client_credentials"],
-        "scope": "tools:execute",
-    })
+    r_reg = httpx.post(
+        f"{BASE}/register",
+        json={
+            "client_name": "cli-agent",
+            "grant_types": ["urn:ietf:params:oauth:grant-type:device_code", "client_credentials"],
+            "scope": "tools:execute",
+        },
+    )
     dev_client = r_reg.json()
 
     # Request device authorization
-    r = httpx.post(f"{BASE}/device/authorize", data={
-        "client_id": dev_client["client_id"],
-        "scope": "tools:execute",
-    })
+    r = httpx.post(
+        f"{BASE}/device/authorize",
+        data={
+            "client_id": dev_client["client_id"],
+            "scope": "tools:execute",
+        },
+    )
     report("Device auth request returns 200", r.status_code == 200)
     dev = r.json()
     report("  device_code present", bool(dev.get("device_code")))
@@ -517,37 +615,48 @@ def test_device_grant():
     report("  expires_in > 0", dev.get("expires_in", 0) > 0)
 
     # Poll before approval — should get authorization_pending
-    r2 = httpx.post(f"{BASE}/device/token", data={
-        "device_code": dev["device_code"],
-        "client_id": dev_client["client_id"],
-    })
+    r2 = httpx.post(
+        f"{BASE}/device/token",
+        data={
+            "device_code": dev["device_code"],
+            "client_id": dev_client["client_id"],
+        },
+    )
     report("Poll before approval returns 400 (pending)", r2.status_code == 400)
-    report("  error is authorization_pending",
-           r2.json().get("error") == "authorization_pending")
+    report("  error is authorization_pending", r2.json().get("error") == "authorization_pending")
 
     # Human approves
-    r3 = httpx.post(f"{BASE}/device/complete", json={
-        "user_code": dev["user_code"],
-        "subject": "human:dhruv@example.com",
-        "action": "approve",
-    })
+    r3 = httpx.post(
+        f"{BASE}/device/complete",
+        json={
+            "user_code": dev["user_code"],
+            "subject": "human:dhruv@example.com",
+            "action": "approve",
+        },
+    )
     report("Device approval returns 200", r3.status_code == 200)
     report("  status is approved", r3.json().get("status") == "approved")
 
     # Poll after approval — should get token
-    r4 = httpx.post(f"{BASE}/device/token", data={
-        "device_code": dev["device_code"],
-        "client_id": dev_client["client_id"],
-    })
+    r4 = httpx.post(
+        f"{BASE}/device/token",
+        data={
+            "device_code": dev["device_code"],
+            "client_id": dev_client["client_id"],
+        },
+    )
     report("Poll after approval returns 200", r4.status_code == 200)
     tok = r4.json()
     report("  access_token present", bool(tok.get("access_token")))
 
     # Poll again — device code consumed
-    r5 = httpx.post(f"{BASE}/device/token", data={
-        "device_code": dev["device_code"],
-        "client_id": dev_client["client_id"],
-    })
+    r5 = httpx.post(
+        f"{BASE}/device/token",
+        data={
+            "device_code": dev["device_code"],
+            "client_id": dev_client["client_id"],
+        },
+    )
     report("Re-poll returns 400 (consumed/not found)", r5.status_code == 400)
 
 
@@ -558,12 +667,15 @@ def test_stepup():
     section("11. Step-Up Authorization (HITL)")
 
     # Create step-up request
-    r = httpx.post(f"{BASE}/stepup", json={
-        "agent_id": "agent:test-bot",
-        "action": "delete_database",
-        "scope": "db:delete",
-        "resource": "https://db.example.com/",
-    })
+    r = httpx.post(
+        f"{BASE}/stepup",
+        json={
+            "agent_id": "agent:test-bot",
+            "action": "delete_database",
+            "scope": "db:delete",
+            "resource": "https://db.example.com/",
+        },
+    )
     report("Create step-up request returns 202", r.status_code == 202)
     data = r.json()
     stepup_id = data.get("id", "")
@@ -576,9 +688,12 @@ def test_stepup():
     report("  status is pending", r2.json().get("status") == "pending")
 
     # Approve
-    r3 = httpx.post(f"{BASE}/stepup/{stepup_id}/approve", json={
-        "approved_by": "human:dhruv@example.com",
-    })
+    r3 = httpx.post(
+        f"{BASE}/stepup/{stepup_id}/approve",
+        json={
+            "approved_by": "human:dhruv@example.com",
+        },
+    )
     report("Approve step-up returns 200", r3.status_code == 200)
     report("  status is approved", r3.json().get("status") == "approved")
 
@@ -587,11 +702,14 @@ def test_stepup():
     report("Post-approval poll shows approved", r4.json().get("status") == "approved")
 
     # Deny a different one
-    r5 = httpx.post(f"{BASE}/stepup", json={
-        "agent_id": "agent:test-bot",
-        "action": "send_money",
-        "scope": "finance:transfer",
-    })
+    r5 = httpx.post(
+        f"{BASE}/stepup",
+        json={
+            "agent_id": "agent:test-bot",
+            "action": "send_money",
+            "scope": "finance:transfer",
+        },
+    )
     stepup_id2 = r5.json().get("id", "")
     r6 = httpx.post(f"{BASE}/stepup/{stepup_id2}/deny")
     report("Deny step-up returns 200", r6.status_code == 200)
@@ -605,9 +723,12 @@ def test_security():
     section("12. Security Edge Cases")
 
     # Forged token (random JWT)
-    r = httpx.post(f"{BASE}/introspect", data={
-        "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImZha2Uta2lkIn0.eyJzdWIiOiJoYWNrZXIiLCJleHAiOjk5OTk5OTk5OTl9.fake_signature"
-    })
+    r = httpx.post(
+        f"{BASE}/introspect",
+        data={
+            "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImZha2Uta2lkIn0.eyJzdWIiOiJoYWNrZXIiLCJleHAiOjk5OTk5OTk5OTl9.fake_signature"
+        },
+    )
     report("Forged JWT introspects as inactive", r.json().get("active") is False)
 
     # Empty token
@@ -619,28 +740,35 @@ def test_security():
     report("Missing client_id rejected (401)", r3.status_code == 401)
 
     # Non-existent client
-    r4 = httpx.post(f"{BASE}/token", data={
-        "grant_type": "client_credentials",
-        "client_id": "nonexistent_client",
-        "client_secret": "fake",
-    })
+    r4 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": "nonexistent_client",
+            "client_secret": "fake",
+        },
+    )
     report("Non-existent client rejected (401)", r4.status_code == 401)
 
     # Unsupported grant type
-    r5 = httpx.post(f"{BASE}/token", data={
-        "grant_type": "password",
-        "client_id": client_a["client_id"],
-        "client_secret": client_a["client_secret"],
-    })
+    r5 = httpx.post(
+        f"{BASE}/token",
+        data={
+            "grant_type": "password",
+            "client_id": client_a["client_id"],
+            "client_secret": client_a["client_secret"],
+        },
+    )
     report("Unsupported grant type rejected (400)", r5.status_code == 400)
 
     # Rate limit test — we won't hit 100 requests, but verify header format
     report("Rate limiter middleware active (checked via code review)", True)
 
     # CORS headers present
-    r6 = httpx.options(f"{BASE}/.well-known/jwks.json",
-                        headers={"origin": "https://app.example.com",
-                                 "access-control-request-method": "GET"})
+    r6 = httpx.options(
+        f"{BASE}/.well-known/jwks.json",
+        headers={"origin": "https://app.example.com", "access-control-request-method": "GET"},
+    )
     has_cors = "access-control-allow-origin" in r6.headers
     report("CORS headers present on .well-known", has_cors)
 
@@ -667,10 +795,10 @@ def test_health():
 # MAIN
 # ──────────────────────────────────────────────────────────
 def main():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  authgent-server — E2E Simulation Tests")
     print("  Target: " + BASE)
-    print("="*60)
+    print("=" * 60)
 
     # Verify server is up
     try:
@@ -701,9 +829,9 @@ def main():
     passed = sum(1 for _, p, _ in results if p)
     failed = sum(1 for _, p, _ in results if not p)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  SIMULATION RESULTS: {passed}/{total} passed, {failed} failed")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if failed > 0:
         print("\n  Failed tests:")

@@ -6,36 +6,47 @@ import pytest
 
 
 def _register_client(test_client, *, grant_types=None, scope="read write"):
-    resp = test_client.post("/register", json={
-        "client_name": f"del-{secrets.token_hex(4)}",
-        "grant_types": grant_types or ["client_credentials"],
-        "scope": scope,
-    })
+    resp = test_client.post(
+        "/register",
+        json={
+            "client_name": f"del-{secrets.token_hex(4)}",
+            "grant_types": grant_types or ["client_credentials"],
+            "scope": scope,
+        },
+    )
     assert resp.status_code == 201
     return resp.json()
 
 
 def _get_token(test_client, creds, scope="read"):
-    resp = test_client.post("/token", data={
-        "grant_type": "client_credentials",
-        "client_id": creds["client_id"],
-        "client_secret": creds["client_secret"],
-        "scope": scope,
-    })
+    resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+            "scope": scope,
+        },
+    )
     assert resp.status_code == 200
     return resp.json()
 
 
-def _exchange_token(test_client, child_creds, subject_token, scope="read", audience="https://target.example.com"):
-    return test_client.post("/token", data={
-        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-        "client_id": child_creds["client_id"],
-        "client_secret": child_creds["client_secret"],
-        "subject_token": subject_token,
-        "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
-        "audience": audience,
-        "scope": scope,
-    })
+def _exchange_token(
+    test_client, child_creds, subject_token, scope="read", audience="https://target.example.com"
+):
+    return test_client.post(
+        "/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "client_id": child_creds["client_id"],
+            "client_secret": child_creds["client_secret"],
+            "subject_token": subject_token,
+            "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+            "audience": audience,
+            "scope": scope,
+        },
+    )
 
 
 @pytest.mark.asyncio
@@ -53,9 +64,12 @@ async def test_single_hop_exchange_has_act_claim(test_client):
     assert resp.status_code == 200
 
     # Introspect to verify act claim exists
-    introspect = test_client.post("/introspect", data={
-        "token": resp.json()["access_token"],
-    })
+    introspect = test_client.post(
+        "/introspect",
+        data={
+            "token": resp.json()["access_token"],
+        },
+    )
     assert introspect.status_code == 200
     body = introspect.json()
     assert body["active"] is True
@@ -89,9 +103,12 @@ async def test_multi_hop_exchange_nests_act_claims(test_client):
     assert resp_c.status_code == 200
 
     # Introspect C's token — should have nested act
-    introspect = test_client.post("/introspect", data={
-        "token": resp_c.json()["access_token"],
-    })
+    introspect = test_client.post(
+        "/introspect",
+        data={
+            "token": resp_c.json()["access_token"],
+        },
+    )
     body = introspect.json()
     assert body["active"] is True
     assert "act" in body
@@ -120,8 +137,11 @@ async def test_delegation_depth_limit_enforced(test_client):
     # Chain exchanges up to the depth limit
     for i in range(1, 7):
         resp = _exchange_token(
-            test_client, agents[i], current_token,
-            scope="read", audience=f"https://target-{i}.example.com",
+            test_client,
+            agents[i],
+            current_token,
+            scope="read",
+            audience=f"https://target-{i}.example.com",
         )
         if resp.status_code != 200:
             # Should fail at or before depth 6 (max_delegation_depth=5)
@@ -167,9 +187,12 @@ async def test_exchange_preserves_original_subject(test_client):
     parent_token = _get_token(test_client, parent, scope="read")
 
     # Get parent's subject via introspect
-    parent_introspect = test_client.post("/introspect", data={
-        "token": parent_token["access_token"],
-    })
+    parent_introspect = test_client.post(
+        "/introspect",
+        data={
+            "token": parent_token["access_token"],
+        },
+    )
     parent_sub = parent_introspect.json().get("sub")
 
     # Exchange
@@ -177,9 +200,12 @@ async def test_exchange_preserves_original_subject(test_client):
     assert resp.status_code == 200
 
     # Introspect exchanged token
-    child_introspect = test_client.post("/introspect", data={
-        "token": resp.json()["access_token"],
-    })
+    child_introspect = test_client.post(
+        "/introspect",
+        data={
+            "token": resp.json()["access_token"],
+        },
+    )
     child_body = child_introspect.json()
     assert child_body["active"] is True
     # Subject should be preserved from parent

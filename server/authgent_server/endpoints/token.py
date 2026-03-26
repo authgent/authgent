@@ -38,9 +38,7 @@ async def token_endpoint(
     """
     content_type = request.headers.get("content-type", "")
     if "application/x-www-form-urlencoded" not in content_type:
-        raise InvalidRequest(
-            "Content-Type must be application/x-www-form-urlencoded"
-        )
+        raise InvalidRequest("Content-Type must be application/x-www-form-urlencoded")
 
     form = await request.form()
     grant_type = form.get("grant_type")
@@ -72,9 +70,7 @@ async def token_endpoint(
 
     # Validate grant type is allowed for this client
     if client.grant_types and str(grant_type) not in client.grant_types:
-        raise InvalidRequest(
-            f"Grant type '{grant_type}' not allowed for this client"
-        )
+        raise InvalidRequest(f"Grant type '{grant_type}' not allowed for this client")
 
     # Validate resource (RFC 8707)
     resource = form.get("resource")
@@ -82,9 +78,7 @@ async def token_endpoint(
 
     # Validate scopes
     scope = form.get("scope")
-    effective_scope = await client_service.validate_scopes(
-        client, str(scope) if scope else None
-    )
+    effective_scope = await client_service.validate_scopes(client, str(scope) if scope else None)
 
     # Handle DPoP proof if present
     dpop_jkt = None

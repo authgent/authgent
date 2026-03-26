@@ -7,18 +7,24 @@ import pytest
 async def test_device_authorization_flow(test_client):
     """Full device auth flow: request code, approve, poll for token."""
     # Register a client
-    reg = test_client.post("/register", json={
-        "client_name": "device-test",
-        "grant_types": ["client_credentials", "urn:ietf:params:oauth:grant-type:device_code"],
-        "scope": "read write",
-    })
+    reg = test_client.post(
+        "/register",
+        json={
+            "client_name": "device-test",
+            "grant_types": ["client_credentials", "urn:ietf:params:oauth:grant-type:device_code"],
+            "scope": "read write",
+        },
+    )
     creds = reg.json()
 
     # 1. Request device code
-    resp = test_client.post("/device/authorize", data={
-        "client_id": creds["client_id"],
-        "scope": "read",
-    })
+    resp = test_client.post(
+        "/device/authorize",
+        data={
+            "client_id": creds["client_id"],
+            "scope": "read",
+        },
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert "device_code" in body
@@ -33,27 +39,36 @@ async def test_device_authorization_flow(test_client):
     user_code = body["user_code"]
 
     # 2. Poll before approval — should get authorization_pending
-    poll = test_client.post("/device/token", data={
-        "device_code": device_code,
-        "client_id": creds["client_id"],
-    })
+    poll = test_client.post(
+        "/device/token",
+        data={
+            "device_code": device_code,
+            "client_id": creds["client_id"],
+        },
+    )
     assert poll.status_code == 400
     assert poll.json()["error"] == "authorization_pending"
 
     # 3. Human approves
-    approve = test_client.post("/device/complete", json={
-        "user_code": user_code,
-        "subject": "user:alice",
-        "action": "approve",
-    })
+    approve = test_client.post(
+        "/device/complete",
+        json={
+            "user_code": user_code,
+            "subject": "user:alice",
+            "action": "approve",
+        },
+    )
     assert approve.status_code == 200
     assert approve.json()["status"] == "approved"
 
     # 4. Poll again — should get token
-    token_resp = test_client.post("/device/token", data={
-        "device_code": device_code,
-        "client_id": creds["client_id"],
-    })
+    token_resp = test_client.post(
+        "/device/token",
+        data={
+            "device_code": device_code,
+            "client_id": creds["client_id"],
+        },
+    )
     assert token_resp.status_code == 200
     token_body = token_resp.json()
     assert "access_token" in token_body
@@ -63,56 +78,77 @@ async def test_device_authorization_flow(test_client):
 @pytest.mark.asyncio
 async def test_device_deny_flow(test_client):
     """Device auth flow with denial."""
-    reg = test_client.post("/register", json={
-        "client_name": "device-deny-test",
-        "grant_types": ["client_credentials", "urn:ietf:params:oauth:grant-type:device_code"],
-    })
+    reg = test_client.post(
+        "/register",
+        json={
+            "client_name": "device-deny-test",
+            "grant_types": ["client_credentials", "urn:ietf:params:oauth:grant-type:device_code"],
+        },
+    )
     creds = reg.json()
 
-    resp = test_client.post("/device/authorize", data={
-        "client_id": creds["client_id"],
-    })
+    resp = test_client.post(
+        "/device/authorize",
+        data={
+            "client_id": creds["client_id"],
+        },
+    )
     user_code = resp.json()["user_code"]
     device_code = resp.json()["device_code"]
 
     # Human denies
-    deny = test_client.post("/device/complete", json={
-        "user_code": user_code,
-        "subject": "user:alice",
-        "action": "deny",
-    })
+    deny = test_client.post(
+        "/device/complete",
+        json={
+            "user_code": user_code,
+            "subject": "user:alice",
+            "action": "deny",
+        },
+    )
     assert deny.status_code == 200
     assert deny.json()["status"] == "denied"
 
     # Poll should get error
-    poll = test_client.post("/device/token", data={
-        "device_code": device_code,
-        "client_id": creds["client_id"],
-    })
+    poll = test_client.post(
+        "/device/token",
+        data={
+            "device_code": device_code,
+            "client_id": creds["client_id"],
+        },
+    )
     assert poll.status_code in (400, 401)
 
 
 @pytest.mark.asyncio
 async def test_device_unknown_code(test_client):
     """Polling with unknown device code returns error."""
-    reg = test_client.post("/register", json={
-        "client_name": "device-unknown",
-        "grant_types": ["client_credentials"],
-    })
+    reg = test_client.post(
+        "/register",
+        json={
+            "client_name": "device-unknown",
+            "grant_types": ["client_credentials"],
+        },
+    )
     creds = reg.json()
 
-    resp = test_client.post("/device/token", data={
-        "device_code": "nonexistent_code",
-        "client_id": creds["client_id"],
-    })
+    resp = test_client.post(
+        "/device/token",
+        data={
+            "device_code": "nonexistent_code",
+            "client_id": creds["client_id"],
+        },
+    )
     assert resp.status_code in (400, 401)
 
 
 @pytest.mark.asyncio
 async def test_device_invalid_user_code(test_client):
     """Approving with invalid user code returns error."""
-    resp = test_client.post("/device/complete", json={
-        "user_code": "BADCODE1",
-        "subject": "user:alice",
-    })
+    resp = test_client.post(
+        "/device/complete",
+        json={
+            "user_code": "BADCODE1",
+            "subject": "user:alice",
+        },
+    )
     assert resp.status_code == 400

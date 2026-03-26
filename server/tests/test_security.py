@@ -12,22 +12,28 @@ from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption,
 
 
 def _register_client(test_client, *, grant_types=None, scope="read write"):
-    resp = test_client.post("/register", json={
-        "client_name": f"sec-{secrets.token_hex(4)}",
-        "grant_types": grant_types or ["client_credentials"],
-        "scope": scope,
-    })
+    resp = test_client.post(
+        "/register",
+        json={
+            "client_name": f"sec-{secrets.token_hex(4)}",
+            "grant_types": grant_types or ["client_credentials"],
+            "scope": scope,
+        },
+    )
     assert resp.status_code == 201
     return resp.json()
 
 
 def _get_token(test_client, creds, scope="read"):
-    resp = test_client.post("/token", data={
-        "grant_type": "client_credentials",
-        "client_id": creds["client_id"],
-        "client_secret": creds["client_secret"],
-        "scope": scope,
-    })
+    resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+            "scope": scope,
+        },
+    )
     assert resp.status_code == 200
     return resp.json()
 
@@ -140,15 +146,18 @@ async def test_scope_escalation_on_exchange_rejected(test_client):
     parent_token = _get_token(test_client, parent, scope="read")
 
     # Try to escalate to "write" via exchange — parent only has "read"
-    exchange = test_client.post("/token", data={
-        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-        "client_id": child["client_id"],
-        "client_secret": child["client_secret"],
-        "subject_token": parent_token["access_token"],
-        "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
-        "audience": "https://target.example.com",
-        "scope": "read write",
-    })
+    exchange = test_client.post(
+        "/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "client_id": child["client_id"],
+            "client_secret": child["client_secret"],
+            "subject_token": parent_token["access_token"],
+            "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+            "audience": "https://target.example.com",
+            "scope": "read write",
+        },
+    )
     # Should be rejected because "write" is not in the parent's scope
     assert exchange.status_code in (400, 403), (
         f"Expected scope escalation rejection, got {exchange.status_code}"
@@ -162,12 +171,15 @@ async def test_client_cannot_use_other_clients_secret(test_client):
     client_b = _register_client(test_client, scope="read")
 
     # Try to get a token for client_a using client_b's secret
-    resp = test_client.post("/token", data={
-        "grant_type": "client_credentials",
-        "client_id": client_a["client_id"],
-        "client_secret": client_b["client_secret"],
-        "scope": "read",
-    })
+    resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_a["client_id"],
+            "client_secret": client_b["client_secret"],
+            "scope": "read",
+        },
+    )
     assert resp.status_code == 401
 
 
@@ -183,26 +195,33 @@ async def test_grant_type_not_in_allowed_list_rejected(test_client):
     verifier, challenge = _pkce_pair()
 
     # Try to use authorization_code grant — not in allowed list
-    auth_resp = test_client.get("/authorize", params={
-        "response_type": "code",
-        "client_id": creds["client_id"],
-        "redirect_uri": "http://localhost:3000/callback",
-        "scope": "read",
-        "code_challenge": challenge,
-        "code_challenge_method": "S256",
-    }, follow_redirects=False)
+    auth_resp = test_client.get(
+        "/authorize",
+        params={
+            "response_type": "code",
+            "client_id": creds["client_id"],
+            "redirect_uri": "http://localhost:3000/callback",
+            "scope": "read",
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+        },
+        follow_redirects=False,
+    )
 
     # If the server issues a code, the token exchange should fail
     if auth_resp.status_code == 302 and "code=" in auth_resp.headers.get("location", ""):
         code = auth_resp.headers["location"].split("code=")[1].split("&")[0]
-        token_resp = test_client.post("/token", data={
-            "grant_type": "authorization_code",
-            "client_id": creds["client_id"],
-            "client_secret": creds["client_secret"],
-            "code": code,
-            "redirect_uri": "http://localhost:3000/callback",
-            "code_verifier": verifier,
-        })
+        token_resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": creds["client_id"],
+                "client_secret": creds["client_secret"],
+                "code": code,
+                "redirect_uri": "http://localhost:3000/callback",
+                "code_verifier": verifier,
+            },
+        )
         assert token_resp.status_code == 400, (
             f"Expected grant type rejection, got {token_resp.status_code}"
         )
@@ -218,15 +237,21 @@ async def test_revoked_token_fails_introspection(test_client):
     token_data = _get_token(test_client, creds)
 
     # Revoke the token
-    test_client.post("/revoke", data={
-        "token": token_data["access_token"],
-        "client_id": creds["client_id"],
-    })
+    test_client.post(
+        "/revoke",
+        data={
+            "token": token_data["access_token"],
+            "client_id": creds["client_id"],
+        },
+    )
 
     # Introspect revoked token
-    resp = test_client.post("/introspect", data={
-        "token": token_data["access_token"],
-    })
+    resp = test_client.post(
+        "/introspect",
+        data={
+            "token": token_data["access_token"],
+        },
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["active"] is False
@@ -243,55 +268,73 @@ async def test_refresh_token_replay_revokes_family(test_client):
 
     verifier, challenge = _pkce_pair()
 
-    auth_resp = test_client.get("/authorize", params={
-        "response_type": "code",
-        "client_id": creds["client_id"],
-        "redirect_uri": "http://localhost:3000/callback",
-        "scope": "read",
-        "code_challenge": challenge,
-        "code_challenge_method": "S256",
-    }, follow_redirects=False)
+    auth_resp = test_client.get(
+        "/authorize",
+        params={
+            "response_type": "code",
+            "client_id": creds["client_id"],
+            "redirect_uri": "http://localhost:3000/callback",
+            "scope": "read",
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+        },
+        follow_redirects=False,
+    )
     code = auth_resp.headers["location"].split("code=")[1].split("&")[0]
 
-    token_resp = test_client.post("/token", data={
-        "grant_type": "authorization_code",
-        "client_id": creds["client_id"],
-        "client_secret": creds["client_secret"],
-        "code": code,
-        "redirect_uri": "http://localhost:3000/callback",
-        "code_verifier": verifier,
-    })
+    token_resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "authorization_code",
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+            "code": code,
+            "redirect_uri": "http://localhost:3000/callback",
+            "code_verifier": verifier,
+        },
+    )
     assert token_resp.status_code == 200
     rt1 = token_resp.json()["refresh_token"]
 
     # Use rt1 (legitimate)
-    refresh_resp = test_client.post("/token", data={
-        "grant_type": "refresh_token",
-        "client_id": creds["client_id"],
-        "client_secret": creds["client_secret"],
-        "refresh_token": rt1,
-    })
+    refresh_resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+            "refresh_token": rt1,
+        },
+    )
     assert refresh_resp.status_code == 200
     rt2 = refresh_resp.json()["refresh_token"]
 
     # Replay rt1 (should fail and revoke entire family)
-    replay_resp = test_client.post("/token", data={
-        "grant_type": "refresh_token",
-        "client_id": creds["client_id"],
-        "client_secret": creds["client_secret"],
-        "refresh_token": rt1,
-    })
+    replay_resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+            "refresh_token": rt1,
+        },
+    )
     assert replay_resp.status_code == 400
-    assert "replay" in replay_resp.json().get("error_description", "").lower() or \
-           replay_resp.json()["error"] == "invalid_grant"
+    assert (
+        "replay" in replay_resp.json().get("error_description", "").lower()
+        or replay_resp.json()["error"] == "invalid_grant"
+    )
 
     # rt2 should also be revoked now (family revocation)
-    rt2_resp = test_client.post("/token", data={
-        "grant_type": "refresh_token",
-        "client_id": creds["client_id"],
-        "client_secret": creds["client_secret"],
-        "refresh_token": rt2,
-    })
+    rt2_resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+            "refresh_token": rt2,
+        },
+    )
     assert rt2_resp.status_code == 400
 
 

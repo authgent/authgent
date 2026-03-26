@@ -85,6 +85,7 @@ class TestEncryptDecryptPrivateKey:
         encrypted = encrypt_private_key("secret", kek1)
 
         import pytest
+
         with pytest.raises(Exception):  # cryptography raises InvalidTag
             decrypt_private_key(encrypted, kek2)
 
@@ -100,6 +101,7 @@ class TestEncryptDecryptPrivateKey:
         tampered = nonce_hex + ":" + ct_bytes.hex()
 
         import pytest
+
         with pytest.raises(Exception):
             decrypt_private_key(tampered, kek)
 
@@ -108,9 +110,7 @@ class TestEncryptDecryptPrivateKey:
         kek = derive_subkey(b"master-production", "kek")
         # Simulate a realistic EC private key PEM
         large_pem = (
-            "-----BEGIN EC PRIVATE KEY-----\n"
-            + ("A" * 300)
-            + "\n-----END EC PRIVATE KEY-----"
+            "-----BEGIN EC PRIVATE KEY-----\n" + ("A" * 300) + "\n-----END EC PRIVATE KEY-----"
         )
         encrypted = encrypt_private_key(large_pem, kek)
         assert decrypt_private_key(encrypted, kek) == large_pem

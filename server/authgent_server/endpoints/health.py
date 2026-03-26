@@ -27,15 +27,15 @@ async def ready(db: AsyncSession = Depends(get_db_session)) -> dict:
         checks["db"] = f"error: {e}"
         checks["status"] = "not_ready"
         from fastapi.responses import JSONResponse
+
         return JSONResponse(status_code=503, content=checks)  # type: ignore[return-value]
 
     try:
         from sqlalchemy import select
 
         from authgent_server.models.signing_key import SigningKey
-        result = await db.execute(
-            select(SigningKey).where(SigningKey.status == "active").limit(1)
-        )
+
+        result = await db.execute(select(SigningKey).where(SigningKey.status == "active").limit(1))
         if result.scalar_one_or_none() is None:
             checks["keys"] = "no active signing key"
             checks["status"] = "not_ready"
@@ -45,6 +45,7 @@ async def ready(db: AsyncSession = Depends(get_db_session)) -> dict:
 
     if checks["status"] != "ready":
         from fastapi.responses import JSONResponse
+
         return JSONResponse(status_code=503, content=checks)  # type: ignore[return-value]
 
     return checks

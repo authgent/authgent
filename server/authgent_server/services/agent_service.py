@@ -21,9 +21,7 @@ class AgentService:
         self._settings = settings
         self._client_service = client_service
 
-    async def create_agent(
-        self, db: AsyncSession, request: AgentCreate
-    ) -> tuple[Agent, str, str]:
+    async def create_agent(self, db: AsyncSession, request: AgentCreate) -> tuple[Agent, str, str]:
         """Create an agent + linked OAuth client. Returns (agent, client_id, client_secret)."""
         # Create the agent record
         agent = Agent(
@@ -49,9 +47,7 @@ class AgentService:
             grant_types=["client_credentials"],
             scope=scope,
         )
-        client_resp = await self._client_service.register_client(
-            db, reg, agent_id=agent.id
-        )
+        client_resp = await self._client_service.register_client(db, reg, agent_id=agent.id)
 
         agent.oauth_client_id = client_resp.client_id
         await db.commit()
@@ -97,9 +93,7 @@ class AgentService:
 
         return agents, total
 
-    async def update_agent(
-        self, db: AsyncSession, agent_id: str, request: AgentUpdate
-    ) -> Agent:
+    async def update_agent(self, db: AsyncSession, agent_id: str, request: AgentUpdate) -> Agent:
         agent = await self.get_agent(db, agent_id)
 
         update_data = request.model_dump(exclude_unset=True)

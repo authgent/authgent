@@ -23,17 +23,20 @@ from authgent.errors import AuthgentError
 
 class StepUpDeniedError(AuthgentError):
     """Step-up request was denied by the human approver."""
+
     error_code = "step_up_denied"
 
 
 class StepUpTimeoutError(AuthgentError):
     """Step-up request timed out waiting for human approval."""
+
     error_code = "step_up_timeout"
 
 
 @dataclass
 class ScopeChallenge:
     """Parsed WWW-Authenticate scope challenge."""
+
     required_scope: str
     error: str = "insufficient_scope"
     realm: str = ""
@@ -42,6 +45,7 @@ class ScopeChallenge:
 @dataclass
 class StepUpResult:
     """Result of a step-up flow."""
+
     stepup_id: str
     status: str  # approved | denied | expired
     step_up_token: str | None = None
@@ -206,13 +210,9 @@ class ScopeChallengeHandler:
                     step_up_token=poll_data.get("step_up_token"),
                 )
             elif status == "denied":
-                raise StepUpDeniedError(
-                    f"Step-up request {stepup_id} was denied"
-                )
+                raise StepUpDeniedError(f"Step-up request {stepup_id} was denied")
             elif status == "expired":
-                raise StepUpTimeoutError(
-                    f"Step-up request {stepup_id} expired"
-                )
+                raise StepUpTimeoutError(f"Step-up request {stepup_id} expired")
             # else: still pending, continue polling
 
         raise StepUpTimeoutError(

@@ -14,9 +14,7 @@ class Base(DeclarativeBase):
 class ULIDMixin:
     """Mixin that provides a ULID primary key."""
 
-    id: Mapped[str] = mapped_column(
-        String(26), primary_key=True, default=lambda: str(ULID())
-    )
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=lambda: str(ULID()))
 
 
 class TimestampMixin:
