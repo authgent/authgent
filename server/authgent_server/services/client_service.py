@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 import bcrypt
@@ -103,7 +103,7 @@ class ClientService:
 
         # Check previous secret (rotation grace period)
         if client.previous_secret_hash and client.previous_secret_expires:
-            if datetime.now(timezone.utc) < client.previous_secret_expires:
+            if datetime.now(UTC) < client.previous_secret_expires:
                 if _verify_secret(client_secret, client.previous_secret_hash):
                     return client
 

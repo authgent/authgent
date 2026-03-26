@@ -1,6 +1,6 @@
 """Signing key model — ES256 key pairs for JWT signing."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -17,6 +17,6 @@ class SigningKey(Base):
     public_key_jwk: Mapped[dict] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="active")
     created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc)
+        default=lambda: datetime.now(UTC)
     )
     rotated_at: Mapped[datetime | None] = mapped_column(nullable=True)

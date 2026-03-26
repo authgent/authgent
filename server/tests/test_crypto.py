@@ -107,6 +107,10 @@ class TestEncryptDecryptPrivateKey:
         """Works with realistic PEM key sizes (~300 bytes)."""
         kek = derive_subkey(b"master-production", "kek")
         # Simulate a realistic EC private key PEM
-        large_pem = "-----BEGIN EC PRIVATE KEY-----\n" + ("A" * 300) + "\n-----END EC PRIVATE KEY-----"
+        large_pem = (
+            "-----BEGIN EC PRIVATE KEY-----\n"
+            + ("A" * 300)
+            + "\n-----END EC PRIVATE KEY-----"
+        )
         encrypted = encrypt_private_key(large_pem, kek)
         assert decrypt_private_key(encrypted, kek) == large_pem

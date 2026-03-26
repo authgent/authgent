@@ -18,10 +18,7 @@ import secrets
 import time
 
 import jwt
-import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-
 
 # ─── DPoP Proof Builder ─────────────────────────────────────────────
 
@@ -119,7 +116,7 @@ class TestDPoPClientCredentialsFlow:
         """Full flow: DPoP header → cnf.jkt in token → introspection shows DPoP."""
         creds = _register(test_client, scope="read write")
         private_key, jwk = _ec_keypair()
-        jkt = _compute_jkt(jwk)
+        _compute_jkt(jwk)
 
         # Build DPoP proof for POST /token
         # TestClient uses http://testserver as base URL

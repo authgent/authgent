@@ -1,8 +1,7 @@
 """Security tests — forgery, privilege escalation, replay attacks (§12.1)."""
 
-import hashlib
 import base64
-import json
+import hashlib
 import secrets
 import time
 
@@ -76,7 +75,7 @@ async def test_forged_token_wrong_key_rejected(test_client):
 async def test_forged_token_wrong_issuer_rejected(test_client):
     """A validly-structured token with wrong issuer must be rejected on introspection."""
     creds = _register_client(test_client)
-    token_resp = _get_token(test_client, creds)
+    _get_token(test_client, creds)
 
     # Decode, tamper issuer (this won't validate since we can't re-sign)
     # Instead: get a real token and verify introspect works, then use a

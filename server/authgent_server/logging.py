@@ -9,7 +9,10 @@ import sys
 import structlog
 
 _REDACT_PATTERNS = [
-    re.compile(r"(client_secret|secret_key|password|token|authorization|cookie)=([^\s&]+)", re.IGNORECASE),
+    re.compile(
+        r"(client_secret|secret_key|password|token|authorization|cookie)=([^\s&]+)",
+        re.IGNORECASE,
+    ),
     re.compile(r"(Bearer|DPoP|Basic)\s+[A-Za-z0-9\-_.~+/]+=*", re.IGNORECASE),
 ]
 

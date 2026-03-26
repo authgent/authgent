@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,7 +38,7 @@ class DatabaseEventEmitter:
                 trace_id=event.trace_id,
                 span_id=event.span_id,
                 metadata_=event.metadata,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
             self._db.add(log_entry)
             await self._db.flush()

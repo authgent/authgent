@@ -7,7 +7,7 @@ from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from typing import Any
 
-from fastapi import Depends, Request
+from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from authgent_server.config import Settings, get_settings
@@ -78,7 +78,9 @@ def get_providers(settings: Settings | None = None) -> ProviderSet:
         enricher = _load_provider(settings.claim_enricher, type(None), settings)
 
     _providers = ProviderSet(
-        attestation=_load_provider(settings.attestation_provider, NullAttestationProvider, settings),
+        attestation=_load_provider(
+            settings.attestation_provider, NullAttestationProvider, settings
+        ),
         policy=_load_provider(settings.policy_provider, ScopePolicyProvider, settings),
         hitl=_load_provider(settings.hitl_provider, WebhookHITLProvider, settings),
         keys=_load_provider(settings.key_provider, DatabaseKeyProvider, settings),

@@ -38,7 +38,8 @@ class DelegationService:
         current_depth = self._get_chain_depth(parent_claims)
         if current_depth >= self._settings.max_delegation_depth:
             raise DelegationDepthExceeded(
-                f"Delegation depth {current_depth + 1} exceeds max {self._settings.max_delegation_depth}"
+                f"Delegation depth {current_depth + 1} exceeds "
+                f"max {self._settings.max_delegation_depth}"
             )
 
         # 2. Enforce scope reduction

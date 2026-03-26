@@ -4,11 +4,9 @@ Uses freezegun to simulate time passing without actual waits.
 """
 
 import secrets
+from datetime import UTC, datetime, timedelta
 
-import pytest
 from freezegun import freeze_time
-
-from datetime import datetime, timedelta, timezone
 
 
 def _register(c, scope="read"):
@@ -56,7 +54,7 @@ class TestTokenExpiryEnforcement:
         for introspection. The JWT exp claim is set relative to issuance time,
         so introspection at T+TTL+1 sees it as expired.
         """
-        now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
 
         # Issue token at T=now
         with freeze_time(now):
@@ -76,7 +74,7 @@ class TestTokenExpiryEnforcement:
 
     def test_token_active_just_before_expiry(self, test_client):
         """Token is still active 1 second before TTL."""
-        now = datetime(2025, 6, 15, 8, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2025, 6, 15, 8, 0, 0, tzinfo=UTC)
 
         with freeze_time(now):
             creds = _register(test_client)

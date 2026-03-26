@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import select, update
@@ -163,7 +163,7 @@ class TokenService:
             .where(
                 AuthorizationCode.code == str(code),
                 AuthorizationCode.used == False,  # noqa: E712
-                AuthorizationCode.expires_at > datetime.now(timezone.utc),
+                AuthorizationCode.expires_at > datetime.now(UTC),
                 AuthorizationCode.client_id == client_id,
             )
             .values(used=True)
@@ -182,7 +182,9 @@ class TokenService:
             if expected != auth_code.code_challenge:
                 raise InvalidGrant("PKCE code_verifier does not match code_challenge")
         else:
-            raise InvalidGrant(f"Unsupported code_challenge_method: {auth_code.code_challenge_method}")
+            raise InvalidGrant(
+                f"Unsupported code_challenge_method: {auth_code.code_challenge_method}"
+            )
 
         # Verify redirect_uri matches
         if redirect_uri and str(redirect_uri) != auth_code.redirect_uri:
@@ -490,7 +492,7 @@ class TokenService:
         # Add to blocklist
         blocklist_entry = TokenBlocklist(
             jti=jti,
-            expires_at=datetime.fromtimestamp(claims.get("exp", 0), tz=timezone.utc),
+            expires_at=datetime.fromtimestamp(claims.get("exp", 0), tz=UTC),
             reason="user_revoke",
         )
         db.add(blocklist_entry)

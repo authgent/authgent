@@ -1,6 +1,6 @@
 """Step-up request model for HITL authorization."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -22,5 +22,5 @@ class StepUpRequest(ULIDMixin, Base):
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc)
+        default=lambda: datetime.now(UTC)
     )

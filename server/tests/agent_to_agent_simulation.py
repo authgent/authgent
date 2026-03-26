@@ -279,7 +279,7 @@ def scenario_1_enterprise_pipeline():
     human_token_data = r2.json()
     human_delegated_token = human_token_data["access_token"]
     orchestrator.refresh_token = human_token_data.get("refresh_token", "")
-    actor("Orchestrator", f"Received human-delegated token + refresh token")
+    actor("Orchestrator", "Received human-delegated token + refresh token")
 
     check("Human → Orchestrator delegation succeeds", r2.status_code == 200)
     check("  Access token issued", bool(human_delegated_token))
@@ -300,7 +300,7 @@ def scenario_1_enterprise_pipeline():
         scope="search:execute db:read",
     )
     search_token = exch1["body"].get("access_token", "")
-    actor("authgent", f"Issued delegated token to search-agent")
+    actor("authgent", "Issued delegated token to search-agent")
 
     check("Orchestrator → Search Agent delegation succeeds", exch1["status"] == 200)
     check("  Delegated token issued", bool(search_token))
@@ -328,7 +328,7 @@ def scenario_1_enterprise_pipeline():
         scope="db:read",
     )
     db_token = exch2["body"].get("access_token", "")
-    actor("authgent", f"Issued 2-hop delegated token to db-agent")
+    actor("authgent", "Issued 2-hop delegated token to db-agent")
 
     check("Search Agent → DB Agent delegation succeeds", exch2["status"] == 200)
     check("  2-hop delegated token issued", bool(db_token))
@@ -452,7 +452,7 @@ def scenario_3_token_theft(orchestrator: AgentIdentity):
         scope="db:read",
     )
     downstream_token = exch["body"].get("access_token", "")
-    actor("Analytics Agent", f"Got delegated token from orchestrator")
+    actor("Analytics Agent", "Got delegated token from orchestrator")
 
     # Verify both are active
     check("Stolen token is active", introspect(stolen_token).get("active") is True)
@@ -534,7 +534,7 @@ def scenario_4_depth_limit():
 
     # Get initial token for agent-0
     current_token = get_token(agents[0], "search:execute db:read")
-    actor(f"Agent-0", f"Gets root token")
+    actor("Agent-0", "Gets root token")
 
     # Chain exchange: each agent exchanges the previous token
     for i in range(1, 7):
@@ -593,7 +593,7 @@ def scenario_5_hitl_stepup():
         scopes=["db:read", "db:write", "db:delete"],
         capabilities=["data-cleanup"],
     )
-    agent_token = get_token(dangerous_agent, "db:read db:write db:delete")
+    get_token(dangerous_agent, "db:read db:write db:delete")
     actor("Cleanup Agent", "Has token with db:delete scope")
 
     # ── Step 1: Agent requests step-up ──
@@ -778,7 +778,7 @@ def scenario_6_device_grant():
         "scope": "admin:all",
     })
     dev2 = r_new.json()
-    actor("Developer", f"Sees suspicious scope 'admin:all' → DENIES")
+    actor("Developer", "Sees suspicious scope 'admin:all' → DENIES")
     httpx.post(f"{BASE}/device/complete", json={
         "user_code": dev2["user_code"],
         "subject": "developer:dhruv@acme-corp.com",
@@ -1074,7 +1074,7 @@ def scenario_10_refresh_rotation():
     original_access = r_tok.json()["access_token"]
     original_refresh = r_tok.json()["refresh_token"]
 
-    actor("Agent", f"Has access_token + refresh_token (generation 1)")
+    actor("Agent", "Has access_token + refresh_token (generation 1)")
     check("Initial tokens issued", bool(original_access) and bool(original_refresh))
 
     # ── Step 1: Legitimate agent rotates the refresh token ──
@@ -1094,7 +1094,7 @@ def scenario_10_refresh_rotation():
     check("Rotation succeeds (generation 2)", r_refresh.status_code == 200)
     check("  New access token differs", gen2_access != original_access)
     check("  New refresh token differs (rotated)", gen2_refresh != original_refresh)
-    actor("Agent", f"Now using generation-2 tokens")
+    actor("Agent", "Now using generation-2 tokens")
 
     # ── Step 2: Attacker tries the STOLEN (old) refresh token ──
     sub_section("Step 2: Attacker Replays Stolen Refresh Token")

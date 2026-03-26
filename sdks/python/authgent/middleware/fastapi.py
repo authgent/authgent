@@ -5,9 +5,9 @@ from __future__ import annotations
 from functools import wraps
 from typing import Any, Callable
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import HTTPException, Request
 
-from authgent.errors import AuthgentError, InsufficientScopeError
+from authgent.errors import AuthgentError
 from authgent.models import AgentIdentity
 from authgent.verify import verify_token
 
@@ -38,7 +38,7 @@ class AgentAuthMiddleware:
             return
 
         # Extract token from Authorization header
-        headers = dict(scope.get("headers", []))
+        dict(scope.get("headers", []))
         auth_header = b""
         for key, value in scope.get("headers", []):
             if key == b"authorization":

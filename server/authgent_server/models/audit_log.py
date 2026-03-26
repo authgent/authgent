@@ -1,8 +1,8 @@
 """Audit log model — append-only event log."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import JSON, String, Text
+from sqlalchemy import JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from authgent_server.models.base import Base, ULIDMixin
@@ -12,7 +12,7 @@ class AuditLog(ULIDMixin, Base):
     __tablename__ = "audit_log"
 
     timestamp: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc)
+        default=lambda: datetime.now(UTC)
     )
     action: Mapped[str] = mapped_column(String(50), nullable=False)
     actor: Mapped[str | None] = mapped_column(String(255), nullable=True)

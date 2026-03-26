@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def utcnow() -> datetime:
     """Return timezone-aware UTC now."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def ensure_aware(dt: datetime) -> datetime:
     """Ensure a datetime is timezone-aware (UTC). SQLite returns naive datetimes."""
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt
 
 

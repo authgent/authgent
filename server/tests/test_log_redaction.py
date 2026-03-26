@@ -1,6 +1,6 @@
 """Tests for logging.py — secret redaction in structured log events."""
 
-from authgent_server.logging import _redact_sensitive_values, _NEVER_LOG_KEYS
+from authgent_server.logging import _NEVER_LOG_KEYS, _redact_sensitive_values
 
 
 class TestNeverLogKeysRedaction:

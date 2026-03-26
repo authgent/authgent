@@ -10,10 +10,8 @@ Requires: server running on http://localhost:8000
 
 import base64
 import hashlib
-import json
 import secrets
 import sys
-import time
 
 import httpx
 
@@ -708,7 +706,7 @@ def main():
     print(f"{'='*60}")
 
     if failed > 0:
-        print(f"\n  Failed tests:")
+        print("\n  Failed tests:")
         for name, p, detail in results:
             if not p:
                 print(f"    ✗ {name}" + (f" — {detail}" if detail else ""))
