@@ -11,7 +11,7 @@ OAuth 2.1 authorization server with multi-agent delegation, DPoP sender-constrai
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg)](https://python.org)
 [![Node 20+](https://img.shields.io/badge/node-20+-339933.svg)](https://nodejs.org)
 
-[Quick Start](#quick-start) · [Why authgent?](#why-authgent) · [SDKs](#sdks) · [Docs](https://authgent.dev/docs) · [Contributing](CONTRIBUTING.md)
+[Quick Start](#quick-start) · [Why authgent?](#why-authgent) · [SDKs](#sdks) · [Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -233,7 +233,7 @@ authgent/
 │   ├── authgent_server/
 │   │   ├── endpoints/           # FastAPI routers — thin HTTP layer
 │   │   ├── services/            # Business logic — stateless, testable
-│   │   ├── models/              # SQLAlchemy ORM — 9 models
+│   │   ├── models/              # SQLAlchemy ORM — 12 models
 │   │   ├── providers/           # Pluggable providers — 7 Protocol interfaces
 │   │   ├── middleware/          # Error handler, CORS, rate limit, request ID
 │   │   ├── schemas/             # Pydantic request/response validation
@@ -243,7 +243,7 @@ authgent/
 │   │   ├── config.py            # Pydantic Settings (AUTHGENT_* env vars)
 │   │   ├── crypto.py            # HKDF + AES-256-GCM
 │   │   └── errors.py            # RFC 9457 Problem Details hierarchy
-│   ├── tests/                   # 192 tests — unit, integration, E2E
+│   ├── tests/                   # 194 tests — unit, integration, E2E
 │   ├── migrations/              # Alembic (SQLite dev → PostgreSQL prod)
 │   └── Dockerfile
 ├── sdks/
@@ -333,7 +333,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for development
 git clone https://github.com/authgent/authgent.git
 cd authgent/server
 pip install -e ".[dev]"
-pytest -v   # 192 tests
+pytest -v   # 270 tests (194 server + 29 SDK-py + 47 TS)
 ```
 
 ## License
