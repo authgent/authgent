@@ -24,13 +24,6 @@ classifiers = [
     "Topic :: Security",
     "Topic :: System :: Systems Administration :: Authentication/Directory",
 ]
-
-[project.urls]
-Homepage = "https://github.com/authgent/authgent"
-Documentation = "https://github.com/authgent/authgent/tree/main/server"
-Repository = "https://github.com/authgent/authgent"
-Changelog = "https://github.com/authgent/authgent/blob/main/CHANGELOG.md"
-Issues = "https://github.com/authgent/authgent/issues"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
@@ -61,6 +54,13 @@ dev = [
     "freezegun>=1.4.0",
 ]
 migrations = ["alembic>=1.13.0"]
+
+[project.urls]
+Homepage = "https://github.com/authgent/authgent"
+Documentation = "https://github.com/authgent/authgent/tree/main/server"
+Repository = "https://github.com/authgent/authgent"
+Changelog = "https://github.com/authgent/authgent/blob/main/CHANGELOG.md"
+Issues = "https://github.com/authgent/authgent/issues"
 
 [project.scripts]
 authgent-server = "authgent_server.cli:app"
