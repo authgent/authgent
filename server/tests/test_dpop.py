@@ -11,7 +11,6 @@ import time
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 
 def _ec_keypair():

@@ -14,12 +14,11 @@ Architecture ref: §4.6, §11.1 step 6
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 import httpx
 
-from authgent.errors import AuthgentError, InsufficientScopeError
+from authgent.errors import AuthgentError
 
 
 class StepUpDeniedError(AuthgentError):

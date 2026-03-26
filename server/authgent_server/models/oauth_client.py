@@ -1,6 +1,6 @@
 """OAuth client model — authoritative table for all OAuth credentials."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import JSON, Boolean, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -30,7 +30,7 @@ class OAuthClient(Base):
         String(26), ForeignKey("agents.id"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc)
+        default=lambda: datetime.now(UTC)
     )
 
     # Relationships

@@ -1,7 +1,7 @@
 """Advanced token tests — token exchange with blocklist, refresh rotation, auth code + PKCE."""
 
-import hashlib
 import base64
+import hashlib
 import secrets
 
 import pytest
@@ -71,7 +71,8 @@ async def test_token_exchange_with_revoked_subject_token(test_client):
     })
     # Should be rejected (400 or 401) because the subject token is revoked
     assert exchange_resp.status_code in (400, 401), (
-        f"Expected error for revoked subject_token, got {exchange_resp.status_code}: {exchange_resp.json()}"
+        f"Expected error for revoked subject_token, "
+        f"got {exchange_resp.status_code}: {exchange_resp.json()}"
     )
 
 

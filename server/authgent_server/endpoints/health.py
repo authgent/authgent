@@ -30,8 +30,9 @@ async def ready(db: AsyncSession = Depends(get_db_session)) -> dict:
         return JSONResponse(status_code=503, content=checks)  # type: ignore[return-value]
 
     try:
-        from authgent_server.models.signing_key import SigningKey
         from sqlalchemy import select
+
+        from authgent_server.models.signing_key import SigningKey
         result = await db.execute(
             select(SigningKey).where(SigningKey.status == "active").limit(1)
         )

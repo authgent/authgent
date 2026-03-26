@@ -1,6 +1,6 @@
 """Device code model for RFC 8628 Device Authorization Grant."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -23,5 +23,5 @@ class DeviceCode(Base):
     interval: Mapped[int] = mapped_column(Integer, default=5)
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(timezone.utc)
+        default=lambda: datetime.now(UTC)
     )

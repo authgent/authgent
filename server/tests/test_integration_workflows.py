@@ -30,9 +30,7 @@ import hashlib
 import secrets
 from urllib.parse import parse_qs, urlparse
 
-import pytest
 from fastapi.testclient import TestClient
-
 
 # ─── Helpers ──────────────────────────────────────────────────────────
 

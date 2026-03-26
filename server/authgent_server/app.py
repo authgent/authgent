@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import structlog
 from fastapi import FastAPI
@@ -16,7 +15,10 @@ from authgent_server.db import get_engine, get_session_factory
 from authgent_server.endpoints import api_router
 from authgent_server.errors import AuthgentError
 from authgent_server.middleware.cors import setup_cors
-from authgent_server.middleware.error_handler import authgent_error_handler, unhandled_exception_handler
+from authgent_server.middleware.error_handler import (
+    authgent_error_handler,
+    unhandled_exception_handler,
+)
 from authgent_server.middleware.rate_limit import RateLimitMiddleware
 from authgent_server.middleware.request_id import RequestIdMiddleware
 from authgent_server.models.base import Base
@@ -57,14 +59,14 @@ async def _cleanup_loop(
     while not shutdown.is_set():
         try:
             async with session_factory() as session:  # type: ignore[operator]
-                await session.execute(query, {"now": datetime.now(timezone.utc)})
+                await session.execute(query, {"now": datetime.now(UTC)})
                 await session.commit()
         except Exception as e:
             logger.warning("cleanup_failed", table=table, error=str(e))
         try:
             await asyncio.wait_for(shutdown.wait(), timeout=interval)
             break
-        except asyncio.TimeoutError:
+        except TimeoutError:
             continue
 
 

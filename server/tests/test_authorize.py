@@ -1,7 +1,7 @@
 """Tests for GET/POST /authorize — Authorization Code + PKCE flow."""
 
-import hashlib
 import base64
+import hashlib
 import secrets
 
 from fastapi.testclient import TestClient

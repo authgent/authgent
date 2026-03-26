@@ -10,8 +10,8 @@ from authgent_server.config import Settings
 from authgent_server.errors import AgentNotFound
 from authgent_server.models.agent import Agent
 from authgent_server.schemas.agent import AgentCreate, AgentResponse, AgentUpdate
-from authgent_server.services.client_service import ClientService
 from authgent_server.schemas.client import RegisterRequest
+from authgent_server.services.client_service import ClientService
 
 logger = structlog.get_logger()
 

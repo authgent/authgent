@@ -126,7 +126,7 @@ def create_agent(
                 ),
             )
 
-            typer.echo(f"  Agent created!")
+            typer.echo("  Agent created!")
             typer.echo(f"  Agent ID:      {agent.id}")
             typer.echo(f"  Client ID:     {client_id}")
             typer.echo(f"  Client Secret: {client_secret}")
@@ -170,6 +170,7 @@ def create_user(
 
     async def _create() -> None:
         import bcrypt
+
         from authgent_server.config import get_settings
         from authgent_server.db import get_engine, get_session_factory
         from authgent_server.models.user import User
@@ -232,7 +233,6 @@ def migrate(
 ) -> None:
     """Run database migrations (alembic upgrade head)."""
     import subprocess
-    import sys
 
     migrations_dir = os.path.join(os.path.dirname(__file__), "..", "migrations")
     alembic_ini = os.path.join(migrations_dir, "alembic.ini")

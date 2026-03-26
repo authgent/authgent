@@ -9,7 +9,6 @@ import time
 
 import jwt
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import serialization
 
 from authgent.errors import DPoPError
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from authgent_server.config import Settings, get_settings
@@ -15,7 +14,7 @@ from authgent_server.dependencies import (
     get_dpop_service,
     get_token_service,
 )
-from authgent_server.errors import AuthgentError, InvalidClient, InvalidRequest
+from authgent_server.errors import InvalidClient, InvalidRequest
 from authgent_server.schemas.token import TokenResponse
 from authgent_server.services.client_service import ClientService
 from authgent_server.services.dpop_service import DPoPService

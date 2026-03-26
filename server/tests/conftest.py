@@ -16,7 +16,9 @@ from sqlalchemy.ext.asyncio import (
 )
 
 # Set test env vars before importing app modules
-os.environ["AUTHGENT_SECRET_KEY"] = "test-secret-key-for-unit-tests-only-64chars-long-padding-here!!"
+os.environ["AUTHGENT_SECRET_KEY"] = (
+    "test-secret-key-for-unit-tests-only-64chars-long-padding-here!!"
+)
 os.environ["AUTHGENT_DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["AUTHGENT_CONSENT_MODE"] = "auto_approve"
 os.environ["AUTHGENT_REGISTRATION_POLICY"] = "open"

@@ -2,12 +2,9 @@
 
 import base64
 import hashlib
-import json
-import time
 
 import jwt
 import pytest
-from cryptography.hazmat.primitives.asymmetric import ec
 
 from authgent.dpop import DPoPClient, _compute_jkt, verify_dpop_proof
 from authgent.errors import DPoPError

@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import jwt
 import structlog
@@ -115,10 +115,14 @@ class JWKSService:
 
         if old_key:
             old_key.status = "rotated"
-            old_key.rotated_at = datetime.now(timezone.utc)
+            old_key.rotated_at = datetime.now(UTC)
 
         new_key = await self._generate_key(db)
-        logger.info("signing_key_rotated", old_kid=old_key.kid if old_key else None, new_kid=new_key.kid)
+        logger.info(
+            "signing_key_rotated",
+            old_kid=old_key.kid if old_key else None,
+            new_kid=new_key.kid,
+        )
         return new_key
 
     async def get_jwks_document(self, db: AsyncSession) -> dict:
