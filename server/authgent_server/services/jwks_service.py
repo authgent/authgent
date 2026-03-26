@@ -200,5 +200,5 @@ class JWKSService:
             algorithms=["ES256"],
             issuer=self._settings.server_url,
             audience=audience,
-            options=options,
+            options=options,  # type: ignore[arg-type]
         )
