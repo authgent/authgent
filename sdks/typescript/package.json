@@ -1,0 +1,100 @@
+{
+  "name": "authgent",
+  "version": "0.1.0",
+  "description": "The open-source identity SDK for AI agents — token verification, delegation chains, DPoP, middleware",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./middleware/express": {
+      "types": "./dist/middleware/express.d.ts",
+      "import": "./dist/middleware/express.js",
+      "require": "./dist/middleware/express.cjs"
+    },
+    "./middleware/hono": {
+      "types": "./dist/middleware/hono.d.ts",
+      "import": "./dist/middleware/hono.js",
+      "require": "./dist/middleware/hono.cjs"
+    },
+    "./adapters/mcp": {
+      "types": "./dist/adapters/mcp.d.ts",
+      "import": "./dist/adapters/mcp.js",
+      "require": "./dist/adapters/mcp.cjs"
+    },
+    "./adapters/protected-resource": {
+      "types": "./dist/adapters/protected-resource.d.ts",
+      "import": "./dist/adapters/protected-resource.js",
+      "require": "./dist/adapters/protected-resource.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "jose": "^5.9.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "express": "^5.0.0",
+    "hono": "^4.6.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "peerDependencies": {
+    "express": ">=4.0.0",
+    "hono": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "oauth",
+    "agent",
+    "mcp",
+    "identity",
+    "auth",
+    "jwt",
+    "dpop",
+    "delegation",
+    "a2a",
+    "ai-agent"
+  ],
+  "author": "Dhruv Agnihotri",
+  "homepage": "https://github.com/authgent/authgent/tree/main/sdks/typescript",
+  "bugs": {
+    "url": "https://github.com/authgent/authgent/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/authgent/authgent",
+    "directory": "sdks/typescript"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
