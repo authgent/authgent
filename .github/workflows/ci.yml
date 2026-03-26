@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  server-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install server dependencies
+        working-directory: server
+        run: pip install -e ".[dev]"
+      - name: Lint
+        working-directory: server
+        run: ruff check .
+      - name: Format check
+        working-directory: server
+        run: ruff format --check .
+      - name: Type check
+        working-directory: server
+        run: mypy authgent_server/ --ignore-missing-imports
+      - name: Run server tests
+        working-directory: server
+        run: pytest tests/ --ignore=tests/simulation_test.py --ignore=tests/agent_to_agent_simulation.py -v --tb=short
+      - name: Coverage
+        working-directory: server
+        run: |
+          coverage run -m pytest tests/ --ignore=tests/simulation_test.py --ignore=tests/agent_to_agent_simulation.py -v
+          coverage report --fail-under=80
+
+  sdk-python-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install SDK dependencies
+        working-directory: sdks/python
+        run: pip install -e ".[dev]"
+      - name: Lint
+        working-directory: sdks/python
+        run: ruff check .
+      - name: Run SDK tests
+        working-directory: sdks/python
+        run: pytest tests/ -v --tb=short
+
+  sdk-typescript-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ["18", "20", "22"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install dependencies
+        working-directory: sdks/typescript
+        run: npm ci
+      - name: Type check
+        working-directory: sdks/typescript
+        run: npm run typecheck
+      - name: Build
+        working-directory: sdks/typescript
+        run: npm run build
+      - name: Run tests
+        working-directory: sdks/typescript
+        run: npm test
