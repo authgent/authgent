@@ -1,0 +1,33 @@
+services:
+  authgent:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      AUTHGENT_DATABASE_URL: postgresql+asyncpg://authgent:authgent@db:5432/authgent
+      AUTHGENT_SECRET_KEY: ${AUTHGENT_SECRET_KEY:-change-me-in-production}
+      AUTHGENT_CORS_ORIGINS: '[]'
+      AUTHGENT_REGISTRATION_POLICY: open
+      AUTHGENT_CONSENT_MODE: auto_approve
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: authgent
+      POSTGRES_USER: authgent
+      POSTGRES_PASSWORD: authgent
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authgent"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
