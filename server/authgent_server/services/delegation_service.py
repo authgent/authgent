@@ -82,6 +82,11 @@ class DelegationService:
             if key in parent_claims:
                 claims[key] = parent_claims[key]
 
+        # 7. Carry forward external IdP provenance (§4.7)
+        for key in ("idp_iss", "idp_sub", "human_root"):
+            if key in parent_claims:
+                claims[key] = parent_claims[key]
+
         return claims
 
     def compute_chain_hash(self, claims: dict) -> str:

@@ -243,7 +243,7 @@ authgent/
 │   │   ├── config.py            # Pydantic Settings (AUTHGENT_* env vars)
 │   │   ├── crypto.py            # HKDF + AES-256-GCM
 │   │   └── errors.py            # RFC 9457 Problem Details hierarchy
-│   ├── tests/                   # 194 tests — unit, integration, E2E
+│   ├── tests/                   # 244 tests — unit, integration, E2E
 │   ├── migrations/              # Alembic (SQLite dev → PostgreSQL prod)
 │   └── Dockerfile
 ├── sdks/
@@ -286,6 +286,8 @@ All configuration via `AUTHGENT_*` environment variables:
 | `AUTHGENT_REQUIRE_DPOP` | `false` | Require DPoP proofs on all token requests |
 | `AUTHGENT_CONSENT_MODE` | `auto_approve` | `auto_approve`, `ui`, `headless` |
 | `AUTHGENT_REGISTRATION_POLICY` | `open` | `open`, `token`, `admin` |
+| `AUTHGENT_TRUSTED_OIDC_ISSUERS` | `[]` | Trusted external IdP issuer URLs (Auth0/Clerk/Okta) |
+| `AUTHGENT_TRUSTED_OIDC_AUDIENCE` | *none* | Expected `aud` in external id_tokens |
 
 See [`server/.env.example`](server/.env.example) for the complete list including provider configuration.
 
@@ -333,7 +335,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for development
 git clone https://github.com/authgent/authgent.git
 cd authgent/server
 pip install -e ".[dev]"
-pytest -v   # 270 tests (194 server + 29 SDK-py + 47 TS)
+pytest -v   # 320 tests (244 server + 29 SDK-py + 47 TS)
 ```
 
 ## License

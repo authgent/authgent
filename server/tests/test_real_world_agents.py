@@ -22,7 +22,6 @@ import secrets
 
 import pytest
 
-
 # ── Helpers ──────────────────────────────────────────────────────────
 
 
@@ -42,57 +41,71 @@ def _create_agent(c, name, *, scopes=None, owner=None, capabilities=None):
 
 def _register_exchange_client(c, *, scope="read write"):
     """Register a raw OAuth client that supports token exchange (for delegation)."""
-    resp = c.post("/register", json={
-        "client_name": f"exchanger-{secrets.token_hex(4)}",
-        "grant_types": [
-            "client_credentials",
-            "urn:ietf:params:oauth:grant-type:token-exchange",
-        ],
-        "scope": scope,
-    })
+    resp = c.post(
+        "/register",
+        json={
+            "client_name": f"exchanger-{secrets.token_hex(4)}",
+            "grant_types": [
+                "client_credentials",
+                "urn:ietf:params:oauth:grant-type:token-exchange",
+            ],
+            "scope": scope,
+        },
+    )
     assert resp.status_code == 201
     return resp.json()
 
 
 def _register_full_client(c, *, scope="read write"):
     """Register a client with all grant types for full-flow testing."""
-    resp = c.post("/register", json={
-        "client_name": f"full-{secrets.token_hex(4)}",
-        "grant_types": [
-            "client_credentials",
-            "authorization_code",
-            "refresh_token",
-            "urn:ietf:params:oauth:grant-type:token-exchange",
-        ],
-        "scope": scope,
-    })
+    resp = c.post(
+        "/register",
+        json={
+            "client_name": f"full-{secrets.token_hex(4)}",
+            "grant_types": [
+                "client_credentials",
+                "authorization_code",
+                "refresh_token",
+                "urn:ietf:params:oauth:grant-type:token-exchange",
+            ],
+            "scope": scope,
+        },
+    )
     assert resp.status_code == 201
     return resp.json()
 
 
 def _cc_token(c, client_id, client_secret, scope="read"):
     """Get a client_credentials token."""
-    resp = c.post("/token", data={
-        "grant_type": "client_credentials",
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "scope": scope,
-    })
+    resp = c.post(
+        "/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scope": scope,
+        },
+    )
     assert resp.status_code == 200, f"Token request failed: {resp.text}"
     return resp.json()
 
 
-def _exchange(c, child_id, child_secret, subject_token, *, scope="read", audience="https://api.example.com"):
+def _exchange(
+    c, child_id, child_secret, subject_token, *, scope="read", audience="https://api.example.com"
+):
     """Token exchange — child acts on behalf of parent."""
-    return c.post("/token", data={
-        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-        "client_id": child_id,
-        "client_secret": child_secret,
-        "subject_token": subject_token,
-        "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
-        "audience": audience,
-        "scope": scope,
-    })
+    return c.post(
+        "/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "client_id": child_id,
+            "client_secret": child_secret,
+            "subject_token": subject_token,
+            "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+            "audience": audience,
+            "scope": scope,
+        },
+    )
 
 
 def _introspect(c, token):
@@ -130,7 +143,8 @@ class TestEnterprisePipeline:
         search-agent (read) and db-agent (read), verifies act claims."""
         # Create real agents
         orchestrator = _create_agent(
-            test_client, "orchestrator-v1",
+            test_client,
+            "orchestrator-v1",
             scopes=["read", "write", "search", "db:query"],
             owner="platform-team",
             capabilities=["delegation", "orchestration"],
@@ -251,42 +265,55 @@ class TestDeviceGrantRealWorld:
     async def test_ci_agent_device_grant_approve_then_delegate(self, test_client):
         """CI agent authenticates via device grant, then delegates downstream."""
         ci_agent = _create_agent(
-            test_client, "ci-runner-prod",
+            test_client,
+            "ci-runner-prod",
             scopes=["deploy", "read"],
             owner="devops-team",
         )
 
         # Request device code
-        device_resp = test_client.post("/device/authorize", data={
-            "client_id": ci_agent["client_id"],
-            "scope": "deploy read",
-        })
+        device_resp = test_client.post(
+            "/device/authorize",
+            data={
+                "client_id": ci_agent["client_id"],
+                "scope": "deploy read",
+            },
+        )
         assert device_resp.status_code == 200
         device_data = device_resp.json()
         assert "device_code" in device_data
         assert "user_code" in device_data
 
         # Poll before approval → authorization_pending
-        poll_resp = test_client.post("/device/token", data={
-            "device_code": device_data["device_code"],
-            "client_id": ci_agent["client_id"],
-        })
+        poll_resp = test_client.post(
+            "/device/token",
+            data={
+                "device_code": device_data["device_code"],
+                "client_id": ci_agent["client_id"],
+            },
+        )
         assert poll_resp.status_code == 400
         assert poll_resp.json()["error"] == "authorization_pending"
 
         # Human approves on separate device
-        approve_resp = test_client.post("/device/complete", json={
-            "user_code": device_data["user_code"],
-            "subject": "user:devops-jane",
-            "action": "approve",
-        })
+        approve_resp = test_client.post(
+            "/device/complete",
+            json={
+                "user_code": device_data["user_code"],
+                "subject": "user:devops-jane",
+                "action": "approve",
+            },
+        )
         assert approve_resp.status_code == 200
 
         # Poll again → should get token
-        token_resp = test_client.post("/device/token", data={
-            "device_code": device_data["device_code"],
-            "client_id": ci_agent["client_id"],
-        })
+        token_resp = test_client.post(
+            "/device/token",
+            data={
+                "device_code": device_data["device_code"],
+                "client_id": ci_agent["client_id"],
+            },
+        )
         assert token_resp.status_code == 200
         token_data = token_resp.json()
         assert "access_token" in token_data
@@ -300,24 +327,33 @@ class TestDeviceGrantRealWorld:
         """Human denies device grant → agent cannot get token."""
         agent = _create_agent(test_client, "denied-agent", scopes=["read"])
 
-        device_resp = test_client.post("/device/authorize", data={
-            "client_id": agent["client_id"],
-            "scope": "read",
-        })
+        device_resp = test_client.post(
+            "/device/authorize",
+            data={
+                "client_id": agent["client_id"],
+                "scope": "read",
+            },
+        )
         device_data = device_resp.json()
 
         # Human denies
-        test_client.post("/device/complete", json={
-            "user_code": device_data["user_code"],
-            "subject": "user:security-admin",
-            "action": "deny",
-        })
+        test_client.post(
+            "/device/complete",
+            json={
+                "user_code": device_data["user_code"],
+                "subject": "user:security-admin",
+                "action": "deny",
+            },
+        )
 
         # Poll → should fail
-        poll_resp = test_client.post("/device/token", data={
-            "device_code": device_data["device_code"],
-            "client_id": agent["client_id"],
-        })
+        poll_resp = test_client.post(
+            "/device/token",
+            data={
+                "device_code": device_data["device_code"],
+                "client_id": agent["client_id"],
+            },
+        )
         assert poll_resp.status_code == 400
         body = poll_resp.json()
         # Server may return OAuth error format or RFC 9457 problem detail
@@ -329,30 +365,42 @@ class TestDeviceGrantRealWorld:
         """Consumed device code cannot be reused."""
         agent = _create_agent(test_client, "one-time-device", scopes=["read"])
 
-        device_resp = test_client.post("/device/authorize", data={
-            "client_id": agent["client_id"],
-            "scope": "read",
-        })
+        device_resp = test_client.post(
+            "/device/authorize",
+            data={
+                "client_id": agent["client_id"],
+                "scope": "read",
+            },
+        )
         device_data = device_resp.json()
 
-        test_client.post("/device/complete", json={
-            "user_code": device_data["user_code"],
-            "subject": "user:alice",
-            "action": "approve",
-        })
+        test_client.post(
+            "/device/complete",
+            json={
+                "user_code": device_data["user_code"],
+                "subject": "user:alice",
+                "action": "approve",
+            },
+        )
 
         # First poll: success
-        first = test_client.post("/device/token", data={
-            "device_code": device_data["device_code"],
-            "client_id": agent["client_id"],
-        })
+        first = test_client.post(
+            "/device/token",
+            data={
+                "device_code": device_data["device_code"],
+                "client_id": agent["client_id"],
+            },
+        )
         assert first.status_code == 200
 
         # Second poll: already consumed
-        second = test_client.post("/device/token", data={
-            "device_code": device_data["device_code"],
-            "client_id": agent["client_id"],
-        })
+        second = test_client.post(
+            "/device/token",
+            data={
+                "device_code": device_data["device_code"],
+                "client_id": agent["client_id"],
+            },
+        )
         assert second.status_code == 400
 
 
@@ -368,19 +416,23 @@ class TestHITLStepUpRealWorld:
     async def test_agent_requests_stepup_and_gets_approved(self, test_client):
         """Agent creates step-up → polls pending → human approves → status approved."""
         agent = _create_agent(
-            test_client, "data-cleanup-bot",
+            test_client,
+            "data-cleanup-bot",
             scopes=["read", "write", "delete"],
             owner="data-team",
         )
 
         # Agent requests step-up for dangerous action
-        stepup_resp = test_client.post("/stepup", json={
-            "agent_id": agent["id"],
-            "action": "delete_production_table",
-            "scope": "delete",
-            "resource": "https://db.prod.example.com/users",
-            "metadata": {"table": "users", "reason": "GDPR compliance"},
-        })
+        stepup_resp = test_client.post(
+            "/stepup",
+            json={
+                "agent_id": agent["id"],
+                "action": "delete_production_table",
+                "scope": "delete",
+                "resource": "https://db.prod.example.com/users",
+                "metadata": {"table": "users", "reason": "GDPR compliance"},
+            },
+        )
         assert stepup_resp.status_code == 202
         stepup = stepup_resp.json()
         assert stepup["status"] == "pending"
@@ -392,9 +444,12 @@ class TestHITLStepUpRealWorld:
         assert poll.json()["status"] == "pending"
 
         # Human approves
-        approve = test_client.post(f"/stepup/{request_id}/approve", json={
-            "approved_by": "admin:security-lead",
-        })
+        approve = test_client.post(
+            f"/stepup/{request_id}/approve",
+            json={
+                "approved_by": "admin:security-lead",
+            },
+        )
         assert approve.status_code == 200
         assert approve.json()["status"] == "approved"
 
@@ -409,11 +464,14 @@ class TestHITLStepUpRealWorld:
         """Once denied, step-up cannot be re-approved."""
         agent = _create_agent(test_client, "risky-bot", scopes=["delete"])
 
-        stepup = test_client.post("/stepup", json={
-            "agent_id": agent["id"],
-            "action": "drop_database",
-            "scope": "delete",
-        })
+        stepup = test_client.post(
+            "/stepup",
+            json={
+                "agent_id": agent["id"],
+                "action": "drop_database",
+                "scope": "delete",
+            },
+        )
         rid = stepup.json()["id"]
 
         # Deny it
@@ -422,9 +480,12 @@ class TestHITLStepUpRealWorld:
         assert deny.json()["status"] == "denied"
 
         # Try to approve after deny — should fail
-        re_approve = test_client.post(f"/stepup/{rid}/approve", json={
-            "approved_by": "admin:rogue",
-        })
+        re_approve = test_client.post(
+            f"/stepup/{rid}/approve",
+            json={
+                "approved_by": "admin:rogue",
+            },
+        )
         # Should reject because it's no longer pending
         assert re_approve.status_code in (400, 409, 422)
 
@@ -441,7 +502,8 @@ class TestAgentDeactivation:
     async def test_deactivated_agent_cannot_get_new_tokens(self, test_client):
         """After DELETE /agents/{id}, new token requests must fail."""
         agent = _create_agent(
-            test_client, "compromised-bot",
+            test_client,
+            "compromised-bot",
             scopes=["read", "write"],
             owner="security-team",
         )
@@ -461,12 +523,15 @@ class TestAgentDeactivation:
         assert deactivate.json()["status"] == "inactive"
 
         # Agent tries to get a new token — must be rejected
-        fail_resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": agent["client_id"],
-            "client_secret": agent["client_secret"],
-            "scope": "read",
-        })
+        fail_resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": agent["client_id"],
+                "client_secret": agent["client_secret"],
+                "scope": "read",
+            },
+        )
         assert fail_resp.status_code == 401, (
             f"Expected 401 for deactivated agent, got {fail_resp.status_code}: {fail_resp.text}"
         )
@@ -482,7 +547,8 @@ class TestAgentDeactivation:
         agent status — either behavior is documented here.
         """
         agent = _create_agent(
-            test_client, "pre-deactivation-bot",
+            test_client,
+            "pre-deactivation-bot",
             scopes=["read"],
         )
 
@@ -510,7 +576,8 @@ class TestAgentDeactivation:
     async def test_deactivated_agent_visible_in_listing(self, test_client):
         """Deactivated agents still appear in listings with status=inactive."""
         agent = _create_agent(
-            test_client, "listed-inactive-bot",
+            test_client,
+            "listed-inactive-bot",
             scopes=["read"],
             owner="qa-team",
         )
@@ -543,14 +610,15 @@ class TestMultiTeamIsolation:
     async def test_team_a_token_cannot_be_used_by_team_b(self, test_client):
         """Team A's agent token cannot be exchanged by Team B's agent."""
         team_a_agent = _create_agent(
-            test_client, "team-a-search",
+            test_client,
+            "team-a-search",
             scopes=["read", "search"],
             owner="team-alpha",
         )
         team_b_exchanger = _register_exchange_client(test_client, scope="read search")
 
-        # Team A gets token
-        a_token = _cc_token(
+        # Team A gets token (used to prove valid creds exist)
+        _a_token = _cc_token(
             test_client,
             team_a_agent["client_id"],
             team_a_agent["client_secret"],
@@ -560,12 +628,15 @@ class TestMultiTeamIsolation:
         # Team B tries to exchange Team A's token — this should work
         # (token exchange is designed to work across clients as delegation)
         # BUT Team B cannot forge Team A's credentials
-        fail_resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": team_a_agent["client_id"],
-            "client_secret": team_b_exchanger["client_secret"],  # wrong secret!
-            "scope": "read",
-        })
+        fail_resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": team_a_agent["client_id"],
+                "client_secret": team_b_exchanger["client_secret"],  # wrong secret!
+                "scope": "read",
+            },
+        )
         assert fail_resp.status_code == 401
 
     @pytest.mark.asyncio
@@ -575,21 +646,27 @@ class TestMultiTeamIsolation:
         b = _create_agent(test_client, "agent-beta", scopes=["read"], owner="beta")
 
         # A's ID + B's secret
-        resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": a["client_id"],
-            "client_secret": b["client_secret"],
-            "scope": "read",
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": a["client_id"],
+                "client_secret": b["client_secret"],
+                "scope": "read",
+            },
+        )
         assert resp.status_code == 401
 
         # B's ID + A's secret
-        resp2 = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": b["client_id"],
-            "client_secret": a["client_secret"],
-            "scope": "read",
-        })
+        resp2 = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": b["client_id"],
+                "client_secret": a["client_secret"],
+                "scope": "read",
+            },
+        )
         assert resp2.status_code == 401
 
 
@@ -606,7 +683,8 @@ class TestTokenTheftIncidentResponse:
     async def test_revoke_parent_token_kills_delegation_chain(self, test_client):
         """Revoking the orchestrator token should prevent further exchanges."""
         orchestrator = _create_agent(
-            test_client, "orch-theft-test",
+            test_client,
+            "orch-theft-test",
             scopes=["read", "write"],
         )
         downstream = _register_exchange_client(test_client, scope="read")
@@ -649,7 +727,8 @@ class TestTokenTheftIncidentResponse:
     async def test_revoke_only_affects_target_token(self, test_client):
         """Revoking one token does NOT revoke other tokens from the same agent."""
         agent = _create_agent(
-            test_client, "multi-token-agent",
+            test_client,
+            "multi-token-agent",
             scopes=["read", "write"],
         )
 
@@ -679,7 +758,8 @@ class TestMultiAudienceDelegation:
     async def test_same_parent_token_multiple_audiences(self, test_client):
         """One parent token → exchange to 3 different audiences."""
         parent = _create_agent(
-            test_client, "multi-audience-orch",
+            test_client,
+            "multi-audience-orch",
             scopes=["read", "write", "search", "email"],
         )
         search_client = _register_exchange_client(test_client, scope="read search")
@@ -751,7 +831,8 @@ class TestAgentLifecycle:
         """Agent: create → get token → update scopes → get new token → deactivate."""
         # Create
         agent = _create_agent(
-            test_client, "lifecycle-bot",
+            test_client,
+            "lifecycle-bot",
             scopes=["read"],
             owner="platform",
             capabilities=["search"],
@@ -773,10 +854,13 @@ class TestAgentLifecycle:
         assert _introspect(test_client, token["access_token"])["active"] is True
 
         # Update agent metadata
-        update_resp = test_client.patch(f"/agents/{agent_id}", json={
-            "capabilities": ["search", "summarize"],
-            "metadata": {"version": "2.0", "updated_by": "admin"},
-        })
+        update_resp = test_client.patch(
+            f"/agents/{agent_id}",
+            json={
+                "capabilities": ["search", "summarize"],
+                "metadata": {"version": "2.0", "updated_by": "admin"},
+            },
+        )
         assert update_resp.status_code == 200
         updated = update_resp.json()
         assert "summarize" in updated["capabilities"]
@@ -796,12 +880,15 @@ class TestAgentLifecycle:
         assert deactivate.json()["status"] == "inactive"
 
         # No more tokens
-        fail_resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": agent["client_id"],
-            "client_secret": agent["client_secret"],
-            "scope": "read",
-        })
+        fail_resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": agent["client_id"],
+                "client_secret": agent["client_secret"],
+                "scope": "read",
+            },
+        )
         assert fail_resp.status_code == 401
 
     @pytest.mark.asyncio
@@ -811,7 +898,8 @@ class TestAgentLifecycle:
         agents = []
         for i in range(5):
             a = _create_agent(
-                test_client, f"paginated-bot-{i}",
+                test_client,
+                f"paginated-bot-{i}",
                 scopes=["read"],
                 owner=owner,
             )
@@ -849,15 +937,19 @@ class TestAuthCodeWithAgent:
         verifier, challenge = _pkce_pair()
 
         # Authorize
-        auth_resp = test_client.get("/authorize", params={
-            "response_type": "code",
-            "client_id": web_client["client_id"],
-            "redirect_uri": "http://localhost:3000/callback",
-            "scope": "read write",
-            "state": "xyzzy",
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-        }, follow_redirects=False)
+        auth_resp = test_client.get(
+            "/authorize",
+            params={
+                "response_type": "code",
+                "client_id": web_client["client_id"],
+                "redirect_uri": "http://localhost:3000/callback",
+                "scope": "read write",
+                "state": "xyzzy",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+            },
+            follow_redirects=False,
+        )
         assert auth_resp.status_code == 302
         location = auth_resp.headers["location"]
         assert "code=" in location
@@ -865,14 +957,17 @@ class TestAuthCodeWithAgent:
         code = location.split("code=")[1].split("&")[0]
 
         # Exchange code for token
-        token_resp = test_client.post("/token", data={
-            "grant_type": "authorization_code",
-            "client_id": web_client["client_id"],
-            "client_secret": web_client["client_secret"],
-            "code": code,
-            "redirect_uri": "http://localhost:3000/callback",
-            "code_verifier": verifier,
-        })
+        token_resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": web_client["client_id"],
+                "client_secret": web_client["client_secret"],
+                "code": code,
+                "redirect_uri": "http://localhost:3000/callback",
+                "code_verifier": verifier,
+            },
+        )
         assert token_resp.status_code == 200
         tokens = token_resp.json()
         assert "access_token" in tokens
@@ -898,34 +993,44 @@ class TestAuthCodeWithAgent:
 
         verifier, challenge = _pkce_pair()
 
-        auth_resp = test_client.get("/authorize", params={
-            "response_type": "code",
-            "client_id": client["client_id"],
-            "redirect_uri": "http://localhost:3000/callback",
-            "scope": "read",
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-        }, follow_redirects=False)
+        auth_resp = test_client.get(
+            "/authorize",
+            params={
+                "response_type": "code",
+                "client_id": client["client_id"],
+                "redirect_uri": "http://localhost:3000/callback",
+                "scope": "read",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+            },
+            follow_redirects=False,
+        )
         code = auth_resp.headers["location"].split("code=")[1].split("&")[0]
 
-        token_resp = test_client.post("/token", data={
-            "grant_type": "authorization_code",
-            "client_id": client["client_id"],
-            "client_secret": client["client_secret"],
-            "code": code,
-            "redirect_uri": "http://localhost:3000/callback",
-            "code_verifier": verifier,
-        })
+        token_resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": client["client_id"],
+                "client_secret": client["client_secret"],
+                "code": code,
+                "redirect_uri": "http://localhost:3000/callback",
+                "code_verifier": verifier,
+            },
+        )
         assert token_resp.status_code == 200
         rt = token_resp.json()["refresh_token"]
 
         # Refresh
-        refresh_resp = test_client.post("/token", data={
-            "grant_type": "refresh_token",
-            "client_id": client["client_id"],
-            "client_secret": client["client_secret"],
-            "refresh_token": rt,
-        })
+        refresh_resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": client["client_id"],
+                "client_secret": client["client_secret"],
+                "refresh_token": rt,
+            },
+        )
         assert refresh_resp.status_code == 200
         new_at = refresh_resp.json()["access_token"]
 
@@ -975,7 +1080,8 @@ class TestDiscoveryAndHealth:
 
         # Now register
         agent = _create_agent(
-            test_client, "discovery-aware-bot",
+            test_client,
+            "discovery-aware-bot",
             scopes=["read"],
         )
         assert agent["client_id"].startswith("agnt_")
@@ -1012,11 +1118,14 @@ class TestEdgeCasesRealAgents:
         """Agent with empty scopes can register but token scope may be empty."""
         agent = _create_agent(test_client, "no-scope-bot")
         # Try to get token — behavior depends on whether server allows empty scope
-        resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": agent["client_id"],
-            "client_secret": agent["client_secret"],
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": agent["client_id"],
+                "client_secret": agent["client_secret"],
+            },
+        )
         # Either 200 with empty scope or 400 — both are valid
         assert resp.status_code in (200, 400)
 
@@ -1029,12 +1138,15 @@ class TestEdgeCasesRealAgents:
     @pytest.mark.asyncio
     async def test_token_with_garbage_client_id(self, test_client):
         """Completely bogus client_id returns 401."""
-        resp = test_client.post("/token", data={
-            "grant_type": "client_credentials",
-            "client_id": "not_a_real_client",
-            "client_secret": "not_a_real_secret",
-            "scope": "read",
-        })
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": "not_a_real_client",
+                "client_secret": "not_a_real_secret",
+                "scope": "read",
+            },
+        )
         assert resp.status_code == 401
 
     @pytest.mark.asyncio

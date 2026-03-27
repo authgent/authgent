@@ -28,8 +28,8 @@ from authgent_server.services.audit_service import AuditService
 from authgent_server.services.delegation_service import DelegationService
 from authgent_server.services.external_oidc import (
     ACCESS_TOKEN_TYPE,
-    ExternalIDTokenVerifier,
     ID_TOKEN_TYPE,
+    ExternalIDTokenVerifier,
 )
 from authgent_server.services.jwks_service import JWKSService
 from authgent_server.utils import is_expired, utcnow
@@ -374,9 +374,7 @@ class TokenService:
         - id_token: exchange an external IdP token (Auth0/Clerk/Okta)
         """
         subject_token = kwargs.get("subject_token")
-        subject_token_type = str(
-            kwargs.get("subject_token_type") or ACCESS_TOKEN_TYPE
-        )
+        subject_token_type = str(kwargs.get("subject_token_type") or ACCESS_TOKEN_TYPE)
         audience_target = kwargs.get("audience")
         scope = kwargs.get("scope")
         dpop_jkt = kwargs.get("dpop_jkt")
@@ -457,8 +455,7 @@ class TokenService:
         """
         if self._external_oidc is None:
             raise InvalidRequest(
-                "External id_token exchange is not configured. "
-                "Set AUTHGENT_TRUSTED_OIDC_ISSUERS."
+                "External id_token exchange is not configured. Set AUTHGENT_TRUSTED_OIDC_ISSUERS."
             )
         verified = await self._external_oidc.verify_id_token(token)
 
