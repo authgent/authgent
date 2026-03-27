@@ -111,6 +111,7 @@ async def token_endpoint(
         redirect_uri=str(form.get("redirect_uri", "")),
         refresh_token_value=str(form.get("refresh_token", "")),
         subject_token=str(form.get("subject_token", "")),
+        subject_token_type=str(form.get("subject_token_type", "")) or None,
         audience=str(form.get("audience", "")),
         device_code=str(form.get("device_code", "")),
         dpop_jkt=dpop_jkt,

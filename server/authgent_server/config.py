@@ -73,6 +73,10 @@ class Settings(BaseSettings):
     # Human auth mode
     human_auth_mode: Literal["builtin", "external_oidc", "api_key"] = "builtin"
 
+    # External OIDC trust for id_token exchange (§4.7)
+    trusted_oidc_issuers: list[str] = Field(default_factory=list)
+    trusted_oidc_audience: str | None = None
+
     # Providers (dotted import paths, None = use default)
     attestation_provider: str | None = None
     policy_provider: str | None = None
