@@ -26,6 +26,11 @@ from authgent_server.providers.protocols import ClaimEnricher
 from authgent_server.schemas.token import TokenResponse
 from authgent_server.services.audit_service import AuditService
 from authgent_server.services.delegation_service import DelegationService
+from authgent_server.services.external_oidc import (
+    ACCESS_TOKEN_TYPE,
+    ExternalIDTokenVerifier,
+    ID_TOKEN_TYPE,
+)
 from authgent_server.services.jwks_service import JWKSService
 from authgent_server.utils import is_expired, utcnow
 
@@ -44,12 +49,14 @@ class TokenService:
         delegation: DelegationService,
         audit: AuditService,
         claim_enricher: ClaimEnricher | None = None,
+        external_oidc: ExternalIDTokenVerifier | None = None,
     ):
         self._settings = settings
         self._jwks = jwks
         self._delegation = delegation
         self._audit = audit
         self._enricher = claim_enricher
+        self._external_oidc = external_oidc
 
     async def issue_token(
         self,
@@ -65,6 +72,7 @@ class TokenService:
         redirect_uri: str | None = None,
         refresh_token_value: str | None = None,
         subject_token: str | None = None,
+        subject_token_type: str | None = None,
         audience: str | None = None,
         device_code: str | None = None,
         dpop_jkt: str | None = None,
@@ -94,6 +102,7 @@ class TokenService:
             redirect_uri=redirect_uri,
             refresh_token_value=refresh_token_value,
             subject_token=subject_token,
+            subject_token_type=subject_token_type,
             audience=audience,
             device_code=device_code,
             dpop_jkt=dpop_jkt,
@@ -358,8 +367,16 @@ class TokenService:
     async def _handle_token_exchange(
         self, db: AsyncSession, client_id: str, **kwargs: object
     ) -> TokenResponse:
-        """RFC 8693 token exchange — delegation chain construction."""
+        """RFC 8693 token exchange — delegation chain construction.
+
+        Supports two subject_token_type values:
+        - access_token (default): exchange an authgent-issued token
+        - id_token: exchange an external IdP token (Auth0/Clerk/Okta)
+        """
         subject_token = kwargs.get("subject_token")
+        subject_token_type = str(
+            kwargs.get("subject_token_type") or ACCESS_TOKEN_TYPE
+        )
         audience_target = kwargs.get("audience")
         scope = kwargs.get("scope")
         dpop_jkt = kwargs.get("dpop_jkt")
@@ -369,8 +386,13 @@ class TokenService:
         if not audience_target:
             raise InvalidRequest("audience is required for token exchange")
 
-        # Verify the subject token (includes blocklist check)
-        parent_claims = await self.verify_and_check_blocklist(db, str(subject_token))
+        # Dispatch on subject_token_type (RFC 8693 §2.1)
+        if subject_token_type == ID_TOKEN_TYPE:
+            parent_claims = await self._verify_external_id_token(str(subject_token))
+        elif subject_token_type == ACCESS_TOKEN_TYPE:
+            parent_claims = await self.verify_and_check_blocklist(db, str(subject_token))
+        else:
+            raise InvalidRequest(f"Unsupported subject_token_type: {subject_token_type}")
 
         # Build delegation claims
         requested_scopes = str(scope).split() if scope else []
@@ -409,9 +431,11 @@ class TokenService:
             client_id=client_id,
             metadata={
                 "grant_type": "token_exchange",
+                "subject_token_type": subject_token_type,
                 "jti": jti,
                 "parent_jti": parent_claims.get("jti"),
                 "audience": str(audience_target),
+                "human_root": parent_claims.get("human_root", False),
             },
         )
 
@@ -422,6 +446,30 @@ class TokenService:
             scope=" ".join(requested_scopes),
             issued_token_type="urn:ietf:params:oauth:token-type:access_token",
         )
+
+    async def _verify_external_id_token(self, token: str) -> dict:
+        """Verify an external id_token via the ExternalIDTokenVerifier.
+
+        Returns normalized claims suitable for delegation chain construction.
+        The returned claims include 'sub' as 'user:{idp_sub}' and
+        'human_root': True so downstream delegation recognizes
+        this as a human-rooted chain.
+        """
+        if self._external_oidc is None:
+            raise InvalidRequest(
+                "External id_token exchange is not configured. "
+                "Set AUTHGENT_TRUSTED_OIDC_ISSUERS."
+            )
+        verified = await self._external_oidc.verify_id_token(token)
+
+        # Build parent_claims compatible with delegation service
+        return {
+            "sub": verified["sub"],
+            "scope": "",  # id_tokens don't carry scopes; client requests scopes
+            "idp_iss": verified["idp_iss"],
+            "idp_sub": verified["idp_sub"],
+            "human_root": True,
+        }
 
     async def _handle_device_code(
         self, db: AsyncSession, client_id: str, **kwargs: object

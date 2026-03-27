@@ -31,6 +31,7 @@ from authgent_server.services.client_service import ClientService
 from authgent_server.services.consent_service import ConsentService
 from authgent_server.services.delegation_service import DelegationService
 from authgent_server.services.dpop_service import DPoPService
+from authgent_server.services.external_oidc import ExternalIDTokenVerifier
 from authgent_server.services.jwks_service import JWKSService
 from authgent_server.services.stepup_service import StepUpService
 from authgent_server.services.token_service import TokenService
@@ -137,6 +138,10 @@ def get_stepup_service() -> StepUpService:
     return StepUpService(get_settings())
 
 
+def get_external_oidc_verifier() -> ExternalIDTokenVerifier:
+    return ExternalIDTokenVerifier(get_settings())
+
+
 def get_token_service() -> TokenService:
     providers = get_providers()
     return TokenService(
@@ -145,4 +150,5 @@ def get_token_service() -> TokenService:
         delegation=get_delegation_service(),
         audit=get_audit_service(),
         claim_enricher=providers.claim_enricher,
+        external_oidc=get_external_oidc_verifier(),
     )
