@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Background cleanup jobs** for expired tokens, auth codes, device codes, refresh tokens, step-up requests
 - **Docker** support with PostgreSQL via docker-compose
 - **Typer CLI** — `init`, `run`, `create-agent`, `migrate`
-- **192 tests** — unit, integration, E2E, security, DPoP, delegation, crypto, logging
+- **244 tests** — unit, integration, E2E, security, DPoP, delegation, crypto, logging, external OIDC
 
 #### Python SDK (`authgent`)
 - `verify_token()` — JWT verification against issuer JWKS
