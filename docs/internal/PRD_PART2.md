@@ -604,6 +604,7 @@ authgent/
 ### Phase 3: Token Exchange / Delegation Chains (Weeks 7-8)
 
 - `POST /token` with `token-exchange` grant (RFC 8693)
+- **External id_token as subject_token** — Accept `subject_token_type=urn:ietf:params:oauth:token-type:id_token` with JWTs from trusted external IdPs (Auth0/Clerk/Okta). Validates against IdP's JWKS, maps `sub` to human root of delegation chain (`human_root=true`). Config: `AUTHGENT_TRUSTED_OIDC_ISSUERS` (allowlist) + `AUTHGENT_TRUSTED_OIDC_AUDIENCE`. See ARCHITECTURE.md §4.7. **This is the critical bridge that connects existing Auth0/Clerk users to authgent's delegation chains — without it, all chains start headless (machine-to-machine only).**
 - Nested `act` claim construction with OIDC-A claims
 - Optional `requested_actor` parameter support (draft-oauth-ai-agents-on-behalf-of-user-02)
 - **Signed delegation receipts** (chain splicing mitigation) — `delegation_receipts` table + receipt JWT generation

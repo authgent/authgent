@@ -148,7 +148,9 @@ Three grant types:
 
 **`authorization_code` + PKCE** — Human delegates to agent via browser consent. MCP-compliant.
 
-**`urn:ietf:params:oauth:grant-type:token-exchange`** (RFC 8693) — Agent exchanges token for downstream token with nested `act` claims preserving full delegation chain.
+**`urn:ietf:params:oauth:grant-type:token-exchange`** (RFC 8693) — Agent exchanges token for downstream token with nested `act` claims preserving full delegation chain. Supports two `subject_token_type` values:
+- `urn:ietf:params:oauth:token-type:access_token` — exchange an authgent-issued token (agent-to-agent delegation)
+- `urn:ietf:params:oauth:token-type:id_token` — exchange an external IdP token (Auth0/Clerk/Okta) to start a delegation chain with a human root (`human_root=true`). The server validates the id_token against the IdP's JWKS via `AUTHGENT_TRUSTED_OIDC_ISSUERS` allowlist. See ARCHITECTURE.md §4.7.
 
 **Resource Indicators (RFC 8707) — MANDATORY for MCP compliance:**
 All token requests MUST include the `resource` parameter identifying the target MCP server the token is intended for. The MCP auth spec requires this: *"The resource parameter MUST be included in both authorization requests and token requests."* The server validates the `resource` against the client's registered `allowed_resources` (explicit column in `oauth_clients` — distinct from `redirect_uris`, which control where auth code responses go). The issued token's `aud` claim is set to the requested `resource` value. This prevents tokens issued for one MCP server from being used at another.

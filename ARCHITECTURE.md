@@ -607,7 +607,94 @@ Agent              MCP Server (SDK)      authgent-server       Human
   │◄───────────────────│                      │                 │
 ```
 
-### 4.7 Device Authorization Grant (RFC 8628)
+### 4.7 External Identity Token Exchange (Auth0 / Clerk / Okta Bridge)
+
+The programmatic bridge between existing identity providers and authgent's delegation chains. This is **distinct** from `external_oidc` human auth mode (§13.2.1), which handles browser-based consent. This flow is for API-first usage where a frontend already holds an external id_token.
+
+**Use case:** Chat UI authenticates the human via Auth0/Clerk. The frontend passes the id_token to authgent, which validates it against the external IdP's JWKS and issues an authgent token with the human as the delegation chain root (`human_root=true`).
+
+```
+Chat UI (Auth0 JWT)       authgent-server              External IdP
+  │                            │                          │
+  │  POST /token               │                          │
+  │  grant_type=               │                          │
+  │   urn:ietf:params:         │                          │
+  │   oauth:grant-type:        │                          │
+  │   token-exchange           │                          │
+  │  subject_token=eyJ...      │  (Auth0/Clerk id_token)  │
+  │  subject_token_type=       │                          │
+  │   urn:ietf:params:oauth:   │                          │
+  │   token-type:id_token      │                          │
+  │  audience=agent:orchestr   │                          │
+  │  scope=tools:execute       │                          │
+  │  client_id=...             │                          │
+  │  client_secret=...         │                          │
+  │ ──────────────────────────►│                          │
+  │                            │                          │
+  │                            │  1. Detect subject_token │
+  │                            │     _type = id_token     │
+  │                            │                          │
+  │                            │  2. Decode JWT header,   │
+  │                            │     extract `iss` claim  │
+  │                            │                          │
+  │                            │  3. Check iss ∈ trusted  │
+  │                            │     issuers allowlist    │
+  │                            │     (AUTHGENT_TRUSTED_   │
+  │                            │      OIDC_ISSUERS)       │
+  │                            │                          │
+  │                            │  4. Fetch IdP JWKS       │
+  │                            │ ────────────────────────►│
+  │                            │    GET {iss}/.well-known │
+  │                            │    /jwks.json            │
+  │                            │◄────────────────────────│
+  │                            │                          │
+  │                            │  5. Verify id_token:     │
+  │                            │     - Signature (JWKS)   │
+  │                            │     - exp, iat, iss      │
+  │                            │     - aud matches        │
+  │                            │       AUTHGENT_TRUSTED_  │
+  │                            │       OIDC_AUDIENCE      │
+  │                            │     - nonce (if present) │
+  │                            │                          │
+  │                            │  6. Extract human        │
+  │                            │     identity:            │
+  │                            │     sub → user:{sub}     │
+  │                            │     email, name (opt)    │
+  │                            │                          │
+  │                            │  7. Issue authgent token │
+  │                            │     sub=user:{idp_sub}   │
+  │                            │     aud=agent:orchestr   │
+  │                            │     human_root=true      │
+  │                            │     act=null (root hop)  │
+  │                            │     scope=tools:execute  │
+  │                            │     idp_iss={iss}        │
+  │                            │     idp_sub={sub}        │
+  │                            │                          │
+  │  200 OK                    │                          │
+  │  { access_token (authgent),│                          │
+  │    token_type: "Bearer",   │                          │
+  │    expires_in: 900 }       │                          │
+  │◄──────────────────────────│                          │
+  │                            │                          │
+  │  Now agent can use this    │                          │
+  │  token for token exchange  │                          │
+  │  → delegation chains with  │                          │
+  │  human_root=true           │                          │
+```
+
+**Security constraints:**
+- `AUTHGENT_TRUSTED_OIDC_ISSUERS` — comma-separated allowlist of trusted issuer URLs. **Required** — no wildcard acceptance. Example: `https://dev-abc123.us.auth0.com/,https://clerk.example.com`
+- `AUTHGENT_TRUSTED_OIDC_AUDIENCE` — expected `aud` claim in the external id_token (your app's client_id at the IdP). Prevents token confusion attacks.
+- External JWKS is cached with the same `JWKSFetcher` strategy (§11.2): TTL cache + thundering-herd mutex + forced re-fetch on unknown kid.
+- The issued authgent token carries `idp_iss` and `idp_sub` claims for audit trail — downstream validators can verify the human root's origin.
+- Rate limited per client_id (same as token exchange: 200/min).
+
+**Relationship to ExternalOIDCAuthProvider (§18.6):**
+- §18.6 handles **browser consent** — redirect to Auth0, handle OIDC callback, create session cookie
+- §4.7 handles **programmatic API** — frontend already has the id_token, no browser redirect needed
+- Both share the JWKS validation logic but serve different integration patterns
+
+### 4.8 Device Authorization Grant (RFC 8628)
 
 ```
 CLI Agent          authgent-server           Human (Browser)
@@ -729,6 +816,31 @@ class TokenService:
 ```
 
 **Note on token exchange security:** When DPoP is disabled, the token exchange endpoint relies on confidential client authentication (`client_secret` or `client_assertion`). Public clients (`token_endpoint_auth_method=none`) MUST use DPoP for token exchange — the server rejects exchange requests from unauthenticated public clients without DPoP proof.
+
+**`subject_token_type` dispatch:** The token exchange handler branches on `subject_token_type` (RFC 8693 §2.1):
+
+```python
+# Inside _handle_token_exchange:
+subject_token_type = kwargs.get("subject_token_type", "urn:ietf:params:oauth:token-type:access_token")
+
+if subject_token_type == "urn:ietf:params:oauth:token-type:id_token":
+    # External identity token (Auth0/Clerk/Okta) — §4.7
+    parent_claims = await self._verify_external_id_token(db, str(subject_token))
+    # parent_claims["sub"] becomes the human root of the delegation chain
+    # Sets human_root=true in issued token
+elif subject_token_type == "urn:ietf:params:oauth:token-type:access_token":
+    # authgent-issued access token — §4.3 (existing flow)
+    parent_claims = await self.verify_and_check_blocklist(db, str(subject_token))
+else:
+    raise InvalidRequest(f"Unsupported subject_token_type: {subject_token_type}")
+```
+
+The `_verify_external_id_token` method:
+1. Decodes the JWT header without verification to extract `iss`
+2. Checks `iss` against `AUTHGENT_TRUSTED_OIDC_ISSUERS` allowlist (reject if not trusted)
+3. Fetches the IdP's JWKS from `{iss}/.well-known/jwks.json` (cached via `JWKSFetcher`)
+4. Verifies signature, exp, iat, iss, and aud (must match `AUTHGENT_TRUSTED_OIDC_AUDIENCE`)
+5. Returns normalized claims with `sub` prefixed as `user:{idp_sub}` to distinguish from agent subjects
 
 ### 5.3 JWKSService — Key Lifecycle
 
@@ -1190,6 +1302,12 @@ class Settings(BaseSettings):
 
     # Custom grant type handlers (§5.2 GrantHandler Protocol)
     custom_grant_handlers: dict[str, str] | None = None
+
+    # External OIDC trust for id_token exchange (§4.7)
+    trusted_oidc_issuers: list[str] = Field(default_factory=list)
+    # Comma-separated issuer URLs: "https://dev-abc.us.auth0.com/,https://clerk.example.com"
+    trusted_oidc_audience: str | None = None
+    # Expected `aud` claim in external id_tokens (your app's client_id at the IdP)
 
     # Providers (dotted import paths, None = use default)
     attestation_provider: str | None = None
