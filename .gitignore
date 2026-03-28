@@ -51,3 +51,6 @@ yarn-error.log*
 
 # Build artifacts
 sdks/typescript/dist/
+
+# Example generated files
+examples/pipeline/.agents.json
