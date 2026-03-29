@@ -151,6 +151,7 @@ class TokenService:
             ip_address=str(kwargs.get("ip_address", "")),
             metadata={"grant_type": "client_credentials", "jti": jti},
         )
+        await db.commit()
 
         return TokenResponse(
             access_token=access_token,
@@ -487,6 +488,7 @@ class TokenService:
                 "receipt_id": receipt.id,
             },
         )
+        await db.commit()
 
         return TokenResponse(
             access_token=access_token,
@@ -609,6 +611,7 @@ class TokenService:
             client_id=client_id,
             metadata={"jti": jti},
         )
+        await db.commit()
 
     async def is_token_revoked(self, db: AsyncSession, jti: str) -> bool:
         """Check if a token JTI is in the blocklist."""
