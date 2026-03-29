@@ -197,7 +197,7 @@ class ExternalIDTokenVerifier:
                 algorithms=[alg],
                 issuer=issuer,
                 audience=audience,
-                options=decode_options,
+                options=decode_options,  # type: ignore[arg-type]
             )
         except jwt.ExpiredSignatureError:
             raise InvalidGrant("id_token has expired")

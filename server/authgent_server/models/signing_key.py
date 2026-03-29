@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, String, Text
+from sqlalchemy import JSON, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from authgent_server.models.base import Base
@@ -10,6 +10,9 @@ from authgent_server.models.base import Base
 
 class SigningKey(Base):
     __tablename__ = "signing_keys"
+    __table_args__ = (
+        Index("ix_signing_keys_status", "status"),
+    )
 
     kid: Mapped[str] = mapped_column(String(255), primary_key=True)
     algorithm: Mapped[str] = mapped_column(String(10), default="ES256")

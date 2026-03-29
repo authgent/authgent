@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import String, Text
+from sqlalchemy import Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from authgent_server.models.base import Base, ULIDMixin
@@ -10,6 +10,11 @@ from authgent_server.models.base import Base, ULIDMixin
 
 class DelegationReceipt(ULIDMixin, Base):
     __tablename__ = "delegation_receipts"
+    __table_args__ = (
+        Index("ix_delegation_receipts_token_jti", "token_jti"),
+        Index("ix_delegation_receipts_parent_jti", "parent_token_jti"),
+        Index("ix_delegation_receipts_created_at", "created_at"),
+    )
 
     token_jti: Mapped[str] = mapped_column(String(255), nullable=False)
     parent_token_jti: Mapped[str] = mapped_column(String(255), nullable=False)

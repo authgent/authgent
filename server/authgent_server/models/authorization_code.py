@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, String, Text
+from sqlalchemy import Boolean, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from authgent_server.models.base import Base
@@ -10,6 +10,9 @@ from authgent_server.models.base import Base
 
 class AuthorizationCode(Base):
     __tablename__ = "authorization_codes"
+    __table_args__ = (
+        Index("ix_authorization_codes_expires_at", "expires_at"),
+    )
 
     code: Mapped[str] = mapped_column(String(255), primary_key=True)
     client_id: Mapped[str] = mapped_column(
