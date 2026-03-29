@@ -7,7 +7,9 @@ import base64
 import json
 import os
 import secrets
+from collections.abc import Coroutine
 from datetime import UTC, datetime
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -54,12 +56,12 @@ def main(
 # ── Helpers ──────────────────────────────────────────────────────────────
 
 
-def _run_async(coro):
+def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
     """Run an async coroutine from sync CLI code."""
     return asyncio.run(coro)
 
 
-def _get_db_bits():
+def _get_db_bits() -> tuple[Any, Any, Any]:
     """Lazy import and return (settings, engine, session_factory)."""
     from authgent_server.config import get_settings
     from authgent_server.db import get_engine, get_session_factory
@@ -93,7 +95,7 @@ def _relative_time(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%d")
 
 
-def _decode_jwt_claims(token: str) -> dict | None:
+def _decode_jwt_claims(token: str) -> dict[str, Any] | None:
     """Decode JWT payload without verification (for inspection only)."""
     try:
         parts = token.split(".")
@@ -103,7 +105,8 @@ def _decode_jwt_claims(token: str) -> dict | None:
         # Add padding
         payload += "=" * (4 - len(payload) % 4)
         decoded = base64.urlsafe_b64decode(payload)
-        return json.loads(decoded)
+        result: dict[str, Any] = json.loads(decoded)
+        return result
     except Exception:
         return None
 
