@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, String
+from sqlalchemy import JSON, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from authgent_server.models.base import Base, ULIDMixin
@@ -10,6 +10,12 @@ from authgent_server.models.base import Base, ULIDMixin
 
 class AuditLog(ULIDMixin, Base):
     __tablename__ = "audit_log"
+    __table_args__ = (
+        Index("ix_audit_log_timestamp", "timestamp"),
+        Index("ix_audit_log_action", "action"),
+        Index("ix_audit_log_client_id", "client_id"),
+        Index("ix_audit_log_actor", "actor"),
+    )
 
     timestamp: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
     action: Mapped[str] = mapped_column(String(50), nullable=False)

@@ -1,6 +1,6 @@
 """Agent identity model — metadata and lifecycle."""
 
-from sqlalchemy import JSON, String, Text
+from sqlalchemy import JSON, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from authgent_server.models.base import Base, TimestampMixin, ULIDMixin
@@ -8,6 +8,10 @@ from authgent_server.models.base import Base, TimestampMixin, ULIDMixin
 
 class Agent(ULIDMixin, TimestampMixin, Base):
     __tablename__ = "agents"
+    __table_args__ = (
+        Index("ix_agents_status", "status"),
+        Index("ix_agents_owner", "owner"),
+    )
 
     oauth_client_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)

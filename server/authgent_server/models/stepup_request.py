@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, String, Text
+from sqlalchemy import JSON, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from authgent_server.models.base import Base, ULIDMixin
@@ -10,6 +10,10 @@ from authgent_server.models.base import Base, ULIDMixin
 
 class StepUpRequest(ULIDMixin, Base):
     __tablename__ = "stepup_requests"
+    __table_args__ = (
+        Index("ix_stepup_requests_status_expires", "status", "expires_at"),
+        Index("ix_stepup_requests_agent_id", "agent_id"),
+    )
 
     agent_id: Mapped[str] = mapped_column(String(255), nullable=False)
     action: Mapped[str] = mapped_column(String(255), nullable=False)

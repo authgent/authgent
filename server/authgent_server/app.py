@@ -37,6 +37,8 @@ _CLEANUP_QUERIES = {
         "UPDATE stepup_requests SET status = 'expired' "
         "WHERE expires_at < :now AND status = 'pending'"
     ),
+    "audit_log": text("DELETE FROM audit_log WHERE timestamp < :now"),
+    "delegation_receipts": text("DELETE FROM delegation_receipts WHERE created_at < :now"),
 }
 
 # Cleanup intervals in seconds
@@ -46,6 +48,14 @@ _CLEANUP_INTERVALS = {
     "device_codes": 900,
     "refresh_tokens": 3600,
     "stepup_requests": 60,
+    "audit_log": 86400,           # daily — retains 90 days
+    "delegation_receipts": 86400, # daily — retains 30 days
+}
+
+# Retention offsets for tables without an expires_at column (seconds before :now)
+_CLEANUP_RETENTION = {
+    "audit_log": 90 * 86400,           # 90 days
+    "delegation_receipts": 30 * 86400, # 30 days
 }
 
 
@@ -57,10 +67,14 @@ async def _cleanup_loop(
 ) -> None:
     """Background cleanup task for expired records."""
     query = _CLEANUP_QUERIES[table]
+    retention = _CLEANUP_RETENTION.get(table, 0)
     while not shutdown.is_set():
         try:
+            from datetime import timedelta
+
+            cutoff = datetime.now(UTC) - timedelta(seconds=retention)
             async with session_factory() as session:  # type: ignore[operator]
-                await session.execute(query, {"now": datetime.now(UTC)})
+                await session.execute(query, {"now": cutoff})
                 await session.commit()
         except Exception as e:
             logger.warning("cleanup_failed", table=table, error=str(e))

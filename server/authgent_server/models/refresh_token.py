@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, ForeignKey, String, Text
+from sqlalchemy import Boolean, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from authgent_server.models.base import Base
@@ -10,6 +10,10 @@ from authgent_server.models.base import Base
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
+    __table_args__ = (
+        Index("ix_refresh_tokens_family_id", "family_id"),
+        Index("ix_refresh_tokens_expires_at", "expires_at"),
+    )
 
     jti: Mapped[str] = mapped_column(String(255), primary_key=True)
     client_id: Mapped[str] = mapped_column(
