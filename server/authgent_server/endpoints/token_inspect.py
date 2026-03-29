@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
@@ -36,7 +37,7 @@ class TokenInspectResponse(BaseModel):
     error: str | None = None
 
 
-def _decode_jwt_payload(token: str) -> dict | None:
+def _decode_jwt_payload(token: str) -> dict[str, Any] | None:
     """Decode JWT payload without signature verification."""
     try:
         parts = token.split(".")
@@ -45,7 +46,8 @@ def _decode_jwt_payload(token: str) -> dict | None:
         payload = parts[1]
         payload += "=" * (4 - len(payload) % 4)
         decoded = base64.urlsafe_b64decode(payload)
-        return json.loads(decoded)
+        result: dict[str, Any] = json.loads(decoded)
+        return result
     except Exception:
         return None
 
