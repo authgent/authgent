@@ -361,7 +361,8 @@ async def test_token_exchange_creates_delegation_receipt(test_client, db_session
     )
     assert resp.status_code == 200
 
-    from sqlalchemy import select, func
+    from sqlalchemy import func, select
+
     from authgent_server.models.delegation_receipt import DelegationReceipt
 
     result = await db_session.execute(select(func.count()).select_from(DelegationReceipt))

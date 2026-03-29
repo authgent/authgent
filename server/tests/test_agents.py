@@ -197,7 +197,8 @@ def test_agent_gets_token_exchange_grant_type(test_client: TestClient) -> None:
         },
     )
     assert exchange_resp.status_code == 200, (
-        f"Agent should have token-exchange grant, got {exchange_resp.status_code}: {exchange_resp.text}"
+        f"Agent should have token-exchange grant, got "
+        f"{exchange_resp.status_code}: {exchange_resp.text}"
     )
     assert "access_token" in exchange_resp.json()
 

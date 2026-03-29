@@ -7,8 +7,8 @@ without actually issuing a token.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from authgent_server.config import Settings, get_settings
@@ -18,10 +18,9 @@ from authgent_server.dependencies import (
     get_delegation_service,
     get_token_service,
 )
-from authgent_server.errors import AuthgentError, InvalidClient, InvalidRequest
+from authgent_server.errors import AuthgentError, InvalidClient
 from authgent_server.services.client_service import ClientService
 from authgent_server.services.delegation_service import DelegationService
-from authgent_server.services.external_oidc import ACCESS_TOKEN_TYPE
 from authgent_server.services.token_service import TokenService
 
 router = APIRouter(tags=["token"])
@@ -95,9 +94,7 @@ async def token_check(
 
     # 4. Verify subject token
     try:
-        parent_claims = await token_service.verify_and_check_blocklist(
-            db, request.subject_token
-        )
+        parent_claims = await token_service.verify_and_check_blocklist(db, request.subject_token)
     except AuthgentError as e:
         return TokenCheckResponse(
             allowed=False,

@@ -16,15 +16,17 @@ def _make_token(claims: dict) -> str:
 
 def test_inspect_basic_token(test_client: TestClient) -> None:
     """Inspect a basic client_credentials token."""
-    token = _make_token({
-        "iss": "http://localhost:8000",
-        "sub": "client:orchestrator",
-        "scope": "read write",
-        "iat": 1711400000,
-        "exp": 9999999999,  # Far future
-        "jti": "tok_abc123",
-        "client_id": "agnt_test",
-    })
+    token = _make_token(
+        {
+            "iss": "http://localhost:8000",
+            "sub": "client:orchestrator",
+            "scope": "read write",
+            "iat": 1711400000,
+            "exp": 9999999999,  # Far future
+            "jti": "tok_abc123",
+            "client_id": "agnt_test",
+        }
+    )
     resp = test_client.get("/tokens/inspect", params={"token": token})
     assert resp.status_code == 200
     data = resp.json()
@@ -40,13 +42,15 @@ def test_inspect_basic_token(test_client: TestClient) -> None:
 
 def test_inspect_token_with_delegation(test_client: TestClient) -> None:
     """Inspect a token with a single-hop delegation chain."""
-    token = _make_token({
-        "sub": "client:orchestrator",
-        "scope": "search:execute",
-        "act": {"sub": "client:search-agent"},
-        "iat": 1711400000,
-        "exp": 9999999999,
-    })
+    token = _make_token(
+        {
+            "sub": "client:orchestrator",
+            "scope": "search:execute",
+            "act": {"sub": "client:search-agent"},
+            "iat": 1711400000,
+            "exp": 9999999999,
+        }
+    )
     resp = test_client.get("/tokens/inspect", params={"token": token})
     assert resp.status_code == 200
     data = resp.json()
@@ -60,19 +64,21 @@ def test_inspect_token_with_delegation(test_client: TestClient) -> None:
 
 def test_inspect_token_with_deep_delegation(test_client: TestClient) -> None:
     """Inspect a token with 3-hop delegation chain and human root."""
-    token = _make_token({
-        "sub": "user:alice",
-        "scope": "db:read",
-        "act": {
-            "sub": "client:orchestrator",
+    token = _make_token(
+        {
+            "sub": "user:alice",
+            "scope": "db:read",
             "act": {
-                "sub": "client:search-agent",
-                "act": {"sub": "client:db-reader"},
+                "sub": "client:orchestrator",
+                "act": {
+                    "sub": "client:search-agent",
+                    "act": {"sub": "client:db-reader"},
+                },
             },
-        },
-        "iat": 1711400000,
-        "exp": 9999999999,
-    })
+            "iat": 1711400000,
+            "exp": 9999999999,
+        }
+    )
     resp = test_client.get("/tokens/inspect", params={"token": token})
     assert resp.status_code == 200
     data = resp.json()
@@ -88,11 +94,13 @@ def test_inspect_token_with_deep_delegation(test_client: TestClient) -> None:
 
 def test_inspect_expired_token(test_client: TestClient) -> None:
     """Inspect an expired token — should still decode and show expired=True."""
-    token = _make_token({
-        "sub": "client:test",
-        "iat": 1000000000,
-        "exp": 1000003600,  # 2001 — way in the past
-    })
+    token = _make_token(
+        {
+            "sub": "client:test",
+            "iat": 1000000000,
+            "exp": 1000003600,  # 2001 — way in the past
+        }
+    )
     resp = test_client.get("/tokens/inspect", params={"token": token})
     assert resp.status_code == 200
     data = resp.json()
@@ -103,12 +111,14 @@ def test_inspect_expired_token(test_client: TestClient) -> None:
 
 def test_inspect_dpop_bound_token(test_client: TestClient) -> None:
     """Inspect a DPoP-bound token."""
-    token = _make_token({
-        "sub": "client:dpop-agent",
-        "cnf": {"jkt": "sha256-thumbprint-abc123"},
-        "iat": 1711400000,
-        "exp": 9999999999,
-    })
+    token = _make_token(
+        {
+            "sub": "client:dpop-agent",
+            "cnf": {"jkt": "sha256-thumbprint-abc123"},
+            "iat": 1711400000,
+            "exp": 9999999999,
+        }
+    )
     resp = test_client.get("/tokens/inspect", params={"token": token})
     assert resp.status_code == 200
     data = resp.json()
@@ -168,32 +178,41 @@ def test_inspect_token_after_exchange(test_client: TestClient) -> None:
     ).json()
 
     # Register a client for exchange
-    exchanger = test_client.post("/register", json={
-        "client_name": "inspect-exchanger",
-        "grant_types": [
-            "client_credentials",
-            "urn:ietf:params:oauth:grant-type:token-exchange",
-        ],
-        "scope": "search",
-    }).json()
+    exchanger = test_client.post(
+        "/register",
+        json={
+            "client_name": "inspect-exchanger",
+            "grant_types": [
+                "client_credentials",
+                "urn:ietf:params:oauth:grant-type:token-exchange",
+            ],
+            "scope": "search",
+        },
+    ).json()
 
     # Orchestrator gets token
-    orch_token = test_client.post("/token", data={
-        "grant_type": "client_credentials",
-        "client_id": orch["client_id"],
-        "client_secret": orch["client_secret"],
-        "scope": "read search",
-    }).json()["access_token"]
+    orch_token = test_client.post(
+        "/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": orch["client_id"],
+            "client_secret": orch["client_secret"],
+            "scope": "read search",
+        },
+    ).json()["access_token"]
 
     # Exchange for narrower token
-    exchanged = test_client.post("/token", data={
-        "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-        "subject_token": orch_token,
-        "client_id": exchanger["client_id"],
-        "client_secret": exchanger["client_secret"],
-        "audience": "https://search.example.com",
-        "scope": "search",
-    }).json()["access_token"]
+    exchanged = test_client.post(
+        "/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "subject_token": orch_token,
+            "client_id": exchanger["client_id"],
+            "client_secret": exchanger["client_secret"],
+            "audience": "https://search.example.com",
+            "scope": "search",
+        },
+    ).json()["access_token"]
 
     # Inspect the delegated token
     resp = test_client.get("/tokens/inspect", params={"token": exchanged})
@@ -214,11 +233,13 @@ def test_inspect_missing_token_param(test_client: TestClient) -> None:
 
 def test_inspect_timestamps_are_iso8601(test_client: TestClient) -> None:
     """Verify that timestamps are returned in ISO 8601 format."""
-    token = _make_token({
-        "sub": "client:test",
-        "iat": 1711400000,
-        "exp": 9999999999,
-    })
+    token = _make_token(
+        {
+            "sub": "client:test",
+            "iat": 1711400000,
+            "exp": 9999999999,
+        }
+    )
     resp = test_client.get("/tokens/inspect", params={"token": token})
     data = resp.json()
     # ISO 8601 contains T separator and timezone

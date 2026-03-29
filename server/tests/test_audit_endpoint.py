@@ -129,9 +129,7 @@ def test_audit_pagination(test_client: TestClient, _seed_audit_logs: None) -> No
 
 def test_audit_since_filter(test_client: TestClient, _seed_audit_logs: None) -> None:
     """GET /audit?since=ISO8601 filters by time."""
-    resp = test_client.get(
-        "/audit", params={"since": "2026-03-28T10:02:00+00:00"}
-    )
+    resp = test_client.get("/audit", params={"since": "2026-03-28T10:02:00+00:00"})
     assert resp.status_code == 200
     data = resp.json()
     # Should get events at 10:02 and 10:03

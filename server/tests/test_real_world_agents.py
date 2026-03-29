@@ -1182,7 +1182,12 @@ class TestScopePropagation:
         )
 
         # Can get token with full scopes initially
-        token = _cc_token(test_client, agent["client_id"], agent["client_secret"], scope="read write delete")
+        token = _cc_token(
+            test_client,
+            agent["client_id"],
+            agent["client_secret"],
+            scope="read write delete",
+        )
         assert _introspect(test_client, token["access_token"])["active"] is True
 
         # Admin narrows scopes to read-only
@@ -1194,7 +1199,12 @@ class TestScopePropagation:
         assert update_resp.json()["allowed_scopes"] == ["read"]
 
         # Agent can still get a "read" token
-        read_token = _cc_token(test_client, agent["client_id"], agent["client_secret"], scope="read")
+        read_token = _cc_token(
+            test_client,
+            agent["client_id"],
+            agent["client_secret"],
+            scope="read",
+        )
         assert _introspect(test_client, read_token["access_token"])["active"] is True
 
         # Agent CANNOT get "write" or "delete" anymore
@@ -1267,7 +1277,12 @@ class TestAllowedExchangeTargets:
         )
 
         # Get parent token
-        parent = _cc_token(test_client, agent["client_id"], agent["client_secret"], scope="read write")
+        parent = _cc_token(
+            test_client,
+            agent["client_id"],
+            agent["client_secret"],
+            scope="read write",
+        )
 
         # Create downstream client
         downstream = _register_exchange_client(test_client, scope="read")
@@ -1296,7 +1311,12 @@ class TestAllowedExchangeTargets:
             json={"allowed_exchange_targets": ["agent:coder"]},
         )
 
-        parent = _cc_token(test_client, agent["client_id"], agent["client_secret"], scope="read write")
+        parent = _cc_token(
+            test_client,
+            agent["client_id"],
+            agent["client_secret"],
+            scope="read write",
+        )
         downstream = _register_exchange_client(test_client, scope="read")
 
         # Exchange to DISALLOWED target
@@ -1355,6 +1375,7 @@ class TestRegistrationPolicy:
     async def test_token_policy_blocks_unauthenticated(self, test_client):
         """With registration_policy=token, unauthenticated requests are rejected."""
         import os
+
         from authgent_server.config import reset_settings
 
         # Temporarily switch to token policy

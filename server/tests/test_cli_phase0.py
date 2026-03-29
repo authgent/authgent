@@ -6,7 +6,6 @@ import base64
 import json
 import os
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from typer.testing import CliRunner
@@ -39,7 +38,9 @@ class TestDecodeJWTClaims:
     def test_valid_jwt(self) -> None:
         header = base64.urlsafe_b64encode(b'{"alg":"ES256","typ":"JWT"}').rstrip(b"=")
         payload = base64.urlsafe_b64encode(
-            json.dumps({"sub": "client:test", "scope": "read", "iss": "http://localhost:8000"}).encode()
+            json.dumps(
+                {"sub": "client:test", "scope": "read", "iss": "http://localhost:8000"}
+            ).encode()
         ).rstrip(b"=")
         sig = base64.urlsafe_b64encode(b"fake-sig").rstrip(b"=")
         token = f"{header.decode()}.{payload.decode()}.{sig.decode()}"
@@ -209,14 +210,16 @@ class TestInspectTokenCommand:
         return f"{header.decode()}.{payload.decode()}.{sig.decode()}"
 
     def test_inspect_basic_token(self) -> None:
-        token = self._make_token({
-            "iss": "http://localhost:8000",
-            "sub": "client:test-agent",
-            "scope": "read write",
-            "iat": 1711400000,
-            "exp": 1711403600,
-            "jti": "tok_abc123",
-        })
+        token = self._make_token(
+            {
+                "iss": "http://localhost:8000",
+                "sub": "client:test-agent",
+                "scope": "read write",
+                "iat": 1711400000,
+                "exp": 1711403600,
+                "jti": "tok_abc123",
+            }
+        )
         result = runner.invoke(app, ["inspect-token", token])
         assert result.exit_code == 0
         assert "client:test-agent" in result.output
@@ -224,13 +227,15 @@ class TestInspectTokenCommand:
         assert "tok_abc123" in result.output
 
     def test_inspect_token_with_delegation(self) -> None:
-        token = self._make_token({
-            "sub": "client:orchestrator",
-            "scope": "db:read",
-            "act": {"sub": "client:db-reader"},
-            "iat": 1711400000,
-            "exp": 1711403600,
-        })
+        token = self._make_token(
+            {
+                "sub": "client:orchestrator",
+                "scope": "db:read",
+                "act": {"sub": "client:db-reader"},
+                "iat": 1711400000,
+                "exp": 1711403600,
+            }
+        )
         result = runner.invoke(app, ["inspect-token", token])
         assert result.exit_code == 0
         assert "Delegation Chain" in result.output
@@ -239,49 +244,57 @@ class TestInspectTokenCommand:
         assert "1 hop" in result.output
 
     def test_inspect_token_with_deep_delegation(self) -> None:
-        token = self._make_token({
-            "sub": "user:alice",
-            "scope": "db:read",
-            "act": {
-                "sub": "client:orchestrator",
-                "act": {"sub": "client:db-reader"},
-            },
-            "iat": 1711400000,
-            "exp": 1711403600,
-        })
+        token = self._make_token(
+            {
+                "sub": "user:alice",
+                "scope": "db:read",
+                "act": {
+                    "sub": "client:orchestrator",
+                    "act": {"sub": "client:db-reader"},
+                },
+                "iat": 1711400000,
+                "exp": 1711403600,
+            }
+        )
         result = runner.invoke(app, ["inspect-token", token])
         assert result.exit_code == 0
         assert "2 hops" in result.output
 
     def test_inspect_token_no_delegation(self) -> None:
-        token = self._make_token({
-            "sub": "client:standalone",
-            "scope": "read",
-            "iat": 1711400000,
-            "exp": 1711403600,
-        })
+        token = self._make_token(
+            {
+                "sub": "client:standalone",
+                "scope": "read",
+                "iat": 1711400000,
+                "exp": 1711403600,
+            }
+        )
         result = runner.invoke(app, ["inspect-token", token])
         assert result.exit_code == 0
         assert "No delegation chain" in result.output
 
     def test_inspect_token_with_dpop(self) -> None:
-        token = self._make_token({
-            "sub": "client:dpop-agent",
-            "cnf": {"jkt": "sha256-thumb-abc123"},
-            "iat": 1711400000,
-            "exp": 1711403600,
-        })
+        token = self._make_token(
+            {
+                "sub": "client:dpop-agent",
+                "cnf": {"jkt": "sha256-thumb-abc123"},
+                "iat": 1711400000,
+                "exp": 1711403600,
+            }
+        )
         result = runner.invoke(app, ["inspect-token", token])
         assert result.exit_code == 0
         assert "DPoP-bound" in result.output
         assert "sha256-thumb-abc123" in result.output
 
     def test_inspect_token_expired(self) -> None:
-        token = self._make_token({
-            "sub": "client:expired",
-            "iat": 1000000000,
-            "exp": 1000003600,  # Way in the past
-        })
+        token = self._make_token(
+            {
+                "sub": "client:expired",
+                "iat": 1000000000,
+                "exp": 1000003600,  # Way in the past
+            }
+        )
         result = runner.invoke(app, ["inspect-token", token])
         assert result.exit_code == 0
         assert "EXPIRED" in result.output

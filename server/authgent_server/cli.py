@@ -40,7 +40,12 @@ def _version_callback(value: bool) -> None:
 @app.callback()
 def main(
     version: bool = typer.Option(
-        False, "--version", "-V", help="Show version and exit.", callback=_version_callback, is_eager=True
+        False,
+        "--version",
+        "-V",
+        help="Show version and exit.",
+        callback=_version_callback,
+        is_eager=True,
     ),
 ) -> None:
     """authgent — The open-source identity provider for AI agents."""
@@ -261,9 +266,7 @@ def create_agent(
             table.add_row("Agent ID", agent.id)
             table.add_row("Client ID", client_id)
             table.add_row("Client Secret", client_secret)
-            table.add_row(
-                "Scopes", ", ".join(scope_list) if scope_list else "[dim](none)[/]"
-            )
+            table.add_row("Scopes", ", ".join(scope_list) if scope_list else "[dim](none)[/]")
             console.print(table)
 
             console.print()
@@ -273,7 +276,7 @@ def create_agent(
                     f"[dim]Get a token:[/]\n"
                     f"  authgent-server get-token --client-id {client_id} "
                     f"--client-secret {client_secret}"
-                    + (f" --scope \"{' '.join(scope_list)}\"" if scope_list else ""),
+                    + (f' --scope "{" ".join(scope_list)}"' if scope_list else ""),
                     title="[bold yellow]⚠ Important[/]",
                     border_style="yellow",
                     expand=False,
@@ -315,9 +318,7 @@ def list_agents(
 
             if not agents:
                 console.print("[dim]No agents found.[/]")
-                console.print(
-                    "\n[dim]Create one:[/] authgent-server create-agent --name my-agent"
-                )
+                console.print("\n[dim]Create one:[/] authgent-server create-agent --name my-agent")
                 return
 
             table = Table(title=f"Agents ({total} total)", title_style="bold")
@@ -402,7 +403,7 @@ def get_token(
                 typer.echo(resp.access_token)
                 return
 
-            console.print(f"[bold green]✓[/] Token issued\n")
+            console.print("[bold green]✓[/] Token issued\n")
 
             # Decode and show claims
             claims = _decode_jwt_claims(resp.access_token)
@@ -428,12 +429,8 @@ def get_token(
                 display_token = token
             console.print(f"[dim]Token:[/] {display_token}")
             console.print()
-            console.print(
-                "[dim]Full token:[/] authgent-server get-token ... --raw"
-            )
-            console.print(
-                "[dim]Inspect:[/]   authgent-server inspect-token <token>"
-            )
+            console.print("[dim]Full token:[/] authgent-server get-token ... --raw")
+            console.print("[dim]Inspect:[/]   authgent-server inspect-token <token>")
 
         await engine.dispose()
 
@@ -496,7 +493,7 @@ def exchange_token(
                 typer.echo(resp.access_token)
                 return
 
-            console.print(f"[bold green]✓[/] Token exchanged (delegated)\n")
+            console.print("[bold green]✓[/] Token exchanged (delegated)\n")
 
             claims = _decode_jwt_claims(resp.access_token)
 
@@ -523,12 +520,8 @@ def exchange_token(
                 display_token = token
             console.print(f"[dim]Token:[/] {display_token}")
             console.print()
-            console.print(
-                "[dim]Full token:[/] authgent-server exchange-token ... --raw"
-            )
-            console.print(
-                "[dim]Inspect:[/]   authgent-server inspect-token <token>"
-            )
+            console.print("[dim]Full token:[/] authgent-server exchange-token ... --raw")
+            console.print("[dim]Inspect:[/]   authgent-server inspect-token <token>")
 
         await engine.dispose()
 
@@ -621,7 +614,8 @@ def inspect_token(
         while a and isinstance(a, dict):
             depth += 1
             a = a.get("act")
-        console.print(f"\n[dim]Delegation depth:[/] [bold]{depth}[/] hop{'s' if depth != 1 else ''}")
+        suffix = "s" if depth != 1 else ""
+        console.print(f"\n[dim]Delegation depth:[/] [bold]{depth}[/] hop{suffix}")
     else:
         console.print("\n[dim]No delegation chain (direct token)[/]")
 
@@ -676,16 +670,18 @@ def audit(
             if json_output:
                 entries = []
                 for log in logs:
-                    entries.append({
-                        "id": log.id,
-                        "timestamp": log.timestamp.isoformat(),
-                        "action": log.action,
-                        "actor": log.actor,
-                        "subject": log.subject,
-                        "client_id": log.client_id,
-                        "ip_address": log.ip_address,
-                        "metadata": log.metadata_,
-                    })
+                    entries.append(
+                        {
+                            "id": log.id,
+                            "timestamp": log.timestamp.isoformat(),
+                            "action": log.action,
+                            "actor": log.actor,
+                            "subject": log.subject,
+                            "client_id": log.client_id,
+                            "ip_address": log.ip_address,
+                            "metadata": log.metadata_,
+                        }
+                    )
                 typer.echo(json.dumps(entries, indent=2))
                 return
 
@@ -803,11 +799,9 @@ def status() -> None:
             info_table.add_row("Server URL", settings.server_url)
             info_table.add_row(
                 "Database",
-                settings.database_url.split("://")[0]
-                + " [green]✓ connected[/]"
+                settings.database_url.split("://")[0] + " [green]✓ connected[/]"
                 if db_ok
-                else settings.database_url.split("://")[0]
-                + " [red]✗ unreachable[/]",
+                else settings.database_url.split("://")[0] + " [red]✗ unreachable[/]",
             )
             info_table.add_row(
                 "Signing Key",
@@ -826,8 +820,10 @@ def status() -> None:
             info_table.add_row("Registration", settings.registration_policy)
             info_table.add_row("Consent Mode", settings.consent_mode)
             info_table.add_row("Max Delegation Depth", str(settings.max_delegation_depth))
-            info_table.add_row("Scope Reduction", "enforced" if settings.delegation_scope_reduction else "disabled")
-            info_table.add_row("DPoP Required", "[green]yes[/]" if settings.require_dpop else "[dim]no[/]")
+            scope_val = "enforced" if settings.delegation_scope_reduction else "disabled"
+            info_table.add_row("Scope Reduction", scope_val)
+            dpop_val = "[green]yes[/]" if settings.require_dpop else "[dim]no[/]"
+            info_table.add_row("DPoP Required", dpop_val)
             info_table.add_row("Access Token TTL", f"{settings.access_token_ttl}s")
             info_table.add_row("Exchange Token TTL", f"{settings.exchange_token_ttl}s")
             info_table.add_row("Refresh Token TTL", f"{settings.refresh_token_ttl}s")
@@ -889,9 +885,7 @@ def create_user(
             )
             session.add(user)
             await session.commit()
-            console.print(
-                f"[bold green]✓[/] User [bold]{username}[/] created (id: {user.id})"
-            )
+            console.print(f"[bold green]✓[/] User [bold]{username}[/] created (id: {user.id})")
 
         await engine.dispose()
 
@@ -1071,7 +1065,7 @@ def quickstart() -> None:
     token = _run_async(_quickstart_token())
     claims = _decode_jwt_claims(token)
 
-    console.print(f"[bold green]✓[/] Token issued!\n")
+    console.print("[bold green]✓[/] Token issued!\n")
 
     if claims:
         table = Table(show_header=False, box=None, padding=(0, 2))
@@ -1086,12 +1080,12 @@ def quickstart() -> None:
     console.print(
         Panel(
             "[bold green]You're all set![/]\n\n"
-            f"[dim]Start server:[/]    authgent-server run\n"
-            f"[dim]List agents:[/]     authgent-server list-agents\n"
-            f"[dim]Inspect token:[/]   authgent-server inspect-token <token>\n"
-            f"[dim]View audit:[/]      authgent-server audit\n"
-            f"[dim]Server status:[/]   authgent-server status\n"
-            f"[dim]API docs:[/]        http://localhost:8000/docs",
+            "[dim]Start server:[/]    authgent-server run\n"
+            "[dim]List agents:[/]     authgent-server list-agents\n"
+            "[dim]Inspect token:[/]   authgent-server inspect-token <token>\n"
+            "[dim]View audit:[/]      authgent-server audit\n"
+            "[dim]Server status:[/]   authgent-server status\n"
+            "[dim]API docs:[/]        http://localhost:8000/docs",
             title="[bold]Next Steps[/]",
             border_style="green",
             expand=False,
