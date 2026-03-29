@@ -10,9 +10,7 @@ from authgent_server.models.base import Base
 
 class DeviceCode(Base):
     __tablename__ = "device_codes"
-    __table_args__ = (
-        Index("ix_device_codes_expires_at", "expires_at"),
-    )
+    __table_args__ = (Index("ix_device_codes_expires_at", "expires_at"),)
 
     device_code: Mapped[str] = mapped_column(String(255), primary_key=True)
     user_code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
