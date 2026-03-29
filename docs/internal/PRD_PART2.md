@@ -187,7 +187,52 @@ metadata                  JSON
 created_at                TIMESTAMP NOT NULL
 ```
 
-### 9.12 Table: users
+### 9.12 Table: vault_credentials
+
+Encrypted credential storage for the Credential Vault (Layer 3). Agents never see raw credentials — the vault proxies requests using stored credentials on behalf of authorized agents.
+
+```
+id                        VARCHAR(26) PK         -- ULID
+name                      VARCHAR(255) UNIQUE NOT NULL  -- human-readable name (e.g. "prod-db")
+resource_type             VARCHAR(50) NOT NULL   -- postgresql | mysql | http_api | mongodb | redis | s3
+encrypted_uri             TEXT NOT NULL          -- AES-256-GCM encrypted connection URI/credentials
+                                                 -- key: HKDF-derived vault subkey from AUTHGENT_SECRET_KEY
+encryption_iv             VARCHAR(64) NOT NULL   -- initialization vector for AES-GCM
+description               TEXT                   -- optional human-readable description
+read_scopes               JSON NOT NULL          -- ["db:read"] — scopes that allow read-only access
+write_scopes              JSON DEFAULT '[]'      -- ["db:write"] — scopes that allow write access
+allowed_agents            JSON                   -- NULL = all agents; ["agnt_abc"] = restricted
+status                    VARCHAR(20) DEFAULT 'active'  -- active | disabled | rotated
+metadata                  JSON                   -- resource-specific config (e.g. max_connections, timeout)
+last_used_at              TIMESTAMP
+created_at                TIMESTAMP NOT NULL
+updated_at                TIMESTAMP NOT NULL
+```
+
+**Design rationale:** Credentials are encrypted at rest using a vault-specific HKDF-derived subkey (`derive_subkey(master, "vault")`), separate from the KEK used for signing keys. The `encrypted_uri` contains the full connection string including username/password. On read, the vault service decrypts in memory, establishes a connection, executes the proxied query, and returns results. The decrypted URI is never logged, never returned in API responses, and never stored in plaintext.
+
+**Scope mapping:** `read_scopes` and `write_scopes` map to authgent token scopes. When an agent presents a token with `db:read`, the vault allows SELECT queries only. With `db:write`, INSERT/UPDATE/DELETE are permitted. This provides defense-in-depth beyond what the MCP server itself enforces.
+
+### 9.13 Table: gateway_configs
+
+Configuration for MCP Gateway instances (Layer 2). Each row represents a gateway wrapping one upstream MCP server.
+
+```
+id                        VARCHAR(26) PK         -- ULID
+name                      VARCHAR(255) UNIQUE NOT NULL  -- human-readable name (e.g. "postgres-mcp")
+upstream_url              TEXT                   -- HTTP upstream URL (NULL if stdio mode)
+stdio_command             TEXT                   -- stdio command (NULL if HTTP mode)
+required_scopes           JSON NOT NULL          -- ["tools:read", "tools:execute"]
+allowed_agents            JSON                   -- NULL = all agents; ["agnt_abc"] = restricted
+require_dpop              BOOLEAN DEFAULT FALSE  -- override server-level DPoP setting
+rate_limit                INTEGER                -- per-client requests/min (NULL = use server default)
+status                    VARCHAR(20) DEFAULT 'active'  -- active | disabled
+metadata                  JSON                   -- extra config (headers to forward, timeout, etc.)
+created_at                TIMESTAMP NOT NULL
+updated_at                TIMESTAMP NOT NULL
+```
+
+### 9.14 Table: users
 
 Human user accounts for `builtin` HUMAN_AUTH_MODE. Not used in `external_oidc` mode (human identity comes from external IdP's ID token `sub` claim).
 
@@ -392,6 +437,260 @@ server.setAuthProvider(new AgentAuthProvider({ serverUrl: 'http://localhost:8000
 
 ---
 
+## 12A. Gateway Endpoints (Layer 2)
+
+The MCP Gateway is a reverse proxy built into `authgent-server`. It adds OAuth 2.1 authentication to any upstream MCP server without modifying the server's code.
+
+### 12A.1 CLI: `authgent-server gateway`
+
+```bash
+# HTTP upstream:
+authgent-server gateway \
+  --upstream http://localhost:3000 \
+  --scopes "tools:read,tools:execute" \
+  --port 8001
+
+# stdio upstream (wraps a local MCP server):
+authgent-server gateway \
+  --stdio "npx @modelcontextprotocol/server-postgres postgresql://..." \
+  --scopes "db:read" \
+  --port 8001
+```
+
+The gateway binds to `--port` (default: 8001, separate from auth server on 8000) and:
+1. Serves `/.well-known/oauth-authorization-server` → points to authgent-server
+2. Serves `/.well-known/oauth-protected-resource` → RFC 9728 metadata
+3. Intercepts all other requests → validates Bearer token → forwards to upstream
+4. Returns `401` with `WWW-Authenticate: Bearer` if no token or invalid
+5. Returns `403` with `WWW-Authenticate: Bearer scope="..." error="insufficient_scope"` if scope mismatch
+
+### 12A.2 API: Gateway Management
+
+```
+POST   /gateways           — Create a gateway config (stored in gateway_configs table)
+GET    /gateways            — List all gateway configs
+GET    /gateways/{id}       — Get gateway config details
+PATCH  /gateways/{id}       — Update gateway config (scopes, status, rate limit)
+DELETE /gateways/{id}       — Delete gateway config
+```
+
+These endpoints are used by the Dashboard and CLI. The `gateway` CLI command can also run without persisting config (ephemeral mode for quick wrapping).
+
+---
+
+## 12B. Vault Endpoints (Layer 3)
+
+The Credential Vault stores encrypted credentials and proxies agent requests so agents never see raw secrets.
+
+### 12B.1 CLI: `authgent-server vault`
+
+```bash
+# Add a credential:
+authgent-server vault add \
+  --name "prod-db" \
+  --type postgresql \
+  --uri "postgresql://admin:s3cret@db.example.com/myapp" \
+  --read-scopes "db:read" \
+  --write-scopes "db:write"
+
+# List credentials:
+authgent-server vault list
+
+# Remove a credential:
+authgent-server vault remove --name "prod-db"
+
+# Rotate a credential (update URI without downtime):
+authgent-server vault rotate --name "prod-db" \
+  --uri "postgresql://admin:new_s3cret@db.example.com/myapp"
+```
+
+### 12B.2 API: Vault Management
+
+```
+POST   /vault/credentials           — Store an encrypted credential
+GET    /vault/credentials            — List credentials (URIs never returned)
+GET    /vault/credentials/{name}     — Get credential metadata (URI never returned)
+PATCH  /vault/credentials/{name}     — Update credential (rotate URI, change scopes)
+DELETE /vault/credentials/{name}     — Delete credential + wipe encrypted data
+```
+
+### 12B.3 API: Vault Resource Proxy
+
+```
+POST   /vault/{name}/query          — Execute a SQL query via the named credential
+POST   /vault/{name}/proxy          — Proxy an HTTP request via the named credential
+```
+
+**Query endpoint (PostgreSQL):**
+```
+POST /vault/prod-db/query
+Authorization: Bearer eyJ...
+Content-Type: application/json
+
+{
+  "sql": "SELECT id, name, email FROM users WHERE department = $1 LIMIT 10",
+  "params": ["engineering"]
+}
+```
+
+Response:
+```json
+{
+  "rows": [
+    {"id": 1, "name": "Alice", "email": "alice@example.com"},
+    {"id": 2, "name": "Bob", "email": "bob@example.com"}
+  ],
+  "row_count": 2,
+  "duration_ms": 12
+}
+```
+
+**Security enforcement:**
+- Token must include a scope matching `vault_credentials.read_scopes` or `write_scopes`
+- For `db:read` scope: only `SELECT` and `EXPLAIN` allowed (validated before execution)
+- For `db:write` scope: `INSERT`, `UPDATE`, `DELETE` also allowed
+- `DROP`, `ALTER`, `TRUNCATE`, `CREATE` always blocked (require `db:admin` scope)
+- Parameterized queries only — raw string interpolation rejected
+- Query timeout enforced (configurable per credential, default: 30s)
+- Results capped at configurable row limit (default: 10,000 rows)
+
+**Proxy endpoint (HTTP API):**
+```
+POST /vault/github-api/proxy
+Authorization: Bearer eyJ...
+Content-Type: application/json
+
+{
+  "method": "GET",
+  "path": "/repos/authgent/authgent/issues",
+  "headers": {"Accept": "application/json"}
+}
+```
+
+The vault injects the stored API key/token into the upstream request headers. The agent never sees the real credentials.
+
+---
+
+## 12C. Dashboard Endpoints (Layer 5)
+
+### 12C.1 Static File Serving
+
+The dashboard is a React SPA built as static files. The server serves them from `/ui`:
+
+```
+GET /ui              — Serves index.html (React SPA)
+GET /ui/*            — Serves static assets (JS, CSS, images)
+```
+
+### 12C.2 Dashboard API
+
+The dashboard uses the same REST API as the CLI. No special backend endpoints are needed. Key APIs consumed by the dashboard:
+
+- `GET /agents` — List agents (with pagination, filtering)
+- `GET /agents/{id}` — Agent details
+- `POST /introspect` — Token introspection (for active token viewer)
+- `GET /vault/credentials` — Vault credential list
+- `GET /gateways` — Gateway config list
+- `GET /audit` — Audit log with filtering (new endpoint)
+
+### 12C.3 New: Audit Log Query API
+
+```
+GET /audit?action=token.issued&client_id=agnt_abc&since=2026-03-01&limit=50
+
+Response:
+{
+  "events": [
+    {
+      "id": "01HW...",
+      "timestamp": "2026-03-28T06:00:00Z",
+      "action": "token.issued",
+      "actor": "agent:orchestrator",
+      "client_id": "agnt_abc123",
+      "ip_address": "192.168.1.1",
+      "metadata": {"grant_type": "client_credentials", "scope": "db:read"}
+    }
+  ],
+  "total": 142,
+  "has_more": true
+}
+```
+
+---
+
+## 12D. AI Framework Integration SDK Specifications (Layer 4)
+
+Each integration is published as a separate PyPI package with `authgent` as a dependency. All integrations follow the same pattern: wrap tool/agent execution with token acquisition and scope checking.
+
+### 12D.1 LangChain Integration (`authgent-langchain`)
+
+```python
+from langchain.tools import Tool
+from authgent.integrations.langchain import AuthgentToolGuard, AuthgentCallbackHandler
+
+# Option 1: Decorator — guards individual tools
+guard = AuthgentToolGuard(server_url="http://localhost:8000")
+
+@guard.require_scopes(["db:read"])
+def query_database(sql: str) -> str:
+    """Execute a SQL query."""
+    return db.execute(sql)
+
+# Option 2: Callback handler — auto-acquires tokens for agent runs
+handler = AuthgentCallbackHandler(
+    server_url="http://localhost:8000",
+    client_id="agnt_orchestrator",
+    client_secret="sec_...",
+)
+agent = initialize_agent(tools=[...], callbacks=[handler])
+```
+
+### 12D.2 CrewAI Integration (`authgent-crewai`)
+
+```python
+from crewai import Agent, Task, Crew
+from authgent.integrations.crewai import AuthgentPermissionMiddleware
+
+middleware = AuthgentPermissionMiddleware(server_url="http://localhost:8000")
+
+researcher = Agent(
+    role="Researcher",
+    tools=[search_tool],
+    # authgent automatically scopes this agent to search:execute
+    authgent_scopes=["search:execute"],
+)
+
+crew = Crew(agents=[researcher], middleware=[middleware])
+```
+
+### 12D.3 OpenAI Agents SDK Integration (`authgent-openai`)
+
+```python
+from openai_agents import Agent, tool
+from authgent.integrations.openai import authgent_guard
+
+@tool
+@authgent_guard(scopes=["db:read"])
+def query_database(sql: str) -> str:
+    """Execute a SQL query."""
+    return db.execute(sql)
+
+agent = Agent(tools=[query_database])
+```
+
+### 12D.4 Google ADK Integration (`authgent-adk`)
+
+```python
+from google.adk import Agent
+from authgent.integrations.adk import AuthgentAuthPlugin
+
+agent = Agent(
+    auth_plugin=AuthgentAuthPlugin(server_url="http://localhost:8000"),
+)
+```
+
+---
+
 ## 13. Security Architecture
 
 ### 13.1 Threat Model
@@ -488,21 +787,29 @@ authgent/
 │   ├── authgent_server/
 │   │   ├── app.py                   # FastAPI app factory
 │   │   ├── config.py                # Pydantic Settings
-│   │   ├── cli.py                   # Typer CLI
+│   │   ├── cli.py                   # Typer CLI (init, run, gateway, vault, create-agent, ...)
 │   │   ├── db.py                    # Async SQLAlchemy engine
 │   │   ├── endpoints/
 │   │   │   ├── token.py             # POST /token (all grants)
 │   │   │   ├── authorize.py         # GET/POST /authorize
 │   │   │   ├── register.py          # POST /register
 │   │   │   ├── revoke.py            # POST /revoke
+│   │   │   ├── introspect.py        # POST /introspect
 │   │   │   ├── agents.py            # CRUD /agents
-│   │   │   ├── wellknown.py         # /.well-known/*
+│   │   │   ├── device.py            # POST /device, GET /device/status
+│   │   │   ├── stepup.py            # POST /stepup, GET /stepup/{id}
+│   │   │   ├── gateway.py           # /gateways CRUD + proxy catch-all (Phase 7)
+│   │   │   ├── vault.py             # /vault/* CRUD + proxy endpoints (Phase 8)
+│   │   │   ├── audit.py             # GET /audit (Phase 9)
+│   │   │   ├── wellknown.py         # /.well-known/* (4 endpoints)
 │   │   │   └── health.py
 │   │   ├── models/
 │   │   │   ├── oauth_client.py, agent.py, authorization_code.py
 │   │   │   ├── refresh_token.py, device_code.py, consent.py
 │   │   │   ├── signing_key.py, token_blocklist.py, audit_log.py
-│   │   │   ├── delegation_receipt.py, stepup_request.py
+│   │   │   ├── delegation_receipt.py, stepup_request.py, user.py
+│   │   │   ├── vault_credential.py  # Encrypted credential storage (Phase 8)
+│   │   │   ├── gateway_config.py    # Gateway configuration (Phase 7)
 │   │   │   └── base.py             # SQLAlchemy base + ULID mixin
 │   │   ├── services/
 │   │   │   ├── token_service.py     # Issue, validate, exchange
@@ -511,21 +818,53 @@ authgent/
 │   │   │   ├── client_service.py    # OAuth client reg
 │   │   │   ├── dpop_service.py      # DPoP validation
 │   │   │   ├── delegation_service.py # act claim nesting
-│   │   │   └── audit_service.py
-│   │   └── middleware/
-│   │       ├── error_handler.py     # RFC 9457 Problem Details
-│   │       └── request_id.py
+│   │   │   ├── consent_service.py   # Consent grant tracking
+│   │   │   ├── stepup_service.py    # HITL step-up flow orchestration
+│   │   │   ├── audit_service.py     # Event emission via EventEmitter
+│   │   │   ├── gateway_service.py   # Proxy logic, upstream health (Phase 7)
+│   │   │   └── vault_service.py     # Credential CRUD, encryption, proxy (Phase 8)
+│   │   ├── vault/                   # Vault resource proxies (Phase 8)
+│   │   │   ├── crypto.py            # AES-256-GCM encrypt/decrypt
+│   │   │   ├── postgresql_proxy.py  # asyncpg query proxy + SQL validation
+│   │   │   └── http_proxy.py        # httpx-based HTTP proxy
+│   │   ├── middleware/
+│   │   │   ├── error_handler.py     # RFC 9457 Problem Details
+│   │   │   ├── request_id.py        # X-Request-ID + traceparent
+│   │   │   ├── cors.py              # CORS from AUTHGENT_CORS_ORIGINS
+│   │   │   └── rate_limit.py        # Per-endpoint sliding window
+│   │   ├── providers/               # Protocol implementations
+│   │   │   ├── protocols.py         # 7 Protocol definitions
+│   │   │   ├── attestation.py, policy.py, hitl.py, keys.py, events.py
+│   │   │   └── human_auth.py        # HumanAuthProvider
+│   │   ├── schemas/                 # Pydantic request/response models
+│   │   │   ├── token.py, client.py, agent.py, common.py
+│   │   │   ├── gateway.py           # (Phase 7)
+│   │   │   └── vault.py             # (Phase 8)
+│   │   └── templates/
+│   │       └── consent.html         # Minimal Jinja2 consent page
 │   ├── migrations/                   # Alembic
 │   ├── tests/
 │   ├── pyproject.toml, Dockerfile, docker-compose.yml
+│
+├── dashboard/                       # Developer Dashboard (Phase 9)
+│   ├── src/
+│   │   ├── components/              # React + shadcn/ui components
+│   │   ├── pages/                   # Agents, Tokens, Chains, Vault, Audit, Gateway, Settings
+│   │   ├── hooks/                   # TanStack Query hooks
+│   │   ├── lib/                     # API client, utils
+│   │   └── App.tsx, main.tsx
+│   ├── public/
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── tailwind.config.ts
 │
 ├── sdks/
 │   ├── python/                       # authgent SDK (PyPI)
 │   │   ├── authgent/
 │   │   │   ├── verify.py, delegation.py, dpop.py, models.py, errors.py
 │   │   │   ├── jwks.py, client.py
-│   │   │   ├── middleware/ (fastapi.py, flask.py)
-│   │   │   └── adapters/ (mcp.py)
+│   │   │   ├── middleware/ (fastapi.py, flask.py, scope_challenge.py)
+│   │   │   └── adapters/ (mcp.py, protected_resource.py)
 │   │   ├── tests/
 │   │   └── pyproject.toml
 │   │
@@ -538,15 +877,28 @@ authgent/
 │       ├── verify.go, delegation.go, dpop.go, client.go
 │       └── go.mod
 │
+├── integrations/                    # AI Framework Integrations (Phase 10)
+│   ├── langchain/                   # authgent-langchain (PyPI)
+│   │   ├── authgent_langchain/
+│   │   │   ├── tool_guard.py, callback_handler.py
+│   │   ├── tests/
+│   │   └── pyproject.toml
+│   ├── crewai/                      # authgent-crewai (PyPI)
+│   ├── openai/                      # authgent-openai (PyPI)
+│   ├── adk/                         # authgent-adk (PyPI)
+│   └── autogen/                     # authgent-autogen (PyPI)
+│
 ├── examples/
 │   ├── quickstart-fastapi/
 │   ├── quickstart-express/
 │   ├── multi-agent-delegation/
-│   └── existing-idp-auth0/
+│   ├── existing-idp-auth0/
+│   └── windsurf-vault/             # Protect DB from AI coding assistants
 │
 ├── docs/
 │   ├── quickstart.md, architecture.md, threat-model.md
 │   ├── token-exchange.md, dpop.md, faq.md
+│   ├── gateway.md, vault.md        # New platform docs
 │
 ├── spec/openapi.yaml                 # Committed OpenAPI 3.1
 ├── LICENSE (Apache 2.0)
@@ -557,101 +909,193 @@ authgent/
 
 ## 16. Phased Delivery Plan
 
-### Phase 1: MCP-Compliant Core (Weeks 1-4)
+**Note on current state:** Phases 1-5 (Core Auth) are **COMPLETE**. The OAuth 2.1 server, SDKs, all grant types, delegation chains, DPoP, HITL, and provider interfaces are built and tested (155+ tests across server + Python SDK + TypeScript SDK). The delivery plan below starts from Phase 6 — the platform expansion toward the "Supabase for agent auth" vision.
 
-**Rationale for merged phase:** Core MCP auth mandates `authorization_code` + PKCE. Shipping `client_credentials`-only in Phase 1 means the server can't serve as an MCP auth server — our #1 value prop. Both grants ship together.
+### Phases 1-5: Core Auth Server — ✅ COMPLETE (Implemented)
 
-**Server:**
-- Project scaffolding (FastAPI, async SQLAlchemy, Pydantic settings)
-- DB models: oauth_clients, authorization_codes, refresh_tokens, consents, signing_keys, token_blocklist
-- JWKS service: ES256 key generation, JWKS endpoint
-- `POST /token` with `client_credentials` grant (MCP extension: `io.modelcontextprotocol/oauth-client-credentials`)
-- `POST /token` with `authorization_code` + PKCE grant (MCP core — MANDATORY)
-- Refresh token rotation with family tracking + reuse detection
-- `GET/POST /authorize` with minimal consent page (configurable: `ui` | `headless` | `auto_approve`)
-- `POST /register` (Dynamic Client Registration, RFC 7591)
-- `GET /.well-known/oauth-authorization-server` + `GET /.well-known/jwks.json`
-- `POST /revoke` (RFC 7009)
-- `GET /health`, `GET /ready`
-- CLI: `authgent-server init`, `authgent-server run`
-- Dockerfile + docker-compose.yml
-- Tests for all endpoints
+Everything from the original delivery plan has been built:
+- **Server:** All grant types (client_credentials, authorization_code+PKCE, refresh_token, token_exchange, device_code), all endpoints (token, authorize, register, revoke, introspect, agents, device, stepup, wellknown, health), all 13 models, all services, all 7 provider interfaces, cleanup jobs, structured logging, rate limiting, error handling.
+- **Python SDK:** verify_token, delegation chain validation, DPoP verification + DPoPClient, JWKS cache, AgentAuthClient, FastAPI middleware, scope challenge handler, protected resource metadata adapter. 29 tests.
+- **TypeScript SDK:** Full feature parity with Python SDK. Express + Hono middleware, MCP adapter, 47 tests.
+- **CLI:** init, run, create-agent, create-user, rotate-keys, migrate, openapi.
+- **Tests:** 79 server tests + 29 Python SDK tests + 47 TypeScript SDK tests = **155 total**.
+- **Docker:** Dockerfile + docker-compose.yml.
 
-**Python SDK:**
-- `verify_token()` with JWKS fetching/caching
-- `AgentAuthClient` (register, get_token, revoke)
-- FastAPI middleware + `require_agent_auth` decorator
-- Tests
+### Phase 6: Publish & Launch (Week 1) — DO THIS FIRST
 
-**Exit Criteria:** Developer can deploy, register a client, complete `authorization_code` + PKCE flow, get a token, and validate it on an MCP server — under 5 minutes.
+**Rationale:** Nothing else matters if nobody can install it. The core is ready. Ship it.
 
-### Phase 2: Agent Registry + Device Grant + CIMD + OTel (Weeks 5-6)
+| Task | Effort | Deliverable |
+|---|---|---|
+| Publish `authgent-server` to PyPI | 1 day | `pip install authgent-server` works |
+| Publish `authgent` (Python SDK) to PyPI | Same day | `pip install authgent` works |
+| Publish `authgent` to npm | Same day | `npm install authgent` works |
+| Push repo to public GitHub | Same day | https://github.com/Dhruvagnihotri/authgent |
+| Rewrite README for platform vision | 1 day | Lead with pain point, not features |
+| Launch blog post | 1 day | "Secure Your AI Agents in 60 Seconds" |
+| Post on r/mcp, r/LocalLLaMA, Hacker News | Same day | First users |
 
-- Full CRUD `/agents` with credential rotation + grace period
-- OIDC-A compatible fields in agent registry (agent_type, agent_model, agent_version, agent_provider)
-- **Client ID Metadata Documents** — `metadata_url` column in oauth_clients, fetch-and-validate registration path (MCP default registration method)
-- `POST /device` (Device Authorization Grant, RFC 8628) for CLI/headless agents
-- `POST /token` with `device_code` grant
-- `GET /.well-known/openid-configuration` (OIDC Discovery alias for MCP client compatibility)
-- Audit log table + event logging + `trace_id`/`span_id` columns
-- CLI: `create-agent`, `list-agents`
-- Flask middleware in SDK
-- Define `EventEmitter` Protocol + `DatabaseEventEmitter` default + `OpenTelemetryEventEmitter` (optional dep: `opentelemetry-api`)
-- W3C Trace Context (`traceparent`) header propagation
-- OTel support ships here — agent observability is a top-3 industry pain point and the audit wiring is already happening in this phase
-- **JWT Bearer Assertions (RFC 7523)** — MCP spec recommends JWT-signed assertions over client secrets for `client_credentials`. Client signs a JWT with its private key and presents it as `client_assertion`. More secure (no shared secret transmission). Adds `client_assertion` / `client_assertion_type` params to `POST /token`.
+**Exit Criteria:** `pip install authgent-server && authgent-server init && authgent-server run` works from PyPI on a clean machine.
 
-### Phase 3: Token Exchange / Delegation Chains (Weeks 7-8)
+### Phase 7: MCP Gateway (Weeks 2-3) — THE KILLER FEATURE
 
-- `POST /token` with `token-exchange` grant (RFC 8693)
-- **External id_token as subject_token** — Accept `subject_token_type=urn:ietf:params:oauth:token-type:id_token` with JWTs from trusted external IdPs (Auth0/Clerk/Okta). Validates against IdP's JWKS, maps `sub` to human root of delegation chain (`human_root=true`). Config: `AUTHGENT_TRUSTED_OIDC_ISSUERS` (allowlist) + `AUTHGENT_TRUSTED_OIDC_AUDIENCE`. See ARCHITECTURE.md §4.7. **This is the critical bridge that connects existing Auth0/Clerk users to authgent's delegation chains — without it, all chains start headless (machine-to-machine only).**
-- Nested `act` claim construction with OIDC-A claims
-- Optional `requested_actor` parameter support (draft-oauth-ai-agents-on-behalf-of-user-02)
-- **Signed delegation receipts** (chain splicing mitigation) — `delegation_receipts` table + receipt JWT generation
-- `delegation_purpose` and `delegation_constraints` claims in exchanged tokens (OIDC-A alignment)
-- Scope reduction enforcement: downstream ≤ parent scopes
-- **Cross-audience scope mapping policy:** When exchanging a token with `aud: api-A` for `aud: api-B`, scope namespaces may differ entirely. Policy: (a) if both audiences share a scope namespace (same resource server), standard reduction applies; (b) if audiences have different namespaces, the server requires an explicit scope mapping in the client's `oauth_clients.metadata` or rejects the exchange. This prevents accidental scope escalation across unrelated services.
-- Max delegation depth enforcement
-- `client.exchange_token()` in SDK
-- `verify_delegation_chain()` in SDK (validates receipts if present)
-- `GET /tokens/{jti}/receipts` — fetch full receipt chain for audit
+**Rationale:** This is the single feature that makes authgent immediately useful to every MCP developer. Zero code changes to existing servers. Solves the #1 Reddit pain point.
 
-### Phase 4: DPoP (Weeks 9-10)
+| Task | Effort | Deliverable |
+|---|---|---|
+| `authgent-server gateway` CLI command (Typer) | 1 day | New CLI subcommand |
+| HTTP reverse proxy with token validation | 2 days | `httpx`-based async proxy |
+| stdio MCP server wrapping (subprocess + pipe) | 2 days | Wraps `npx server-xxx` commands |
+| Auto-serve `.well-known` endpoints on gateway port | 1 day | MCP-spec-compliant discovery |
+| Gateway management API (`/gateways` CRUD) | 1 day | Dashboard-ready API |
+| `gateway_configs` DB model + migration | 0.5 day | Persistent config |
+| Gateway tests (proxy, auth rejection, scope check) | 1 day | 15+ tests |
+| Docs + examples | 1 day | "Add auth to any MCP server in 1 command" |
+| r/mcp launch post | 0.5 day | Targeted community engagement |
 
-- DPoP proof validation on server
-- **DPoP-Nonce support** (RFC 9449 §8) — server-provided nonces to prevent precomputed proofs
-- `cnf.jkt` claim injection
-- `DPoPClient` class in SDK (handles nonce rotation automatically)
-- `verify_dpop_proof()` in SDK
-- Middleware auto-verifies if token has `cnf` claim
+**Architecture:**
+```
+authgent_server/
+├── services/
+│   └── gateway_service.py       # Proxy logic, upstream health, stdio management
+├── endpoints/
+│   └── gateway.py               # /gateways CRUD + proxy catch-all
+├── models/
+│   └── gateway_config.py        # SQLAlchemy model
+└── schemas/
+    └── gateway.py               # Pydantic request/response models
+```
 
-### Phase 5: TypeScript SDK + A2A + Providers + Polish (Weeks 11-16)
+**Exit Criteria:** `authgent-server gateway --upstream http://localhost:3000 --scopes "tools:execute"` wraps an unmodified MCP server with full OAuth 2.1 auth. Claude Desktop can connect via MCP with token-based auth.
 
-**Note:** Adjusted to 6 weeks — building TS SDK + Go SDK + provider interfaces + A2A + docs + PAR + introspection is not realistic in fewer weeks for a solo/small maintainer.
+### Phase 8: Credential Vault (Weeks 4-6) — SOLVES THE DAILY USE CASE
 
-**Weeks 11-12: TypeScript SDK + Go SDK**
-- TypeScript SDK: verify, delegation, dpop, Express middleware, MCP adapter
-- Go SDK: verify, delegation (starter)
-- npm + Go module published
+**Rationale:** This solves the user's original pain point: "I have a database URI and don't want to give my password to Windsurf." Self-hosted credential vault with resource proxying. No competitor offers this open-source.
 
-**Weeks 13-14: Provider Interfaces + A2A + HITL**
-- `GET /agents/{id}/agent-card` (A2A Agent Card generation)
-- JWKS auto-rotation background task
-- Define `AttestationProvider`, `PolicyProvider`, `HITLProvider`, `KeyProvider` Protocols
-- Implement `NullAttestationProvider`, `ScopePolicyProvider`, `WebhookHITLProvider`, `DatabaseKeyProvider` defaults
-- `POST /stepup` endpoint (HITL step-up authorization)
-- `stepup_requests` table
+| Task | Effort | Deliverable |
+|---|---|---|
+| `vault_credentials` DB model + AES-256-GCM encryption | 2 days | Encrypted credential storage |
+| HKDF vault subkey derivation (`derive_subkey(master, "vault")`) | 0.5 day | Separate from KEK |
+| `authgent-server vault add/list/remove/rotate` CLI | 2 days | Credential management |
+| Vault management API (`/vault/credentials` CRUD) | 1 day | Dashboard-ready API |
+| PostgreSQL query proxy (`/vault/{name}/query`) | 3 days | SQL proxy with scope enforcement |
+| SQL validation (SELECT-only for `db:read`, parameterized queries) | 1 day | Defense-in-depth |
+| HTTP API proxy (`/vault/{name}/proxy`) | 2 days | Header injection proxy |
+| Connection pooling (asyncpg pool per credential) | 1 day | Performance |
+| Vault tests (encryption, scope enforcement, SQL injection prevention) | 2 days | 20+ tests |
+| Docs + examples | 1 day | "Protect your database in 30 seconds" |
 
-**Weeks 15-16: Docs + Examples + Polish**
-- Token Introspection endpoint (RFC 7662) — needed for enterprise gateways that call introspection. Lightweight: returns token claims from JWT decode + blocklist check.
-- Pushed Authorization Requests (PAR, RFC 9126) — client POSTs auth parameters to AS first, then redirects with only `request_uri`. Prevents authorization request parameter tampering. Trending in OAuth 2.1 + MCP.
-- OpenAPI spec committed
-- Full docs (quickstart, architecture, threat-model, token-exchange, dpop, faq)
-- Examples (quickstart-fastapi, quickstart-express, multi-agent-delegation, existing-idp-auth0)
-- **`authgent-conformance`** — test harness that validates MCP auth server compliance. Positions authgent as reference implementation, not just a product. No other project ships this.
-- README polish, CONTRIBUTING.md, SECURITY.md
+**Architecture:**
+```
+authgent_server/
+├── services/
+│   └── vault_service.py         # Credential CRUD, encryption/decryption, proxy logic
+├── endpoints/
+│   └── vault.py                 # /vault/* CRUD + proxy endpoints
+├── models/
+│   └── vault_credential.py      # SQLAlchemy model
+├── schemas/
+│   └── vault.py                 # Pydantic request/response models
+└── vault/
+    ├── __init__.py
+    ├── crypto.py                # AES-256-GCM encrypt/decrypt with vault subkey
+    ├── postgresql_proxy.py      # asyncpg query proxy + SQL validation
+    └── http_proxy.py            # httpx-based HTTP proxy with header injection
+```
 
-**Total timeline: ~16 weeks.** Phase 1 expanded to 4 weeks (merged auth_code+PKCE). Phase 2 includes CIMD + device grant. Phases 3-4 unchanged. Phase 5 at 6 weeks for TS/Go SDKs + providers + polish.
+**Exit Criteria:** Developer runs `authgent-server vault add --type postgresql --uri "postgresql://admin:secret@localhost/mydb" --read-scopes "db:read"`, then an agent with a `db:read`-scoped token can `POST /vault/mydb/query` with a SELECT statement and get results — without ever seeing the database password.
+
+### Phase 9: Developer Dashboard (Weeks 7-9) — VISUAL MANAGEMENT
+
+**Rationale:** Supabase's dashboard was the #1 reason developers chose it over raw PostgreSQL. The dashboard makes authgent accessible to non-CLI users and provides instant visibility into the agent auth system.
+
+| Task | Effort | Deliverable |
+|---|---|---|
+| React + Vite + TailwindCSS + shadcn/ui project setup | 1 day | Dashboard scaffold |
+| Agents list + detail view (CRUD) | 2 days | Agent management page |
+| Active tokens viewer (via introspection API) | 1 day | Token monitoring |
+| Delegation chain visualizer (tree/graph view) | 2 days | Visual chain inspection |
+| Vault credential manager (add/remove/rotate) | 2 days | Vault management page |
+| Gateway config manager | 1 day | Gateway management page |
+| Audit log viewer (filterable, paginated) | 2 days | Security monitoring |
+| `GET /audit` endpoint on server | 1 day | Audit query API |
+| Settings page (server config viewer) | 0.5 day | Configuration visibility |
+| Build pipeline (Vite → static files → served by FastAPI) | 1 day | Single deployable |
+| Dashboard tests (component + integration) | 2 days | 30+ tests |
+
+**Technology choices:**
+- **React 18** + **Vite** — fast builds, HMR for development
+- **TailwindCSS** + **shadcn/ui** — consistent, modern UI without custom CSS
+- **Lucide icons** — clean iconography
+- **TanStack Query** — data fetching + caching
+- **Recharts** — audit log graphs
+- Built as static files, served from FastAPI at `/ui`
+- Disabled via `AUTHGENT_DASHBOARD=false` for headless deployments
+
+**Exit Criteria:** Developer navigates to `http://localhost:8000/ui`, sees all agents, can create/edit/delete agents, view delegation chains visually, manage vault credentials, and browse audit logs — all without touching the CLI.
+
+### Phase 10: AI Framework Integrations (Weeks 10-12) — DISCOVERABILITY
+
+**Rationale:** Framework integrations are how agent developers discover authgent. Each integration = a new PyPI package = a new keyword that leads developers to authgent. Grantex has these; we need them.
+
+| Task | Effort | Deliverable |
+|---|---|---|
+| `authgent-langchain` — Tool guards + callback handler | 3 days | `pip install authgent-langchain` |
+| `authgent-crewai` — Agent permission middleware | 2 days | `pip install authgent-crewai` |
+| `authgent-openai` — Tool guard decorators | 2 days | `pip install authgent-openai` |
+| `authgent-adk` — Google ADK auth plugin | 2 days | `pip install authgent-adk` |
+| `authgent-autogen` — Agent capability wrapper | 2 days | `pip install authgent-autogen` |
+| Tests per integration | 3 days | 10+ tests each |
+| Tutorials + example repos per integration | 3 days | "authgent + LangChain in 5 minutes" |
+| Publish all to PyPI | 1 day | Installable packages |
+
+**Architecture:** Each integration lives in `integrations/` at the repo root:
+```
+integrations/
+├── langchain/
+│   ├── authgent_langchain/
+│   │   ├── __init__.py
+│   │   ├── tool_guard.py
+│   │   └── callback_handler.py
+│   ├── tests/
+│   └── pyproject.toml
+├── crewai/
+├── openai/
+├── adk/
+└── autogen/
+```
+
+**Exit Criteria:** A LangChain developer can `pip install authgent-langchain`, add `@authgent_guard(scopes=["db:read"])` to a tool, and have scope-enforced auth on that tool — in under 5 minutes.
+
+### Phase 11: Polish + Cloud Prep (Weeks 13-16)
+
+| Task | Effort | Deliverable |
+|---|---|---|
+| `authgent-conformance` test harness | 3 days | MCP auth compliance testing tool |
+| Go SDK (starter: verify, delegation) | 5 days | `go get github.com/authgent/authgent-go` |
+| Pushed Authorization Requests (PAR, RFC 9126) | 2 days | Enhanced auth request security |
+| OpenAPI spec committed + hosted docs site | 2 days | authgent.dev/docs |
+| Examples (quickstart-fastapi, quickstart-express, multi-agent-delegation, existing-idp-auth0, windsurf-vault) | 3 days | Copy-paste ready examples |
+| Performance benchmarks (tokens/sec, gateway latency) | 1 day | Published benchmarks |
+| Security audit preparation | 2 days | Threat model review + pen test prep |
+
+### Phase 12: Cloud + Enterprise (Month 4+)
+
+**Later, after open-source traction is established.**
+
+- **authgent.dev** — hosted version (Supabase Cloud equivalent)
+  - Free tier: 3 agents, 1,000 token operations/month
+  - Pro: unlimited agents, 100k ops/month — $29/mo
+  - Enterprise: SSO, compliance, SLA — custom pricing
+- Multi-tenancy (tenant isolation, team management)
+- SAML/SSO for enterprise human auth mode
+- SOC 2 / compliance certifications
+- Advanced analytics dashboard (usage graphs, security event heatmaps)
+- MySQL, MongoDB, Redis, S3 vault connectors
+- Edge Functions for agents (serverless functions with built-in authgent auth)
+- Realtime WebSocket channels for agent-to-agent communication + HITL notifications
+
+**Total new timeline: ~16 weeks for Phases 6-11.** Core auth (Phases 1-5) is already complete. The platform expansion builds on the existing foundation.
 
 ---
 
@@ -677,18 +1121,24 @@ authgent/
 
 ---
 
-## 19. Non-Goals (v1)
+## 19. Non-Goals (v1 Platform)
 
-1. **Full SCIM compliance** — Simple REST API, not a SCIM server
-2. **Admin dashboard UI** — Headless only (CLI + API). AIM has a dashboard; we don't for v1.
-3. **Rate limiting** — Use reverse proxy (Nginx/Caddy)
-4. **Multi-tenancy** — Single-tenant v1. **Note:** This will be the #1 enterprise blocker (WorkOS, AIM both have it). Tenant isolation is a v2 priority. The DB schema uses `owner` fields that can evolve into `tenant_id` without migration.
-5. **Full policy engine implementation** — `PolicyProvider` interface defined, `ScopePolicyProvider` default. Full OPA/Cedar integration is community-contributed.
-6. **Full attestation implementation** — `AttestationProvider` interface defined, `NullAttestationProvider` default. TEE/SGX attestation is community-contributed.
-7. **Post-quantum cryptography** — Architecture supports it (algorithm-agnostic config + KeyProvider). Implementation deferred until ML-DSA libraries stabilize. **Verify AIM's ML-DSA claim** — is it real or aspirational?
-8. **Token introspection** (RFC 7662) — Moved to Phase 5 (week 14). Lightweight implementation: JWT decode + blocklist check. Needed for enterprise gateways.
-9. **CIBA** (Client-Initiated Backchannel Auth) — Deferred. Device Authorization Grant (RFC 8628) covers most headless use cases.
-10. **Credential brokering / Token Vault** — Agents needing outbound tokens for third-party APIs (Slack, GitHub, Jira, etc.) on behalf of users. Auth0's Token Vault and OpenA2A's "Secretless AI" address this. This is a separate concern from our OAuth server (inbound auth) — it's outbound token management. **v2 roadmap item.** Will come up in every enterprise evaluation.
+**Former non-goals now on roadmap (platform expansion):**
+- ~~Full admin dashboard UI~~ → **Phase 9** (Dashboard)
+- ~~Token Vault / Credential brokering~~ → **Phase 8** (Credential Vault)
+- ~~Multi-tenancy~~ → **Phase 12** (Cloud + Enterprise)
+
+**Remaining non-goals:**
+1. **Full policy engine** (OPA, Cedar) — Interface provided (`PolicyProvider`), default is scope-based. Full policy engines are a separate product.
+2. **Full attestation** (TPM, Intel SGX) — Interface provided (`AttestationProvider`), implementation deferred. This requires platform-specific code.
+3. **CIBA** (Client-Initiated Backchannel Auth) — Device Authorization Grant covers most headless use cases.
+4. **Post-quantum cryptography** — Architecture supports it (algorithm-agnostic config). Deferred until ML-DSA libraries stabilize.
+5. **SAML** — Enterprise SSO via SAML is deferred. External OIDC mode covers most SSO needs. Phase 12 for enterprise.
+6. **GraphQL API** — REST only. GraphQL adds complexity without clear benefit for OAuth endpoints.
+7. **Mobile SDKs** (iOS, Android) — Agent auth is server-side. Mobile auth is handled by the human auth layer (Auth0/Okta integration).
+8. **Built-in secrets rotation automation** — The vault supports manual rotation (`vault rotate`). Automated rotation schedules (like AWS Secrets Manager) are deferred to Cloud phase.
+9. **MySQL/MongoDB/Redis vault connectors** — Phase 8 covers PostgreSQL + HTTP API only. Additional database connectors are Phase 12 (Cloud).
+10. **Real-time WebSocket API** — HITL polling is sufficient for v1. WebSocket push for HITL notifications and agent-to-agent channels is Phase 12.
 
 ---
 

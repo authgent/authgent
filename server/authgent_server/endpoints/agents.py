@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query  # noqa: F811
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from authgent_server.dependencies import get_agent_service, get_db_session
+from authgent_server.dependencies import get_agent_service, get_db_session, require_registration_auth
 from authgent_server.schemas.agent import (
     AgentCreate,
     AgentResponse,
@@ -17,7 +17,7 @@ from authgent_server.services.agent_service import AgentService
 router = APIRouter(prefix="/agents", tags=["agents"])
 
 
-@router.post("", response_model=AgentWithCredentials, status_code=201)
+@router.post("", response_model=AgentWithCredentials, status_code=201, dependencies=[Depends(require_registration_auth)])
 async def create_agent(
     request: AgentCreate,
     db: AsyncSession = Depends(get_db_session),

@@ -155,3 +155,130 @@ def test_deactivated_agent_token_still_introspects(test_client: TestClient) -> N
 def test_get_nonexistent_agent(test_client: TestClient) -> None:
     resp = test_client.get("/agents/nonexistent_id")
     assert resp.status_code == 404
+
+
+def test_agent_gets_token_exchange_grant_type(test_client: TestClient) -> None:
+    """Agents created via POST /agents should have token-exchange in their grant_types."""
+    create_resp = test_client.post(
+        "/agents",
+        json={"name": "exchange-capable", "allowed_scopes": ["read"]},
+    )
+    assert create_resp.status_code == 201
+    data = create_resp.json()
+    client_id = data["client_id"]
+    client_secret = data["client_secret"]
+
+    # Get a parent token from a separate client
+    parent = test_client.post(
+        "/register",
+        json={"client_name": "parent", "grant_types": ["client_credentials"], "scope": "read"},
+    ).json()
+    parent_token = test_client.post(
+        "/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": parent["client_id"],
+            "client_secret": parent["client_secret"],
+            "scope": "read",
+        },
+    ).json()
+
+    # The agent's client should be able to do token exchange
+    exchange_resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "subject_token": parent_token["access_token"],
+            "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+            "audience": "https://downstream.example.com",
+            "scope": "read",
+        },
+    )
+    assert exchange_resp.status_code == 200, (
+        f"Agent should have token-exchange grant, got {exchange_resp.status_code}: {exchange_resp.text}"
+    )
+    assert "access_token" in exchange_resp.json()
+
+
+def test_scope_update_propagates_to_oauth_client(test_client: TestClient) -> None:
+    """PATCH /agents with allowed_scopes must propagate to OAuthClient.scope.
+
+    Regression test for privilege-persistence bug: updating Agent.allowed_scopes
+    without syncing OAuthClient.scope meant old scopes were still grantable.
+    """
+    # Create agent with broad scopes
+    create_resp = test_client.post(
+        "/agents",
+        json={"name": "scope-test", "allowed_scopes": ["read", "write", "admin"]},
+    )
+    assert create_resp.status_code == 201
+    data = create_resp.json()
+    agent_id = data["id"]
+    client_id = data["client_id"]
+    client_secret = data["client_secret"]
+
+    # Verify agent can get admin-scoped token
+    token_resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scope": "admin",
+        },
+    )
+    assert token_resp.status_code == 200, "Should get admin token before scope reduction"
+
+    # Admin reduces scopes — removes admin
+    patch_resp = test_client.patch(
+        f"/agents/{agent_id}",
+        json={"allowed_scopes": ["read"]},
+    )
+    assert patch_resp.status_code == 200
+    assert patch_resp.json()["allowed_scopes"] == ["read"]
+
+    # Now requesting admin scope should fail
+    token_resp2 = test_client.post(
+        "/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scope": "admin",
+        },
+    )
+    assert token_resp2.status_code in (400, 403), (
+        f"Admin scope should be denied after reduction, got {token_resp2.status_code}"
+    )
+
+    # read scope should still work
+    token_resp3 = test_client.post(
+        "/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scope": "read",
+        },
+    )
+    assert token_resp3.status_code == 200
+
+
+def test_scope_update_to_empty_revokes_all(test_client: TestClient) -> None:
+    """Setting allowed_scopes to [] should clear OAuthClient.scope."""
+    create_resp = test_client.post(
+        "/agents",
+        json={"name": "clear-scope", "allowed_scopes": ["read", "write"]},
+    )
+    assert create_resp.status_code == 201
+    data = create_resp.json()
+    agent_id = data["id"]
+
+    patch_resp = test_client.patch(
+        f"/agents/{agent_id}",
+        json={"allowed_scopes": []},
+    )
+    assert patch_resp.status_code == 200
+    assert patch_resp.json()["allowed_scopes"] == []

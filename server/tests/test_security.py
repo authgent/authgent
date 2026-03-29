@@ -354,3 +354,111 @@ async def test_empty_token_rejected(test_client):
     assert resp.status_code in (200, 400)
     if resp.status_code == 200:
         assert resp.json()["active"] is False
+
+
+# ── Allowed Exchange Targets Enforcement ──
+
+
+def _create_agent(tc, name="", scopes=None, exchange_targets=None):
+    payload: dict = {"name": name or f"agent-{secrets.token_hex(4)}"}
+    if scopes:
+        payload["allowed_scopes"] = scopes
+    if exchange_targets:
+        payload["allowed_exchange_targets"] = exchange_targets
+    resp = tc.post("/agents", json=payload)
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+@pytest.mark.asyncio
+async def test_exchange_targets_blocks_unauthorized_audience(test_client):
+    """Token exchange must fail if audience is not in PARENT agent's allowed_exchange_targets."""
+    # Parent agent has restricted exchange targets
+    parent_agent = _create_agent(
+        test_client,
+        scopes=["read"],
+        exchange_targets=["https://allowed.example.com"],
+    )
+    parent_token = _get_token(test_client, parent_agent, scope="read")
+
+    # Downstream client requests exchange to unauthorized audience
+    downstream = _register_client(
+        test_client,
+        grant_types=["client_credentials", "urn:ietf:params:oauth:grant-type:token-exchange"],
+        scope="read",
+    )
+    resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "client_id": downstream["client_id"],
+            "client_secret": downstream["client_secret"],
+            "subject_token": parent_token["access_token"],
+            "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+            "audience": "https://unauthorized.example.com",
+            "scope": "read",
+        },
+    )
+    assert resp.status_code == 403, (
+        f"Expected 403 for unauthorized audience, got {resp.status_code}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_exchange_targets_permits_authorized_audience(test_client):
+    """Token exchange should succeed when audience is in PARENT agent's allowed_exchange_targets."""
+    # Parent agent allows this specific audience
+    parent_agent = _create_agent(
+        test_client,
+        scopes=["read"],
+        exchange_targets=["https://allowed.example.com"],
+    )
+    parent_token = _get_token(test_client, parent_agent, scope="read")
+
+    # Downstream client requests exchange to authorized audience
+    downstream = _register_client(
+        test_client,
+        grant_types=["client_credentials", "urn:ietf:params:oauth:grant-type:token-exchange"],
+        scope="read",
+    )
+    resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "client_id": downstream["client_id"],
+            "client_secret": downstream["client_secret"],
+            "subject_token": parent_token["access_token"],
+            "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+            "audience": "https://allowed.example.com",
+            "scope": "read",
+        },
+    )
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_no_exchange_targets_allows_any_audience(test_client):
+    """If PARENT agent has no allowed_exchange_targets, any audience should be accepted."""
+    # Parent agent with no exchange target restrictions
+    parent_agent = _create_agent(test_client, scopes=["read"])
+    parent_token = _get_token(test_client, parent_agent, scope="read")
+
+    # Downstream can exchange to any audience
+    downstream = _register_client(
+        test_client,
+        grant_types=["client_credentials", "urn:ietf:params:oauth:grant-type:token-exchange"],
+        scope="read",
+    )
+    resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "client_id": downstream["client_id"],
+            "client_secret": downstream["client_secret"],
+            "subject_token": parent_token["access_token"],
+            "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+            "audience": "https://anything.example.com",
+            "scope": "read",
+        },
+    )
+    assert resp.status_code == 200

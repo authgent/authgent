@@ -22,6 +22,29 @@ export interface AgentResult {
   name: string;
 }
 
+/** Step-up request response from POST /stepup and GET /stepup/:id. */
+export interface StepUpRequestResult {
+  id: string;
+  agentId: string;
+  action: string;
+  scope: string;
+  resource?: string;
+  status: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+/** Token exchange pre-check response. */
+export interface TokenCheckResult {
+  allowed: boolean;
+  effectiveScopes: string[];
+  delegationDepth: number;
+  maxDelegationDepth: number;
+  reasons: string[];
+}
+
 /**
  * Client for the authgent-server API.
  *
@@ -158,6 +181,74 @@ export class AgentAuthClient {
     return this.fetchForm("POST", "/introspect", body);
   }
 
+  /** Request HITL step-up authorization. */
+  async requestStepup(options: {
+    agentId: string;
+    action: string;
+    scope: string;
+    resource?: string;
+    delegationChain?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+  }): Promise<StepUpRequestResult> {
+    const payload: Record<string, unknown> = {
+      agent_id: options.agentId,
+      action: options.action,
+      scope: options.scope,
+    };
+    if (options.resource) payload.resource = options.resource;
+    if (options.delegationChain) payload.delegation_chain = options.delegationChain;
+    if (options.metadata) payload.metadata = options.metadata;
+
+    const resp = await this.fetchJson("POST", "/stepup", payload);
+    return this.parseStepUpResult(resp);
+  }
+
+  /** Convenience: extract agent_id from a JWT and create a step-up request. */
+  async requestStepupForToken(options: {
+    token: string;
+    action: string;
+    scope: string;
+    resource?: string;
+  }): Promise<StepUpRequestResult> {
+    const claims = this.decodeJwtClaims(options.token);
+    const agentId = (claims.client_id as string) || (claims.sub as string) || "";
+    return this.requestStepup({
+      agentId,
+      action: options.action,
+      scope: options.scope,
+      resource: options.resource,
+    });
+  }
+
+  /** Poll the status of a step-up request. */
+  async checkStepup(requestId: string): Promise<StepUpRequestResult> {
+    const resp = await this.fetchJson("GET", `/stepup/${requestId}`, undefined);
+    return this.parseStepUpResult(resp);
+  }
+
+  /** Dry-run pre-check: will a token exchange succeed? */
+  async checkExchange(options: {
+    subjectToken: string;
+    audience: string;
+    clientId: string;
+    scope?: string;
+  }): Promise<TokenCheckResult> {
+    const payload = {
+      subject_token: options.subjectToken,
+      audience: options.audience,
+      client_id: options.clientId,
+      scope: options.scope || "",
+    };
+    const resp = await this.fetchJson("POST", "/token/check", payload);
+    return {
+      allowed: resp.allowed as boolean,
+      effectiveScopes: resp.effective_scopes as string[],
+      delegationDepth: resp.delegation_depth as number,
+      maxDelegationDepth: resp.max_delegation_depth as number,
+      reasons: resp.reasons as string[],
+    };
+  }
+
   // ── Internal helpers ───────────────────────────────────────────
 
   private async fetchJson(
@@ -165,12 +256,15 @@ export class AgentAuthClient {
     path: string,
     body: unknown,
   ): Promise<Record<string, unknown>> {
-    const resp = await fetch(`${this.baseUrl}${path}`, {
+    const init: RequestInit = {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
       signal: AbortSignal.timeout(this.timeout),
-    });
+    };
+    if (body !== undefined) {
+      init.body = JSON.stringify(body);
+    }
+    const resp = await fetch(`${this.baseUrl}${path}`, init);
 
     if (!resp.ok) {
       throw new ServerError(
@@ -210,5 +304,35 @@ export class AgentAuthClient {
       scope: data.scope as string | undefined,
       refreshToken: data.refresh_token as string | undefined,
     };
+  }
+
+  private parseStepUpResult(data: Record<string, unknown>): StepUpRequestResult {
+    return {
+      id: data.id as string,
+      agentId: data.agent_id as string,
+      action: data.action as string,
+      scope: data.scope as string,
+      resource: data.resource as string | undefined,
+      status: data.status as string,
+      approvedBy: data.approved_by as string | undefined,
+      approvedAt: data.approved_at as string | undefined,
+      expiresAt: data.expires_at as string,
+      createdAt: data.created_at as string,
+    };
+  }
+
+  private decodeJwtClaims(token: string): Record<string, unknown> {
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) return {};
+      const payload = parts[1]
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+      const padded = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+      const decoded = atob(padded);
+      return JSON.parse(decoded) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
   }
 }

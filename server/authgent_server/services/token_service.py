@@ -13,12 +13,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from authgent_server.config import Settings
 from authgent_server.errors import (
+    AccessDenied,
     InvalidGrant,
     InvalidRequest,
     TokenRevoked,
     UnsupportedGrantType,
 )
 from authgent_server.models.authorization_code import AuthorizationCode
+from authgent_server.models.delegation_receipt import DelegationReceipt
 from authgent_server.models.device_code import DeviceCode
 from authgent_server.models.refresh_token import RefreshToken
 from authgent_server.models.token_blocklist import TokenBlocklist
@@ -77,6 +79,7 @@ class TokenService:
         device_code: str | None = None,
         dpop_jkt: str | None = None,
         ip_address: str | None = None,
+        oauth_client: object | None = None,
     ) -> TokenResponse:
         """Dispatch to the appropriate grant handler."""
         handlers = {
@@ -107,6 +110,7 @@ class TokenService:
             device_code=device_code,
             dpop_jkt=dpop_jkt,
             ip_address=ip_address,
+            oauth_client=oauth_client,
         )
 
     async def _handle_client_credentials(
@@ -392,6 +396,28 @@ class TokenService:
         else:
             raise InvalidRequest(f"Unsupported subject_token_type: {subject_token_type}")
 
+        # Enforce allowed_exchange_targets from the PARENT agent (source restriction).
+        # The parent agent controls which audiences their delegated authority can flow to.
+        parent_client_id = parent_claims.get("client_id")
+        if parent_client_id:
+            from sqlalchemy.orm import selectinload
+            from authgent_server.models.oauth_client import OAuthClient
+
+            stmt = (
+                select(OAuthClient)
+                .where(OAuthClient.client_id == parent_client_id)
+                .options(selectinload(OAuthClient.agent))
+            )
+            result = await db.execute(stmt)
+            parent_oauth_client = result.scalar_one_or_none()
+            if parent_oauth_client and parent_oauth_client.agent:
+                targets = parent_oauth_client.agent.allowed_exchange_targets
+                if targets and str(audience_target) not in targets:
+                    raise AccessDenied(
+                        f"Audience '{audience_target}' not in parent agent's "
+                        f"allowed_exchange_targets: {targets}"
+                    )
+
         # Build delegation claims
         requested_scopes = str(scope).split() if scope else []
         delegated_claims = self._delegation.build_delegated_claims(
@@ -421,6 +447,29 @@ class TokenService:
         claims = await self._enrich_claims(claims, client_id, None, "token_exchange")
         access_token = await self._jwks.sign_jwt(db, claims)
 
+        # Store delegation receipt for chain splicing prevention
+        parent_jti = parent_claims.get("jti", "")
+        chain_hash = self._delegation.compute_chain_hash(claims)
+        receipt_claims = {
+            "iss": self._settings.server_url,
+            "type": "delegation_receipt",
+            "token_jti": jti,
+            "parent_jti": parent_jti,
+            "actor": f"client:{client_id}",
+            "chain_hash": chain_hash,
+            "iat": int(now.timestamp()),
+        }
+        receipt_jwt = await self._jwks.sign_jwt(db, receipt_claims)
+        receipt = DelegationReceipt(
+            token_jti=jti,
+            parent_token_jti=parent_jti,
+            actor_id=f"client:{client_id}",
+            receipt_jwt=receipt_jwt,
+            chain_hash=chain_hash,
+        )
+        db.add(receipt)
+        await db.flush()
+
         await self._audit.log(
             db,
             "token.exchanged",
@@ -431,9 +480,10 @@ class TokenService:
                 "grant_type": "token_exchange",
                 "subject_token_type": subject_token_type,
                 "jti": jti,
-                "parent_jti": parent_claims.get("jti"),
+                "parent_jti": parent_jti,
                 "audience": str(audience_target),
                 "human_root": parent_claims.get("human_root", False),
+                "receipt_id": receipt.id,
             },
         )
 

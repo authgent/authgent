@@ -116,4 +116,5 @@ async def token_endpoint(
         device_code=str(form.get("device_code", "")),
         dpop_jkt=dpop_jkt,
         ip_address=ip_address,
+        oauth_client=client,
     )

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from authgent_server.config import Settings
 from authgent_server.errors import AgentNotFound
 from authgent_server.models.agent import Agent
+from authgent_server.models.oauth_client import OAuthClient
 from authgent_server.schemas.agent import AgentCreate, AgentResponse, AgentUpdate
 from authgent_server.schemas.client import RegisterRequest
 from authgent_server.services.client_service import ClientService
@@ -40,11 +41,14 @@ class AgentService:
         db.add(agent)
         await db.flush()
 
-        # Create linked OAuth client
+        # Create linked OAuth client — include token-exchange so agents can delegate
         scope = " ".join(request.allowed_scopes) if request.allowed_scopes else ""
         reg = RegisterRequest(
             client_name=request.name,
-            grant_types=["client_credentials"],
+            grant_types=[
+                "client_credentials",
+                "urn:ietf:params:oauth:grant-type:token-exchange",
+            ],
             scope=scope,
         )
         client_resp = await self._client_service.register_client(db, reg, agent_id=agent.id)
@@ -102,6 +106,28 @@ class AgentService:
                 setattr(agent, "metadata_", value)
             else:
                 setattr(agent, field, value)
+
+        # Propagate allowed_scopes changes to the linked OAuthClient.scope
+        # so that token issuance enforces the updated scopes.
+        if "allowed_scopes" in update_data and agent.oauth_client_id:
+            new_scope = (
+                " ".join(update_data["allowed_scopes"])
+                if update_data["allowed_scopes"]
+                else ""
+            )
+            stmt = select(OAuthClient).where(
+                OAuthClient.client_id == agent.oauth_client_id
+            )
+            result = await db.execute(stmt)
+            oauth_client = result.scalar_one_or_none()
+            if oauth_client:
+                oauth_client.scope = new_scope
+                logger.info(
+                    "agent_scopes_propagated",
+                    agent_id=agent_id,
+                    client_id=agent.oauth_client_id,
+                    new_scope=new_scope,
+                )
 
         await db.commit()
         await db.refresh(agent)

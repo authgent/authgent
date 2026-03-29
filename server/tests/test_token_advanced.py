@@ -337,6 +337,47 @@ async def test_refresh_token_rotation(test_client):
 
 
 @pytest.mark.asyncio
+async def test_token_exchange_creates_delegation_receipt(test_client, db_session):
+    """Token exchange should create a delegation receipt in the DB."""
+    parent = _register_client(test_client, scope="read")
+    child = _register_client(
+        test_client,
+        grant_types=["client_credentials", "urn:ietf:params:oauth:grant-type:token-exchange"],
+        scope="read",
+    )
+    parent_token = _get_token(test_client, parent, scope="read")
+
+    resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "client_id": child["client_id"],
+            "client_secret": child["client_secret"],
+            "subject_token": parent_token["access_token"],
+            "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+            "audience": "https://target.example.com",
+            "scope": "read",
+        },
+    )
+    assert resp.status_code == 200
+
+    from sqlalchemy import select, func
+    from authgent_server.models.delegation_receipt import DelegationReceipt
+
+    result = await db_session.execute(select(func.count()).select_from(DelegationReceipt))
+    count = result.scalar()
+    assert count >= 1, "Expected at least 1 delegation receipt after token exchange"
+
+    result2 = await db_session.execute(select(DelegationReceipt))
+    receipt = result2.scalar_one()
+    assert receipt.token_jti, "Receipt should have token_jti"
+    assert receipt.parent_token_jti, "Receipt should have parent_token_jti"
+    assert receipt.actor_id.startswith("client:"), "Receipt actor should be client:xxx"
+    assert receipt.chain_hash, "Receipt should have chain_hash"
+    assert receipt.receipt_jwt, "Receipt should have signed receipt_jwt"
+
+
+@pytest.mark.asyncio
 async def test_introspect_after_exchange(test_client):
     """Introspecting an exchanged token shows delegation metadata."""
     parent = _register_client(test_client, scope="read write")

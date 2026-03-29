@@ -38,6 +38,7 @@ class Settings(BaseSettings):
 
     # Policy
     registration_policy: Literal["open", "token", "admin"] = "open"
+    registration_token: str | None = None  # RFC 7591 initial_access_token for policy=token
     consent_mode: Literal["ui", "headless", "auto_approve"] = "auto_approve"
     max_delegation_depth: int = 5
     delegation_scope_reduction: bool = True
@@ -59,10 +60,14 @@ class Settings(BaseSettings):
     token_rate_limit: int = 100
     register_rate_limit: int = 10
 
-    # Webhook security
+    # Webhook delivery (HITL step-up notifications)
+    webhook_url: str | None = None
     webhook_hmac_secret: str | None = None
     webhook_retries: int = 3
     webhook_backoff: str = "1,5,30"
+
+    # Advertised scopes for discovery metadata (RFC 8414)
+    scopes_supported: list[str] = Field(default_factory=list)
 
     # Scope mappings for cross-audience token exchange
     scope_mappings: str | None = None

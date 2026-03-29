@@ -1160,3 +1160,236 @@ class TestEdgeCasesRealAgents:
         """RFC 7009: Revocation of unknown tokens SHOULD return 200."""
         resp = _revoke(test_client, "nonexistent-token-value")
         assert resp.status_code in (200, 204)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 12. Scope Propagation — Agent Update → OAuthClient Sync
+# ══════════════════════════════════════════════════════════════════════
+
+
+class TestScopePropagation:
+    """Verifies that PATCH /agents/{id} with allowed_scopes changes
+    propagates to the linked OAuthClient.scope, so token issuance
+    enforces the updated scopes immediately."""
+
+    @pytest.mark.asyncio
+    async def test_update_scopes_restricts_future_tokens(self, test_client):
+        """After narrowing allowed_scopes, agent cannot request old scopes."""
+        agent = _create_agent(
+            test_client,
+            "scope-prop-bot",
+            scopes=["read", "write", "delete"],
+        )
+
+        # Can get token with full scopes initially
+        token = _cc_token(test_client, agent["client_id"], agent["client_secret"], scope="read write delete")
+        assert _introspect(test_client, token["access_token"])["active"] is True
+
+        # Admin narrows scopes to read-only
+        update_resp = test_client.patch(
+            f"/agents/{agent['id']}",
+            json={"allowed_scopes": ["read"]},
+        )
+        assert update_resp.status_code == 200
+        assert update_resp.json()["allowed_scopes"] == ["read"]
+
+        # Agent can still get a "read" token
+        read_token = _cc_token(test_client, agent["client_id"], agent["client_secret"], scope="read")
+        assert _introspect(test_client, read_token["access_token"])["active"] is True
+
+        # Agent CANNOT get "write" or "delete" anymore
+        fail_resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": agent["client_id"],
+                "client_secret": agent["client_secret"],
+                "scope": "write",
+            },
+        )
+        assert fail_resp.status_code in (400, 403), (
+            f"Expected scope rejection, got {fail_resp.status_code}: {fail_resp.text}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_update_scopes_expand_allows_new_scopes(self, test_client):
+        """After expanding allowed_scopes, agent can request the new scopes."""
+        agent = _create_agent(
+            test_client,
+            "expand-scope-bot",
+            scopes=["read"],
+        )
+
+        # Initially cannot get "write"
+        fail_resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": agent["client_id"],
+                "client_secret": agent["client_secret"],
+                "scope": "write",
+            },
+        )
+        assert fail_resp.status_code in (400, 403)
+
+        # Admin expands scopes
+        test_client.patch(
+            f"/agents/{agent['id']}",
+            json={"allowed_scopes": ["read", "write"]},
+        )
+
+        # Now agent CAN get "write"
+        token = _cc_token(test_client, agent["client_id"], agent["client_secret"], scope="write")
+        assert _introspect(test_client, token["access_token"])["active"] is True
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 13. Allowed Exchange Targets — Delegation Audience Restriction
+# ══════════════════════════════════════════════════════════════════════
+
+
+class TestAllowedExchangeTargets:
+    """Verifies that allowed_exchange_targets on the Agent model is
+    enforced during actual token exchange (not just dry-run)."""
+
+    @pytest.mark.asyncio
+    async def test_exchange_to_allowed_target_succeeds(self, test_client):
+        """Exchange to an audience in allowed_exchange_targets works."""
+        agent = _create_agent(
+            test_client,
+            "restricted-delegator",
+            scopes=["read", "write"],
+        )
+        # Set allowed exchange targets
+        test_client.patch(
+            f"/agents/{agent['id']}",
+            json={"allowed_exchange_targets": ["agent:coder", "agent:reviewer"]},
+        )
+
+        # Get parent token
+        parent = _cc_token(test_client, agent["client_id"], agent["client_secret"], scope="read write")
+
+        # Create downstream client
+        downstream = _register_exchange_client(test_client, scope="read")
+
+        # Exchange to allowed target
+        resp = _exchange(
+            test_client,
+            downstream["client_id"],
+            downstream["client_secret"],
+            parent["access_token"],
+            scope="read",
+            audience="agent:coder",
+        )
+        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+
+    @pytest.mark.asyncio
+    async def test_exchange_to_disallowed_target_blocked(self, test_client):
+        """Exchange to an audience NOT in allowed_exchange_targets is rejected."""
+        agent = _create_agent(
+            test_client,
+            "locked-delegator",
+            scopes=["read", "write"],
+        )
+        test_client.patch(
+            f"/agents/{agent['id']}",
+            json={"allowed_exchange_targets": ["agent:coder"]},
+        )
+
+        parent = _cc_token(test_client, agent["client_id"], agent["client_secret"], scope="read write")
+        downstream = _register_exchange_client(test_client, scope="read")
+
+        # Exchange to DISALLOWED target
+        resp = _exchange(
+            test_client,
+            downstream["client_id"],
+            downstream["client_secret"],
+            parent["access_token"],
+            scope="read",
+            audience="agent:evil-bot",
+        )
+        assert resp.status_code in (400, 403), (
+            f"Expected rejection for disallowed target, got {resp.status_code}: {resp.text}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_no_targets_restriction_allows_any(self, test_client):
+        """Agent with empty allowed_exchange_targets can delegate to anyone."""
+        agent = _create_agent(
+            test_client,
+            "unrestricted-delegator",
+            scopes=["read"],
+        )
+        # No allowed_exchange_targets set (empty list by default)
+        parent = _cc_token(test_client, agent["client_id"], agent["client_secret"], scope="read")
+        downstream = _register_exchange_client(test_client, scope="read")
+
+        resp = _exchange(
+            test_client,
+            downstream["client_id"],
+            downstream["client_secret"],
+            parent["access_token"],
+            scope="read",
+            audience="agent:literally-anyone",
+        )
+        assert resp.status_code == 200
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 14. Registration Policy Enforcement
+# ══════════════════════════════════════════════════════════════════════
+
+
+class TestRegistrationPolicy:
+    """Verifies that registration_policy setting is enforced on
+    POST /agents and POST /register endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_open_policy_allows_registration(self, test_client):
+        """Default open policy: anyone can register."""
+        # conftest sets AUTHGENT_REGISTRATION_POLICY=open
+        agent = _create_agent(test_client, "open-policy-bot", scopes=["read"])
+        assert agent["client_id"].startswith("agnt_")
+
+    @pytest.mark.asyncio
+    async def test_token_policy_blocks_unauthenticated(self, test_client):
+        """With registration_policy=token, unauthenticated requests are rejected."""
+        import os
+        from authgent_server.config import reset_settings
+
+        # Temporarily switch to token policy
+        os.environ["AUTHGENT_REGISTRATION_POLICY"] = "token"
+        os.environ["AUTHGENT_REGISTRATION_TOKEN"] = "super-secret-reg-token"
+        reset_settings()
+
+        try:
+            # No auth header → rejected
+            resp = test_client.post(
+                "/agents",
+                json={"name": "blocked-bot", "allowed_scopes": ["read"]},
+            )
+            assert resp.status_code == 401, (
+                f"Expected 401 for unauthenticated registration, got {resp.status_code}"
+            )
+
+            # Wrong token → rejected
+            resp2 = test_client.post(
+                "/agents",
+                json={"name": "wrong-token-bot", "allowed_scopes": ["read"]},
+                headers={"Authorization": "Bearer wrong-token"},
+            )
+            assert resp2.status_code == 401
+
+            # Correct token → allowed
+            resp3 = test_client.post(
+                "/agents",
+                json={"name": "authorized-bot", "allowed_scopes": ["read"]},
+                headers={"Authorization": "Bearer super-secret-reg-token"},
+            )
+            assert resp3.status_code == 201
+            assert resp3.json()["name"] == "authorized-bot"
+        finally:
+            # Restore open policy
+            os.environ["AUTHGENT_REGISTRATION_POLICY"] = "open"
+            os.environ.pop("AUTHGENT_REGISTRATION_TOKEN", None)
+            reset_settings()

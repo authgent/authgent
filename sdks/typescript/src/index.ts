@@ -48,7 +48,7 @@ export { JWKSFetcher, getFetcher } from "./jwks.js";
 
 // Server API client
 export { AgentAuthClient } from "./client.js";
-export type { TokenResult, AgentResult } from "./client.js";
+export type { TokenResult, AgentResult, StepUpRequestResult, TokenCheckResult } from "./client.js";
 
 // Scope challenge handler
 export {
