@@ -129,24 +129,26 @@ def _build_delegation_tree(act: dict, tree: Tree | None = None, depth: int = 0) 
     return tree
 
 
-# ── Init ─────────────────────────────────────────────────────────────────
+# ── Auto-config ─────────────────────────────────────────────────────────
 
 
-@app.command()
-def init(
-    database_url: str = typer.Option(
-        "sqlite+aiosqlite:///./authgent.db",
-        help="Database URL",
-    ),
-    force: bool = typer.Option(False, help="Overwrite existing .env"),
-) -> None:
-    """Initialize authgent-server — generates .env, creates DB, generates signing key."""
+def _ensure_config(
+    database_url: str = "sqlite+aiosqlite:///./authgent.db",
+    force: bool = False,
+) -> bool:
+    """Ensure .env exists with a persisted secret key.
+
+    Returns True if a new .env was created, False if one already existed.
+    Skipped entirely when AUTHGENT_SECRET_KEY is already in the environment
+    (e.g. Docker, CI, production deploys that set env vars directly).
+    """
+    # If the key is already set via env var, nothing to persist
+    if os.environ.get("AUTHGENT_SECRET_KEY") and not force:
+        return False
+
     env_path = ".env"
     if os.path.exists(env_path) and not force:
-        err_console.print(
-            f"[bold red]✗[/] {env_path} already exists. Use [bold]--force[/] to overwrite."
-        )
-        raise typer.Exit(1)
+        return False  # already initialized
 
     secret_key = secrets.token_hex(32)
 
@@ -158,13 +160,40 @@ def init(
         f.write("AUTHGENT_CONSENT_MODE=auto_approve\n")
         f.write("AUTHGENT_REGISTRATION_POLICY=open\n")
 
-    console.print("[bold green]✓[/] Config written to [bold].env[/]")
+    console.print("[bold green]✓[/] First run — generated [bold].env[/] with new secret key")
     console.print(f"  [dim]Database:[/] {database_url}")
+    console.print("  [dim]DB tables and signing key will be created on startup[/]")
+    console.print()
+    return True
+
+
+# ── Init ─────────────────────────────────────────────────────────────────
+
+
+@app.command()
+def init(
+    database_url: str = typer.Option(
+        "sqlite+aiosqlite:///./authgent.db",
+        help="Database URL",
+    ),
+    force: bool = typer.Option(False, help="Overwrite existing .env"),
+) -> None:
+    """Explicitly initialize authgent-server — generates .env, creates DB, generates signing key.
+
+    Note: `authgent-server run` auto-initializes on first start, so this
+    command is only needed if you want to customize the database URL or
+    force-regenerate the config.
+    """
+    env_path = ".env"
+    if os.path.exists(env_path) and not force:
+        err_console.print(
+            f"[bold red]✗[/] {env_path} already exists. Use [bold]--force[/] to overwrite."
+        )
+        raise typer.Exit(1)
+
+    _ensure_config(database_url=database_url, force=True)
 
     async def _init_db() -> None:
-        os.environ["AUTHGENT_SECRET_KEY"] = secret_key
-        os.environ["AUTHGENT_DATABASE_URL"] = database_url
-
         from authgent_server.config import get_settings, reset_settings
 
         reset_settings()
@@ -208,8 +237,15 @@ def run(
     port: int = typer.Option(8000, help="Port to bind"),
     reload: bool = typer.Option(False, help="Enable auto-reload (dev)"),
 ) -> None:
-    """Start the authgent server."""
+    """Start the authgent server.
+
+    Auto-initializes on first run (creates .env with secret key) if no
+    configuration is found. The DB and signing key are created during startup.
+    """
     import uvicorn
+
+    # Auto-initialize if this is a first run (no .env, no env var)
+    _ensure_config()
 
     console.print(
         Panel(
