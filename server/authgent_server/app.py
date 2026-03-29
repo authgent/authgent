@@ -48,14 +48,14 @@ _CLEANUP_INTERVALS = {
     "device_codes": 900,
     "refresh_tokens": 3600,
     "stepup_requests": 60,
-    "audit_log": 86400,           # daily — retains 90 days
-    "delegation_receipts": 86400, # daily — retains 30 days
+    "audit_log": 86400,  # daily — retains 90 days
+    "delegation_receipts": 86400,  # daily — retains 30 days
 }
 
 # Retention offsets for tables without an expires_at column (seconds before :now)
 _CLEANUP_RETENTION = {
-    "audit_log": 90 * 86400,           # 90 days
-    "delegation_receipts": 30 * 86400, # 30 days
+    "audit_log": 90 * 86400,  # 90 days
+    "delegation_receipts": 30 * 86400,  # 30 days
 }
 
 

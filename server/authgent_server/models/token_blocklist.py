@@ -10,9 +10,7 @@ from authgent_server.models.base import Base
 
 class TokenBlocklist(Base):
     __tablename__ = "token_blocklist"
-    __table_args__ = (
-        Index("ix_token_blocklist_expires_at", "expires_at"),
-    )
+    __table_args__ = (Index("ix_token_blocklist_expires_at", "expires_at"),)
 
     jti: Mapped[str] = mapped_column(String(255), primary_key=True)
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
