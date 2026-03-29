@@ -97,3 +97,10 @@ async def test_stepup_not_found(test_client):
     """Getting a nonexistent step-up request returns 400."""
     resp = test_client.get("/stepup/nonexistent_id")
     assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_stepup_rejects_bad_payload(test_client):
+    """POST /stepup without required fields should 422."""
+    resp = test_client.post("/stepup", json={"scope": "admin"})
+    assert resp.status_code == 422

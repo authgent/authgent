@@ -1,19 +1,25 @@
 # Product Requirements Document: authgent
 ## The Open-Source Identity Provider for AI Agents
 
-**Author:** Dhruv Agnihotri | **Version:** 1.0 | **Date:** March 25, 2026
+**Author:** Dhruv Agnihotri | **Version:** 2.0 | **Date:** March 28, 2026
 
 ---
 
 ## 1. Executive Summary
 
-**authgent** is an open-source identity provider (IdP) purpose-built for AI agents. It provides:
+**authgent** is the **open-source "Supabase for agent auth"** — a comprehensive platform for AI agent identity, authorization, and secure resource access. It provides:
 
 1. A **lightweight OAuth 2.1 Authorization Server** (FastAPI) that issues and manages tokens for AI agents, compliant with MCP auth spec and Google A2A.
-2. **Multi-language SDKs** (Python, TypeScript, Go) for token validation, delegation chain enforcement, and framework middleware.
-3. An **Agent Identity Registry** for lifecycle management of agent identities.
+2. An **MCP Gateway** that wraps any existing MCP server with OAuth 2.1 authentication in a single command — zero code changes to the upstream server.
+3. A **Credential Vault** that stores sensitive credentials (database URIs, API keys, cloud tokens) and proxies agent requests so agents never see raw secrets.
+4. A **Developer Dashboard** (React) for visual management of agents, tokens, delegation chains, vault credentials, and audit trails.
+5. **Multi-language SDKs** (Python, TypeScript, Go) for token validation, delegation chain enforcement, and framework middleware.
+6. **AI Framework Integrations** — drop-in plugins for LangChain, CrewAI, OpenAI Agents SDK, Google ADK, AutoGen, and Vercel AI SDK.
+7. An **Agent Identity Registry** for lifecycle management of agent identities.
 
-**Positioning:** authgent is the **only open-source project that is BOTH OAuth 2.1 / MCP-spec-compliant AND agent-aware.** AIM (OpenA2A) is agent-native but not OAuth 2.1 compliant — it can't serve as an MCP auth server. Keycloak/Ory are OAuth-compliant but not agent-aware. Better Auth is now a full OAuth 2.1 Provider (TS-only) but has no delegation chains, DPoP, or agent registry. authgent occupies the intersection that nobody else does.
+**Vision:** Just as Supabase made PostgreSQL accessible by wrapping it with Auth, Realtime, Storage, and a Dashboard, authgent makes agent auth accessible by wrapping a production-grade OAuth 2.1 server with a Gateway, Vault, Dashboard, and framework integrations. The core OAuth server is the "PostgreSQL" — already built and production-ready. The platform layers are what make it 10x easier to use than rolling your own agent security.
+
+**Positioning:** authgent is the **only open-source project that is BOTH OAuth 2.1 / MCP-spec-compliant AND agent-aware, AND provides a zero-code gateway + credential vault.** AIM (OpenA2A) is agent-native but not OAuth 2.1 compliant — it can't serve as an MCP auth server. Keycloak/Ory are OAuth-compliant but not agent-aware. Grantex (the closest direct competitor) provides an agent authorization protocol but is TypeScript-first, has no credential vault, no zero-code gateway wrapping, and no self-hosted dashboard. authgent occupies the intersection that nobody else does — and does it Python-first, where the AI ecosystem lives.
 
 ---
 
@@ -37,6 +43,18 @@ Identity alone doesn't prove integrity. A compromised agent can claim to be "sea
 ### 2.6 No Runtime Step-Up Authorization
 Agents encounter sensitive operations mid-execution (delete production data, send money, access PII). There's no standard mechanism for agents to request runtime human approval for specific actions. The HITL (human-in-the-loop) pattern is discussed in IETF drafts (AAuth/Rosenberg) and commercial products (AIM) but has zero open-source implementations.
 
+### 2.7 Zero-Code Credential Protection Gap
+Developers want AI agents (Windsurf, Claude Code, Cursor) to query databases and call APIs without exposing credentials. Today this requires building a custom proxy/MCP server that holds the credentials and validates tokens — significant engineering effort for every resource. There is no open-source tool that says: "Give me your database URI, I'll handle the rest." Auth0's Token Vault addresses this for SaaS but is closed-source, cloud-only, and expensive. The gap is a **self-hosted, open-source credential vault with built-in resource proxying**.
+
+### 2.8 No Zero-Code MCP Auth Gateway
+The MCP spec mandates OAuth 2.1, but most existing MCP servers ship without authentication. Adding auth requires modifying source code — impractical for third-party or community servers. Developers on Reddit (r/mcp, 34-96 upvote threads) repeatedly ask: "How do I add auth to an MCP server without changing its code?" The `mcp-oauth-gateway` project (TypeScript) attempts this but is minimal. There is no production-grade, Python-native gateway that wraps arbitrary MCP servers with OAuth 2.1 in a single CLI command.
+
+### 2.9 No Unified Agent Management Dashboard
+All existing open-source agent auth solutions are CLI/API-only. Developers and team leads need visual management: see which agents are active, what tokens are issued, visualize delegation chains, manage vault credentials, and review audit trails. Supabase's dashboard was the #1 driver of its adoption over raw PostgreSQL. Agent auth needs the same treatment.
+
+### 2.10 No Framework-Native Agent Auth Integrations
+Agent developers use LangChain (98k stars), CrewAI (25k), OpenAI Agents SDK (15k), AutoGen (40k). None of these frameworks have built-in auth integration. Developers must manually wire token acquisition, validation, and scope checking. Grantex offers framework adapters; no open-source project matches this. authgent needs drop-in integrations for every major framework.
+
 ---
 
 ## 3. Target Users
@@ -44,7 +62,11 @@ Agents encounter sensitive operations mid-execution (delete production data, sen
 | User | Pain | Solution |
 |---|---|---|
 | **Devs building remote MCP servers** | MCP spec requires OAuth 2.1 but no server exists | `pip install authgent-server` → 60 seconds |
+| **Devs with existing MCP servers** | Need to add auth without modifying server code | `authgent-server gateway --upstream http://localhost:3000` |
+| **Devs using AI coding assistants** | Want Windsurf/Claude Code to query DB without exposing credentials | `authgent-server vault add --type postgresql --uri "postgresql://..."` |
 | **Teams building multi-agent systems** | Can't trace delegation chains across agent chains | RFC 8693 token exchange with nested `act` claims |
+| **LangChain/CrewAI/OpenAI SDK devs** | No built-in auth for agent tools | `from authgent.integrations.langchain import authgent_guard` |
+| **Team leads & security engineers** | Can't visualize agent permissions, tokens, and audit trails | authgent Dashboard at `localhost:8000/ui` |
 | **Enterprises with existing IdPs** | Auth0/Okta don't enforce agent delegation policies | SDK in "validator mode" adds agent rules on top |
 | **A2A agent developers** | Agent Cards require manual security setup | Auto-generated A2A Agent Cards |
 
@@ -52,23 +74,58 @@ Agents encounter sensitive operations mid-execution (delete production data, sen
 
 ## 4. Architecture
 
-### 4.1 Two Operating Modes
+### 4.1 Platform Layers
 
-**Mode 1: Full Server Mode** — Deploy authgent-server. Handles everything: identity, tokens, registration. For indie devs, startups, open-source projects.
+authgent is organized as a **layered platform**, inspired by Supabase's architecture. Each layer can be used independently or together:
 
-**Mode 2: Validator-Only Mode** — No server. SDK validates tokens from Auth0/Okta/Keycloak and adds agent-specific enforcement. For enterprises.
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    Developer Dashboard (React)                │  ← Layer 5: Visual Management
+│  Agents │ Tokens │ Delegation Chains │ Vault │ Audit Logs     │
+├──────────────────────────────────────────────────────────────┤
+│              AI Framework Integrations                        │  ← Layer 4: Discovery
+│  LangChain │ CrewAI │ OpenAI Agents │ ADK │ AutoGen │ Vercel │
+├──────────────────────────────────────────────────────────────┤
+│                    Credential Vault                           │  ← Layer 3: Secret Management
+│  Store DB URIs, API keys, cloud tokens. Proxy agent requests. │
+│  Agents get scoped tokens, never see raw credentials.         │
+├──────────────────────────────────────────────────────────────┤
+│                    MCP Gateway                                │  ← Layer 2: Zero-Code Auth
+│  Wraps ANY MCP server with OAuth 2.1. Single CLI command.    │
+│  Reverse proxy: validate token → forward to upstream.         │
+├──────────────────────────────────────────────────────────────┤
+│              OAuth 2.1 Authorization Server (FastAPI)          │  ← Layer 1: Core (BUILT)
+│  Token issuance │ Delegation chains │ DPoP │ HITL │ Registry  │
+│  SDKs: Python, TypeScript, Go │ Middleware: FastAPI, Express   │
+└──────────────────────────────────────────────────────────────┘
+```
 
-### 4.2 Component Overview
+**Layer 1 (Core Auth)** is fully implemented and tested (155+ tests). Layers 2-5 are the platform expansion.
+
+### 4.2 Three Operating Modes
+
+**Mode 1: Full Platform Mode** — Deploy authgent-server with Gateway + Vault + Dashboard. Everything works together. For indie devs, startups, open-source projects.
+
+**Mode 2: Server-Only Mode** — Deploy just the OAuth 2.1 server. Use SDK middleware on your own MCP servers. No Gateway or Vault needed.
+
+**Mode 3: Validator-Only Mode** — No server. SDK validates tokens from Auth0/Okta/Keycloak and adds agent-specific enforcement. For enterprises.
+
+### 4.3 Component Overview
 
 | Component | Package | Language | Purpose |
 |---|---|---|---|
-| Server | `authgent-server` | Python (FastAPI) | OAuth 2.1 Auth Server + Agent Registry |
+| Server + Gateway + Vault | `authgent-server` | Python (FastAPI) | OAuth 2.1 Auth Server + Gateway + Vault + Dashboard |
 | Python SDK | `authgent` | Python | Token validation, middleware, delegation enforcement |
-| TypeScript SDK | `authgent` | TypeScript | Token validation, Express/MCP middleware |
+| TypeScript SDK | `authgent` | TypeScript | Token validation, Express/Hono/MCP middleware |
 | Go SDK | `authgent-go` | Go | Token validation, HTTP middleware |
-| CLI | Built into server | Python | `authgent-server init/run/create-agent` |
+| LangChain integration | `authgent-langchain` | Python | Tool guards, agent auth for LangChain |
+| CrewAI integration | `authgent-crewai` | Python | Agent permission middleware for CrewAI |
+| OpenAI Agents integration | `authgent-openai` | Python | Tool guard decorators for OpenAI Agents SDK |
+| Google ADK integration | `authgent-adk` | Python | Auth plugin for Google Agent Development Kit |
+| CLI | Built into server | Python | `authgent-server init/run/gateway/vault/create-agent` |
+| Dashboard | Built into server | React + TailwindCSS | Served as static files from FastAPI at `/ui` |
 
-### 4.3 Flow Diagram
+### 4.4 Core Auth Flow (Layer 1 — Implemented)
 
 ```
 Human/Orchestrator
@@ -89,6 +146,116 @@ Agent B (uses authgent SDK middleware)
     │    Proceeds with tool execution
     ▼
 ```
+
+### 4.5 MCP Gateway Flow (Layer 2 — New)
+
+```
+Claude Desktop / Windsurf / Any MCP Client
+    │
+    │  MCP request (with Bearer token)
+    ▼
+authgent-server gateway (reverse proxy)
+    │ 1. Extract Bearer token from Authorization header
+    │ 2. Validate JWT (signature, exp, iss, aud, scopes)
+    │ 3. Verify DPoP proof (if cnf.jkt present)
+    │ 4. Check token not revoked (blocklist)
+    │ 5. If valid → forward request to upstream MCP server
+    │ 6. If invalid → return 401/403
+    ▼
+Upstream MCP Server (UNMODIFIED — no auth code needed)
+    │ Receives request as if no auth exists
+    │ Returns response
+    ▼
+authgent-server gateway
+    │ Forwards response to client
+    ▼
+MCP Client receives response
+```
+
+**CLI usage:**
+```bash
+# Wrap an HTTP MCP server:
+authgent-server gateway --upstream http://localhost:3000 --scopes "tools:read,tools:execute"
+
+# Wrap a stdio MCP server:
+authgent-server gateway --stdio "npx @modelcontextprotocol/server-postgres postgresql://..." --scopes "db:read"
+```
+
+The gateway also serves `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource` automatically, making it fully MCP-spec-compliant.
+
+### 4.6 Credential Vault Flow (Layer 3 — New)
+
+```
+Developer (one-time setup)
+    │
+    │  authgent-server vault add --name "prod-db" --type postgresql \
+    │    --uri "postgresql://admin:s3cret@db.example.com/myapp" \
+    │    --read-scopes "db:read" --write-scopes "db:write"
+    │
+    ▼
+authgent-server (stores encrypted credential)
+    │
+    │  Credential encrypted at rest with AES-256-GCM (KEK from HKDF)
+    │  Never exposed in API responses, logs, or tokens
+    │
+    ▼
+
+Agent (runtime)
+    │
+    │  1. Agent has token with scope "db:read"
+    │  2. POST /vault/prod-db/query  { "sql": "SELECT * FROM users LIMIT 10" }
+    │     Authorization: Bearer eyJ...
+    │
+    ▼
+authgent-server vault proxy
+    │  3. Validate token + check scope "db:read"
+    │  4. Validate SQL (SELECT-only for db:read scope)
+    │  5. Decrypt stored credential
+    │  6. Execute query using REAL credentials (agent never sees them)
+    │  7. Return results to agent
+    ▼
+Agent receives query results (never saw the password)
+```
+
+**Supported resource types (Phase 1):**
+- **PostgreSQL** — SQL query proxy with scope-based read/write enforcement
+- **HTTP API** — Header injection proxy (add API key/Bearer token to upstream requests)
+
+**Future resource types:**
+- MySQL, MongoDB, Redis, S3, GCS, Azure Blob
+- OAuth 2.0 token broker (like Auth0 Token Vault — store refresh tokens, auto-rotate)
+
+### 4.7 Dashboard (Layer 5 — New)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  authgent Dashboard                            localhost:8000/ui │
+├─────────────┬───────────────────────────────────────────────────┤
+│             │                                                   │
+│  ● Agents   │  ┌─ orchestrator-agent ─────────────────────┐    │
+│  ● Tokens   │  │  Client ID: agnt_abc123                  │    │
+│  ● Chains   │  │  Scopes: db:read, db:write, tools:exec   │    │
+│  ● Vault    │  │  Active tokens: 3                        │    │
+│  ● Audit    │  │  Last activity: 2 min ago                │    │
+│  ● Gateway  │  │  [Revoke All] [Edit Scopes] [Delete]     │    │
+│  ● Settings │  └──────────────────────────────────────────┘    │
+│             │                                                   │
+│             │  Delegation Chain Viewer:                          │
+│             │  user:alice → orchestrator → db-reader             │
+│             │  scopes: db:read,db:write → db:read               │
+│             │  ✓ human_root  ✓ receipts valid  depth: 2/5       │
+│             │                                                   │
+│             │  Vault Credentials:                                │
+│             │  ┌─ prod-db (PostgreSQL) ──── Active ────┐        │
+│             │  │  Scopes: db:read, db:write            │        │
+│             │  │  Last used: 5 min ago                 │        │
+│             │  │  [Rotate] [Disable] [Delete]          │        │
+│             │  └───────────────────────────────────────┘        │
+│             │                                                   │
+└─────────────┴───────────────────────────────────────────────────┘
+```
+
+**Technology:** React + TailwindCSS + shadcn/ui, built as static files, served from FastAPI at `/ui`. The dashboard calls the same REST API endpoints that the CLI uses — no special backend. Optionally disabled via `AUTHGENT_DASHBOARD=false` for headless deployments.
 
 ---
 
@@ -267,34 +434,74 @@ AIM is the closest open-source competitor and already shipping. Detailed compari
 
 **Strategic implication:** authgent's #1 differentiator is **MCP-native OAuth 2.1 compliance**. This is not a minor edge — it means authgent is the only open-source project that can serve as an auth server for the MCP ecosystem, which is the fastest-growing agent protocol.
 
-### 7.2 Competitive Position Matrix
+### 7.2 authgent vs Grantex — Primary Direct Competitor
+
+Grantex is the closest direct competitor — an agent authorization protocol with SDK integrations. Appeared in early 2026.
+
+| Feature | authgent (current + roadmap) | Grantex |
+|---|---|---|
+| **OAuth 2.1 compliant** | **Yes** — full MCP auth server | **Yes** — authorization protocol |
+| **Delegation chains** | RFC 8693 `act` claims + **signed delegation receipts** | Token exchange + delegation |
+| **DPoP (RFC 9449)** | **Yes** — sender-constrained tokens + nonces | Unknown |
+| **MCP Gateway (zero-code)** | **Yes (Phase 2)** — `authgent-server gateway` wraps any MCP server | **No** — SDK adapters only, requires code changes |
+| **Credential Vault** | **Yes (Phase 3)** — self-hosted encrypted vault + resource proxy | **No** |
+| **Dashboard** | **Yes (Phase 3)** — self-hosted React UI | Cloud-only playground + dev portal |
+| **Framework integrations** | Phase 4: LangChain, CrewAI, OpenAI, ADK, AutoGen | **Yes** — LangChain, CrewAI, OpenAI, ADK, MCP |
+| **Self-hosted** | **Yes** — pip install, Docker, single binary | Yes (Docker) |
+| **Language** | **Python-first** (where AI devs are) | **TypeScript-first** |
+| **IETF draft** | Delegation receipts (candidate individual I-D) | Agent authorization protocol draft |
+| **Stars** | Unpublished (0) | ~13 |
+| **Signed delegation receipts** | **Yes** — chain splicing mitigation | No |
+| **HITL step-up** | **Yes** — MCP scope challenge alignment | Unknown |
+| **License** | Apache 2.0 | Apache 2.0 |
+
+**Where authgent wins over Grantex:**
+1. **Zero-code gateway** — Grantex requires code changes (SDK adapters). authgent wraps any MCP server in one CLI command.
+2. **Credential vault** — Grantex has no secret management. authgent stores credentials and proxies requests.
+3. **Python-first** — The AI ecosystem (LangChain, CrewAI, AutoGen, Google ADK) is overwhelmingly Python. Grantex is TypeScript.
+4. **Signed delegation receipts** — Cryptographic chain splicing protection that Grantex doesn't have.
+5. **Self-hosted dashboard** — Grantex's UI is cloud-only. authgent's dashboard ships with the server.
+
+**Where Grantex wins over authgent:**
+1. **Already has framework integrations** — authgent has zero (planned for Phase 4).
+2. **IETF draft published** — Establishes protocol authority.
+3. **13 GitHub stars** — authgent is unpublished.
+
+**Strategic implication:** The race is still at zero traction for both projects. authgent's Python-first positioning + zero-code gateway + credential vault = fundamentally different value proposition. Grantex is a protocol; authgent is a platform.
+
+### 7.3 Competitive Position Matrix
 
 ```
-       LIGHTWEIGHT ←──────────────────→ HEAVYWEIGHT
-             │                              │
-STANDARDS    │                              │
-COMPLIANT   │  ★ authgent ★               │  Keycloak (Java, not agent-aware)
-(OAuth 2.1)  │                              │  Ory Hydra (Go, no delegation)
-             │  Better Auth (TS, full OAuth 2.1) │
-             │                              │
-─────────────┼──────────────────────────────┤
-             │                              │
-AGENT-NATIVE │  AIM/OpenA2A (NOT OAuth 2.1) │  agentgateway (Rust/K8s)
-(custom      │  Agentic-IAM (vaporware)     │
- protocols)  │                              │
-             │                              │
-─────────────┼──────────────────────────────┤
-             │                              │
-COMMERCIAL   │  Scalekit                    │  Auth0 for AI Agents
-             │                              │  Stytch Connected Apps
-             │                              │  WorkOS AgentKit
+       LIGHTWEIGHT ←──────────────────────────→ HEAVYWEIGHT
+             │                                      │
+PLATFORM     │                                      │
+(auth +      │  ★ authgent ★                       │  Auth0 for AI Agents (SaaS)
+gateway +    │  (gateway + vault + dashboard)        │  WorkOS AgentKit (SaaS)
+vault +      │                                      │
+dashboard)   │                                      │
+─────────────┼──────────────────────────────────────┤
+             │                                      │
+AUTH SERVER  │  Grantex (TS, protocol-focused)      │  Keycloak (Java, not agent-aware)
+ONLY         │  Better Auth (TS, full OAuth 2.1)    │  Ory Hydra (Go, no delegation)
+             │                                      │
+─────────────┼──────────────────────────────────────┤
+             │                                      │
+AGENT-NATIVE │  AIM/OpenA2A (NOT OAuth 2.1)         │  agentgateway (Rust/K8s)
+(custom      │  Agentic-IAM (vaporware)             │
+ protocols)  │                                      │
+─────────────┼──────────────────────────────────────┤
+             │                                      │
+VALIDATOR    │  mcp-auth (Python, validator only)   │  Scalekit (SaaS)
+ONLY         │                                      │  Stytch Connected Apps (SaaS)
 ```
 
-authgent's unique position: the ONLY lightweight, open-source, standards-compliant (OAuth 2.1), agent-aware auth server.
+authgent's unique position: the ONLY open-source **platform** (not just auth server) that combines OAuth 2.1 compliance, agent-awareness, zero-code gateway, credential vault, and self-hosted dashboard. Every other player is either auth-server-only, SaaS-only, or not agent-aware.
 
-### 7.3 Other Notable Projects
+### 7.4 Other Notable Projects
 
-- **mcp-auth** (`pip install mcpauth`, mcp-auth.dev) — Python library for validating tokens from existing providers (Auth0, Keycloak, etc.) on MCP servers. This is a **validator/middleware library**, not an auth server. It does not issue tokens, manage agent identities, or handle delegation chains. A developer Googling "MCP auth Python" will find it. Our differentiator: authgent is a full OAuth 2.1 server with delegation chains, DPoP, agent registry, and token exchange — mcp-auth does none of these. The two are complementary: mcp-auth could validate tokens *issued by* authgent.
+- **mcp-auth** (`pip install mcpauth`, mcp-auth.dev) — Python library for validating tokens from existing providers (Auth0, Keycloak, etc.) on MCP servers. This is a **validator/middleware library**, not an auth server. It does not issue tokens, manage agent identities, or handle delegation chains. A developer Googling "MCP auth Python" will find it. Our differentiator: authgent is a full platform with auth server, gateway, vault, and dashboard — mcp-auth does none of these. The two are complementary: mcp-auth could validate tokens *issued by* authgent.
+
+- **mcp-oauth-gateway** — TypeScript project that adds OAuth to MCP servers via a proxy. Minimal implementation, no credential vault, no delegation, no DPoP. authgent's gateway subsumes this with more features and Python-native implementation.
 
 ---
 
