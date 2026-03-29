@@ -1,0 +1,31 @@
+# authgent — One-click demo: server + playground
+# Usage: docker compose up
+# Opens at http://localhost:3000 (playground + API)
+
+services:
+  authgent:
+    build: ./server
+    restart: unless-stopped
+    environment:
+      AUTHGENT_DATABASE_URL: sqlite+aiosqlite:///./authgent.db
+      AUTHGENT_SECRET_KEY: ${AUTHGENT_SECRET_KEY:-demo-secret-change-in-production}
+      AUTHGENT_CORS_ORIGINS: '["http://localhost:3000"]'
+      AUTHGENT_REGISTRATION_POLICY: open
+      AUTHGENT_CONSENT_MODE: auto_approve
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  playground:
+    build:
+      context: ./playground
+      dockerfile: deploy/Dockerfile.playground
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      authgent:
+        condition: service_healthy
