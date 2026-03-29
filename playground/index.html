@@ -272,7 +272,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <p>Build a multi-agent delegation chain step-by-step. Watch tokens transform, scopes narrow, and delegation claims grow in real time.</p>
   <div class="server-bar">
     <label>Server</label>
-    <input id="serverUrl" value="http://localhost:8000" oninput="checkServer()"/>
+    <input id="serverUrl" value="" oninput="checkServer()"/>
     <span class="status" id="serverStatus"></span>
   </div>
 </div>
@@ -419,6 +419,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
    ENGINE
    ════════════════════════════════════════════════════════════════ */
 const $=id=>document.getElementById(id);
+// Auto-detect server URL:
+// - file:// (opened from disk) → default to localhost:8000
+// - Docker/deployed (served via nginx proxy) → use same origin (API proxied through nginx)
+(()=>{const i=$('serverUrl');if(!i.value){const o=location.origin;i.value=(!o||o==='null'||location.protocol==='file:')?'http://localhost:8000':o}})();
 const base=()=>$('serverUrl').value.replace(/\/+$/,'');
 const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
