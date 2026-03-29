@@ -13,7 +13,11 @@ from authgent_server.crypto import derive_subkey
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="AUTHGENT_", env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_prefix="AUTHGENT_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+    )
 
     # Core
     secret_key: str = Field(default_factory=lambda: secrets.token_hex(32))

@@ -147,9 +147,7 @@ class WebhookHITLProvider:
                 import asyncio
 
                 backoff_secs = (
-                    self._backoff[attempt]
-                    if attempt < len(self._backoff)
-                    else self._backoff[-1]
+                    self._backoff[attempt] if attempt < len(self._backoff) else self._backoff[-1]
                 )
                 await asyncio.sleep(backoff_secs)
 

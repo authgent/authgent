@@ -12,8 +12,8 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from authgent_server.config import Settings, get_settings
-from authgent_server.errors import InvalidClient
 from authgent_server.db import get_db as _get_db
+from authgent_server.errors import InvalidClient
 from authgent_server.providers.attestation import NullAttestationProvider
 from authgent_server.providers.events import DatabaseEventEmitter
 from authgent_server.providers.hitl import WebhookHITLProvider
@@ -173,8 +173,7 @@ async def require_registration_auth(
     auth_header = request.headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
         raise InvalidClient(
-            "Registration requires authentication. "
-            f"Policy: {settings.registration_policy}"
+            f"Registration requires authentication. Policy: {settings.registration_policy}"
         )
     bearer_token = auth_header[7:]
 
@@ -199,9 +198,7 @@ async def require_registration_auth(
             claims = await jwks.verify_jwt(db, bearer_token)
             scopes = set(claims.get("scope", "").split())
             if "admin:register" not in scopes:
-                raise InvalidClient(
-                    "Registration requires admin:register scope"
-                )
+                raise InvalidClient("Registration requires admin:register scope")
         except InvalidClient:
             raise
         except Exception as exc:

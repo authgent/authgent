@@ -111,13 +111,9 @@ class AgentService:
         # so that token issuance enforces the updated scopes.
         if "allowed_scopes" in update_data and agent.oauth_client_id:
             new_scope = (
-                " ".join(update_data["allowed_scopes"])
-                if update_data["allowed_scopes"]
-                else ""
+                " ".join(update_data["allowed_scopes"]) if update_data["allowed_scopes"] else ""
             )
-            stmt = select(OAuthClient).where(
-                OAuthClient.client_id == agent.oauth_client_id
-            )
+            stmt = select(OAuthClient).where(OAuthClient.client_id == agent.oauth_client_id)
             result = await db.execute(stmt)
             oauth_client = result.scalar_one_or_none()
             if oauth_client:

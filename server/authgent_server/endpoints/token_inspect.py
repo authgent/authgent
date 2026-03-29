@@ -14,7 +14,7 @@ router = APIRouter(tags=["tokens"])
 
 class ActorInfo(BaseModel):
     sub: str
-    act: "ActorInfo | None" = None
+    act: ActorInfo | None = None
 
 
 class DelegationChainInfo(BaseModel):

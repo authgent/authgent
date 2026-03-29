@@ -401,6 +401,7 @@ class TokenService:
         parent_client_id = parent_claims.get("client_id")
         if parent_client_id:
             from sqlalchemy.orm import selectinload
+
             from authgent_server.models.oauth_client import OAuthClient
 
             stmt = (

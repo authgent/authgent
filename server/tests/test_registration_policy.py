@@ -1,7 +1,5 @@
 """Tests for registration_policy enforcement on POST /agents and POST /register."""
 
-import os
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -42,10 +40,14 @@ def test_open_policy_allows_create_agent(test_client: TestClient) -> None:
 # ── policy=token ──
 
 
-def test_token_policy_rejects_unauthenticated_register(test_client: TestClient, monkeypatch) -> None:
+def test_token_policy_rejects_unauthenticated_register(
+    test_client: TestClient,
+    monkeypatch,
+) -> None:
     monkeypatch.setenv("AUTHGENT_REGISTRATION_POLICY", "token")
     monkeypatch.setenv("AUTHGENT_REGISTRATION_TOKEN", "secret-reg-token-123")
     from authgent_server.config import reset_settings
+
     reset_settings()
 
     resp = test_client.post(
@@ -62,6 +64,7 @@ def test_token_policy_rejects_wrong_token(test_client: TestClient, monkeypatch) 
     monkeypatch.setenv("AUTHGENT_REGISTRATION_POLICY", "token")
     monkeypatch.setenv("AUTHGENT_REGISTRATION_TOKEN", "secret-reg-token-123")
     from authgent_server.config import reset_settings
+
     reset_settings()
 
     resp = test_client.post(
@@ -79,6 +82,7 @@ def test_token_policy_accepts_correct_token(test_client: TestClient, monkeypatch
     monkeypatch.setenv("AUTHGENT_REGISTRATION_POLICY", "token")
     monkeypatch.setenv("AUTHGENT_REGISTRATION_TOKEN", "secret-reg-token-123")
     from authgent_server.config import reset_settings
+
     reset_settings()
 
     resp = test_client.post(
@@ -93,6 +97,7 @@ def test_token_policy_rejects_unauthenticated_agent(test_client: TestClient, mon
     monkeypatch.setenv("AUTHGENT_REGISTRATION_POLICY", "token")
     monkeypatch.setenv("AUTHGENT_REGISTRATION_TOKEN", "secret-reg-token-123")
     from authgent_server.config import reset_settings
+
     reset_settings()
 
     resp = test_client.post(
@@ -106,6 +111,7 @@ def test_token_policy_accepts_correct_token_for_agent(test_client: TestClient, m
     monkeypatch.setenv("AUTHGENT_REGISTRATION_POLICY", "token")
     monkeypatch.setenv("AUTHGENT_REGISTRATION_TOKEN", "secret-reg-token-123")
     from authgent_server.config import reset_settings
+
     reset_settings()
 
     resp = test_client.post(
@@ -121,6 +127,7 @@ def test_token_policy_misconfigured_no_token_set(test_client: TestClient, monkey
     monkeypatch.setenv("AUTHGENT_REGISTRATION_POLICY", "token")
     monkeypatch.delenv("AUTHGENT_REGISTRATION_TOKEN", raising=False)
     from authgent_server.config import reset_settings
+
     reset_settings()
 
     resp = test_client.post(
