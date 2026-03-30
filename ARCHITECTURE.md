@@ -1,7 +1,8 @@
 # authgent — Architecture Document
 
-**Author:** Dhruv Agnihotri | **Version:** 1.0 | **Date:** March 25, 2026
-**Source PRD:** PRD.md + PRD_PART2.md
+**Author:** Dhruv Agnihotri | **Version:** 2.1 | **Date:** March 28, 2026
+**Focus:** Core OAuth 2.1 Authorization Server with agent delegation chains, DPoP, and HITL.
+**Platform roadmap:** See [ROADMAP.md](ROADMAP.md) for future platform layers (Gateway, Vault, Dashboard, Integrations).
 
 ---
 
@@ -12,73 +13,76 @@
 | **Standards-first** | Every grant, endpoint, and token format maps to an RFC. No custom protocols where a standard exists. |
 | **Layered services** | Endpoints → Services → Models → DB. No endpoint touches SQLAlchemy directly. |
 | **Pluggable providers** | Five extension points (Attestation, Policy, HITL, Key, Event) — all Python Protocols with defaults. |
-| **Zero-config start** | `pip install authgent-server && authgent-server init && authgent-server run` works with SQLite, auto-generated keys, no env vars. |
+| **Zero-config start** | `pip install authgent-server && authgent-server run` works with SQLite, auto-generated keys, no env vars. Auto-initializes on first run. |
 | **Async everywhere** | All I/O is async (SQLAlchemy async, httpx async, FastAPI async endpoints). Sync wrappers only in Flask SDK middleware. |
 | **12-factor config** | All config via `AUTHGENT_*` env vars. Pydantic Settings validates on startup. |
 | **Defense in depth** | DPoP + short TTL + scope reduction + delegation receipts + blocklist. No single mechanism is trusted alone. |
+| **Niche ownership** | authgent owns agent-to-agent delegation with cryptographic proof. Platform layers (Gateway, Vault, Dashboard) are future expansions — see [ROADMAP.md](ROADMAP.md). |
 
 ---
 
 ## 2. System Context
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         EXTERNAL WORLD                               │
-│                                                                      │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────┐    │
-│  │  Human    │  │ MCP      │  │ Agent A  │  │ Enterprise IdP   │    │
-│  │  (Browser)│  │ Client   │  │          │  │ (Auth0/Okta/AAD) │    │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────────┬─────────┘    │
-│       │              │             │                  │              │
-└───────┼──────────────┼─────────────┼──────────────────┼──────────────┘
-        │              │             │                  │
-        ▼              ▼             ▼                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                     authgent-server (FastAPI)                         │
-│                                                                      │
-│  ┌─────────────────────────────────────────────────────────────┐    │
-│  │                    Endpoint Layer (Routers)                  │    │
-│  │  /token  /authorize  /register  /revoke  /agents  /stepup   │    │
-│  │  /device  /.well-known/*  /health  /ready                   │    │
-│  └──────────────────────────┬──────────────────────────────────┘    │
-│                              │                                       │
-│  ┌──────────────────────────▼──────────────────────────────────┐    │
-│  │                    Service Layer                             │    │
-│  │  TokenService  JWKSService  AgentService  ClientService     │    │
-│  │  DPoPService  DelegationService  AuditService  StepUpSvc    │    │
-│  └──────────────────────────┬──────────────────────────────────┘    │
-│                              │                                       │
-│  ┌──────────────────────────▼──────────────────────────────────┐    │
-│  │                    Provider Layer (Protocols)                │    │
-│  │  AttestationProvider  PolicyProvider  HITLProvider           │    │
-│  │  KeyProvider  EventEmitter                                  │    │
-│  └──────────────────────────┬──────────────────────────────────┘    │
-│                              │                                       │
-│  ┌──────────────────────────▼──────────────────────────────────┐    │
-│  │                    Data Layer (SQLAlchemy Async)             │    │
-│  │  OAuthClient  Agent  AuthorizationCode  RefreshToken        │    │
-│  │  DeviceCode  Consent  SigningKey  TokenBlocklist             │    │
-│  │  AuditLog  DelegationReceipt  StepUpRequest                 │    │
-│  └──────────────────────────┬──────────────────────────────────┘    │
-│                              │                                       │
-│  ┌──────────────────────────▼──────────────────────────────────┐    │
-│  │                    Database                                  │    │
-│  │  SQLite (dev) │ PostgreSQL (prod)                           │    │
-│  └─────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              EXTERNAL WORLD                                   │
+│                                                                               │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐                │
+│  │  Human    │  │ MCP      │  │ Agent A  │  │ Enterprise   │                │
+│  │ (Browser) │  │ Client   │  │          │  │ IdP (Auth0/  │                │
+│  │           │  │ (Claude) │  │          │  │ Okta/AAD)    │                │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬───────┘                │
+│       │              │             │                │                         │
+└───────┼──────────────┼─────────────┼────────────────┼─────────────────────────┘
+        │              │             │                │
+        ▼              ▼             ▼                ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                   authgent — OAuth 2.1 Authorization Server (FastAPI)         │
+│                                                                               │
+│  ┌─────────────────────────────────────────────────────────────────────┐     │
+│  │                  Endpoint Layer (Routers)                            │     │
+│  │  /token  /authorize  /register  /revoke  /agents  /stepup           │     │
+│  │  /device  /introspect  /audit  /tokens/inspect                      │     │
+│  │  /.well-known/*  /health  /ready                                    │     │
+│  └─────────────────────────┬───────────────────────────────────────────┘     │
+│                             │                                                 │
+│  ┌─────────────────────────▼───────────────────────────────────────────┐     │
+│  │                  Service Layer                                       │     │
+│  │  TokenService  JWKSService  AgentService  ClientService             │     │
+│  │  DPoPService  DelegationService  AuditService  StepUpService        │     │
+│  └─────────────────────────┬───────────────────────────────────────────┘     │
+│                             │                                                 │
+│  ┌─────────────────────────▼───────────────────────────────────────────┐     │
+│  │                  Provider Layer (Protocols)                          │     │
+│  │  AttestationProvider  PolicyProvider  HITLProvider                   │     │
+│  │  KeyProvider  EventEmitter  HumanAuthProvider  ClaimEnricher        │     │
+│  └─────────────────────────┬───────────────────────────────────────────┘     │
+│                             │                                                 │
+│  ┌─────────────────────────▼───────────────────────────────────────────┐     │
+│  │                  Data Layer (SQLAlchemy Async)                       │     │
+│  │  OAuthClient  Agent  AuthorizationCode  RefreshToken                │     │
+│  │  DeviceCode  Consent  SigningKey  TokenBlocklist                     │     │
+│  │  AuditLog  DelegationReceipt  StepUpRequest  User                   │     │
+│  └─────────────────────────┬───────────────────────────────────────────┘     │
+│                             │                                                 │
+│  ┌─────────────────────────▼───────────────────────────────────────────┐     │
+│  │                  Database                                            │     │
+│  │  SQLite (dev) │ PostgreSQL (prod)                                   │     │
+│  └─────────────────────────────────────────────────────────────────────┘     │
+└──────────────────────────────────────────────────────────────────────────────┘
         │
         ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                     authgent SDK (Validator Side)                     │
-│                                                                      │
-│  MCP Server / API Server / Agent Runtime                             │
-│  ┌───────────────────────────────────────────────────────┐          │
-│  │  Middleware (FastAPI / Flask / Express)                │          │
-│  │  → verify_token() → verify_delegation_chain()         │          │
-│  │  → verify_dpop_proof() → PolicyProvider.evaluate()    │          │
-│  │  → Scope challenge auto-detection → HITL trigger      │          │
-│  └───────────────────────────────────────────────────────┘          │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                       authgent SDK (Validator Side)                            │
+│                                                                               │
+│  MCP Server / API Server / Agent Runtime                                      │
+│  ┌─────────────────────────────────────────────────────────────────┐         │
+│  │  Middleware (FastAPI / Flask / Express / Hono)                   │         │
+│  │  → verify_token() → verify_delegation_chain()                   │         │
+│  │  → verify_dpop_proof() → PolicyProvider.evaluate()              │         │
+│  │  → Scope challenge auto-detection → HITL trigger                │         │
+│  └─────────────────────────────────────────────────────────────────┘         │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -95,7 +99,9 @@ authgent-server/
 │   ├── __init__.py
 │   ├── app.py                    # FastAPI app factory
 │   ├── config.py                 # Pydantic Settings (AUTHGENT_* env vars)
-│   ├── cli.py                    # Typer CLI (init, run, create-agent, etc.)
+│   ├── cli.py                    # Typer CLI (13 commands — init, run, create-agent, list-agents,
+│   │                            #   get-token, inspect-token, audit, status, rotate-keys,
+│   │                            #   create-user, openapi, migrate, quickstart)
 │   ├── db.py                     # Async engine + session factory
 │   ├── dependencies.py           # FastAPI Depends() injection
 │   │
@@ -109,7 +115,9 @@ authgent-server/
 │   │   ├── device.py             # POST /device, GET /device/status
 │   │   ├── stepup.py             # POST /stepup, GET /stepup/{id}
 │   │   ├── wellknown.py          # /.well-known/* (4 endpoints)
-│   │   ├── introspect.py         # POST /introspect (Phase 5)
+│   │   ├── introspect.py         # POST /introspect (RFC 7662)
+│   │   ├── audit.py              # GET /audit (query audit logs with filtering)
+│   │   ├── token_inspect.py      # GET /tokens/inspect (decode JWT, delegation chain)
 │   │   └── health.py             # GET /health, /ready
 │   │
 │   ├── services/                 # Business logic — stateless, testable
@@ -210,6 +218,10 @@ authgent/
     ├── mcp.py                    # AgentAuthProvider for FastMCP
     └── protected_resource.py     # RFC 9728 metadata generator
 ```
+
+### 3.3 Future Platform Layers
+
+MCP Gateway (Layer 2), Credential Vault (Layer 3), AI Framework Integrations (Layer 4), and Developer Dashboard (Layer 5) are architecturally designed but not yet implemented. Full specifications are in [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -776,7 +788,10 @@ Each service is a class instantiated at app startup and injected via FastAPI `De
                                          │HITLProvider│
                                          │(Protocol) │
                                          └──────────┘
+
 ```
+
+> **Future:** GatewayService and VaultService (platform layers) will depend on TokenService + AuditService. See [ROADMAP.md](ROADMAP.md).
 
 ### 5.2 TokenService — Grant Handler Pattern
 
@@ -1050,6 +1065,8 @@ audit_log (standalone — write-only append log)
 delegation_receipts (standalone — JTI-indexed)
 ```
 
+> **Future:** `vault_credentials` and `gateway_configs` tables will be added for platform layers. See [ROADMAP.md](ROADMAP.md).
+
 ### 6.4 Cleanup Jobs
 
 Background tasks (run on server startup interval or via CLI cron):
@@ -1317,6 +1334,8 @@ class Settings(BaseSettings):
     event_emitter: str | None = None
 ```
 
+> **Future:** Platform layer settings (Gateway port, Vault timeouts, Dashboard toggle) will be added when those layers are implemented. See [ROADMAP.md](ROADMAP.md).
+
 ---
 
 ## 10. Deployment Architecture
@@ -1325,8 +1344,7 @@ class Settings(BaseSettings):
 
 ```bash
 pip install authgent-server
-authgent-server init          # generates .env with random secret
-authgent-server run           # starts on :8000 with SQLite
+authgent-server run           # auto-initializes on first run, starts on :8000 with SQLite
 ```
 
 ### 10.2 Production (Docker)
@@ -1383,7 +1401,7 @@ CMD ["uvicorn", "authgent_server.app:create_app", "--factory", "--host", "0.0.0.
               ▼            ▼            ▼
      ┌────────────┐ ┌────────────┐ ┌────────────┐
      │ authgent   │ │ authgent   │ │ authgent   │
-     │ instance 1 │ │ instance 2 │ │ instance 3 │
+     │ :8000      │ │ :8000      │ │ :8000      │
      └──────┬─────┘ └──────┬─────┘ └──────┬─────┘
             │              │              │
             └──────────────┼──────────────┘
@@ -1682,6 +1700,7 @@ The `/token` endpoint enforces `Content-Type: application/x-www-form-urlencoded`
 | `AUTHGENT_SECRET_KEY` | Environment variable | Never logged, never in DB |
 | DPoP ephemeral keys | Client memory only | Never transmitted, never stored |
 | Refresh tokens | `refresh_tokens` table | JTI-indexed, one-time-use, family-tracked |
+| Consent session | Signed cookie | HMAC-SHA256 with HKDF-derived session subkey (§9.1). `HttpOnly`, `Secure`, `SameSite=Lax`. |
 
 ---
 
@@ -1821,12 +1840,14 @@ These values are **never written to logs** at any level, enforced by a `structlo
 - `private_key_pem`, `secret_key`
 - `code_verifier`, `authorization_code`
 - `DPoP` header value (log JWK thumbprint only)
+- `password`, `password_hash` (consent page user auth)
 
 ```python
 # middleware/logging.py
 REDACTED_KEYS = {"client_secret", "access_token", "refresh_token",
                  "subject_token", "private_key_pem", "secret_key",
-                 "code_verifier", "authorization_code"}
+                 "code_verifier", "authorization_code",
+                 "password", "password_hash"}
 
 def redact_secrets(logger, method_name, event_dict):
     for key in REDACTED_KEYS:
@@ -1841,15 +1862,18 @@ def redact_secrets(logger, method_name, event_dict):
 
 ### 16.1 Fresh Install
 
-`authgent-server init` creates the database directly from SQLAlchemy models — no Alembic migrations needed. This is the fastest path for new users.
+`authgent-server run` auto-initializes on first start — no separate init step needed. This is the fastest path for new users.
 
 ```bash
-authgent-server init
-# 1. Generates .env with random AUTHGENT_SECRET_KEY
+authgent-server run
+# On first run:
+# 1. Generates .env with random AUTHGENT_SECRET_KEY (if no .env and no env var)
 # 2. Creates DB file (SQLite) or connects to DATABASE_URL
 # 3. Runs Base.metadata.create_all() — creates all tables
 # 4. Generates initial ES256 signing key
-# 5. Prints "Ready. Run: authgent-server run"
+# 5. Starts serving on :8000
+#
+# Use `authgent-server init` explicitly for custom DB URL or force-regenerate.
 ```
 
 ### 16.2 Startup Schema Check
@@ -2087,4 +2111,10 @@ For v2, evaluate TxTokens as a **complementary mechanism** to RFC 8693. RFC 8693
 
 ---
 
-*This architecture document is implementation-ready. A developer can start coding Phase 1 from §3.1 (server structure), §4.1-4.2 (grant flows), §5 (service layer), and §6 (data layer). All review findings from REVIEW.md §6-§8 have been addressed.*
+## 20. Summary
+
+This document describes the **complete, shipped** OAuth 2.1 Authorization Server — the core of authgent. All sections (§3.1–§19) are implemented and tested with 155+ tests across server, Python SDK, and TypeScript SDK.
+
+**What's here:** Agent identity, multi-hop delegation chains with signed receipts, DPoP sender-binding, HITL step-up authorization, 7 pluggable providers, full OAuth 2.1 grant support, and multi-language SDKs.
+
+**What's next:** Platform layers (MCP Gateway, Credential Vault, AI Framework Integrations, Developer Dashboard) are architecturally designed and documented in [ROADMAP.md](ROADMAP.md), ready for implementation based on user demand.

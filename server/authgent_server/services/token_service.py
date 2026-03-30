@@ -390,12 +390,17 @@ class TokenService:
             raise InvalidRequest("audience is required for token exchange")
 
         # Dispatch on subject_token_type (RFC 8693 §2.1)
-        if subject_token_type == ID_TOKEN_TYPE:
-            parent_claims = await self._verify_external_id_token(str(subject_token))
-        elif subject_token_type == ACCESS_TOKEN_TYPE:
-            parent_claims = await self.verify_and_check_blocklist(db, str(subject_token))
-        else:
-            raise InvalidRequest(f"Unsupported subject_token_type: {subject_token_type}")
+        try:
+            if subject_token_type == ID_TOKEN_TYPE:
+                parent_claims = await self._verify_external_id_token(str(subject_token))
+            elif subject_token_type == ACCESS_TOKEN_TYPE:
+                parent_claims = await self.verify_and_check_blocklist(db, str(subject_token))
+            else:
+                raise InvalidRequest(f"Unsupported subject_token_type: {subject_token_type}")
+        except (InvalidRequest, TokenRevoked):
+            raise
+        except Exception as e:
+            raise InvalidGrant(f"Invalid subject_token: {e}") from e
 
         # Enforce allowed_exchange_targets from the PARENT agent (source restriction).
         # The parent agent controls which audiences their delegated authority can flow to.
@@ -579,7 +584,12 @@ class TokenService:
         )
 
     async def revoke_token(self, db: AsyncSession, token: str, client_id: str) -> None:
-        """Revoke a token by adding its JTI to the blocklist."""
+        """Revoke a token by adding its JTI to the blocklist.
+
+        Per RFC 7009 §2.1, the server MUST verify the token was issued to
+        the authenticated client. If not, silently ignore the request
+        (don't reveal information about other clients' tokens).
+        """
         try:
             claims = await self._jwks.verify_jwt(db, token)
         except Exception:
@@ -588,6 +598,12 @@ class TokenService:
 
         jti = claims.get("jti")
         if not jti:
+            return
+
+        # Ownership check: only the token's client can revoke it
+        token_client = claims.get("client_id", "")
+        if token_client != client_id:
+            # RFC 7009: don't reveal info — silently return 200
             return
 
         # Add to blocklist

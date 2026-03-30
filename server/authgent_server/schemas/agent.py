@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 
 class AgentCreate(BaseModel):
-    name: str = Field(max_length=255)
+    name: str = Field(min_length=1, max_length=255)
     description: str | None = None
     owner: str | None = None
     allowed_scopes: list[str] = Field(default_factory=list)

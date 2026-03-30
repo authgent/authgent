@@ -22,6 +22,7 @@ from authgent_server.middleware.error_handler import (
 )
 from authgent_server.middleware.rate_limit import RateLimitMiddleware
 from authgent_server.middleware.request_id import RequestIdMiddleware
+from authgent_server.middleware.sanitize import InputSanitizationMiddleware
 from authgent_server.models.base import Base
 from authgent_server.services.jwks_service import JWKSService
 
@@ -156,6 +157,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Middleware (order matters — outermost first)
     app.add_middleware(RequestIdMiddleware)
+    app.add_middleware(InputSanitizationMiddleware)
     setup_cors(app, settings)
     app.add_middleware(
         RateLimitMiddleware,

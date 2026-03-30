@@ -242,6 +242,7 @@ async def test_revoked_token_fails_introspection(test_client):
         data={
             "token": token_data["access_token"],
             "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
         },
     )
 

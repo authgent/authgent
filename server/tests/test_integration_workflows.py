@@ -116,8 +116,11 @@ def _introspect(c: TestClient, token: str) -> dict:
     return resp.json()
 
 
-def _revoke(c: TestClient, token: str, client_id: str = "") -> int:
-    resp = c.post("/revoke", data={"token": token, "client_id": client_id})
+def _revoke(c: TestClient, token: str, client_id: str = "", client_secret: str = "") -> int:
+    resp = c.post(
+        "/revoke",
+        data={"token": token, "client_id": client_id, "client_secret": client_secret},
+    )
     return resp.status_code
 
 
@@ -613,7 +616,7 @@ class TestCrossClientIsolation:
         tok_a = _cc_token(test_client, a)["access_token"]
         tok_b = _cc_token(test_client, b)["access_token"]
 
-        _revoke(test_client, tok_a, a["client_id"])
+        _revoke(test_client, tok_a, a["client_id"], a["client_secret"])
 
         assert _introspect(test_client, tok_a)["active"] is False
         assert _introspect(test_client, tok_b)["active"] is True
@@ -671,7 +674,7 @@ class TestTokenIntrospectionCompleteness:
     def test_revoked_token_returns_inactive_only(self, test_client):
         creds = _register(test_client, scope="read")
         tok = _cc_token(test_client, creds)["access_token"]
-        _revoke(test_client, tok, creds["client_id"])
+        _revoke(test_client, tok, creds["client_id"], creds["client_secret"])
 
         intro = _introspect(test_client, tok)
         assert intro["active"] is False
@@ -1108,21 +1111,21 @@ class TestRevocationBlastRadius:
         tok = _cc_token(test_client, creds, scope="a b")["access_token"]
 
         assert _introspect(test_client, tok)["active"] is True
-        assert _revoke(test_client, tok, creds["client_id"]) == 200
+        assert _revoke(test_client, tok, creds["client_id"], creds["client_secret"]) == 200
         assert _introspect(test_client, tok)["active"] is False
 
     def test_revoke_is_idempotent(self, test_client):
         creds = _register(test_client, scope="read")
         tok = _cc_token(test_client, creds)["access_token"]
-        assert _revoke(test_client, tok, creds["client_id"]) == 200
-        assert _revoke(test_client, tok, creds["client_id"]) == 200
+        assert _revoke(test_client, tok, creds["client_id"], creds["client_secret"]) == 200
+        assert _revoke(test_client, tok, creds["client_id"], creds["client_secret"]) == 200
 
     def test_revoking_one_token_does_not_affect_others(self, test_client):
         creds = _register(test_client, scope="read")
         tok1 = _cc_token(test_client, creds)["access_token"]
         tok2 = _cc_token(test_client, creds)["access_token"]
 
-        _revoke(test_client, tok1, creds["client_id"])
+        _revoke(test_client, tok1, creds["client_id"], creds["client_secret"])
         assert _introspect(test_client, tok1)["active"] is False
         assert _introspect(test_client, tok2)["active"] is True
 
@@ -1135,14 +1138,97 @@ class TestRevocationBlastRadius:
             scope="read",
         )
         tok = _cc_token(test_client, parent, scope="read write")["access_token"]
-        _revoke(test_client, tok, parent["client_id"])
+        _revoke(test_client, tok, parent["client_id"], parent["client_secret"])
 
         status, _ = _exchange(test_client, child, tok, audience="x", scope="read")
         assert status in (400, 401)
 
 
 # ═════════════════════════════════════════════════════════════════════
-# 12. DISCOVERY METADATA ACCURACY
+# 12. SECURITY HARDENING (adversarial audit findings)
+# ═════════════════════════════════════════════════════════════════════
+
+
+class TestRevocationSecurity:
+    """Tests from adversarial security audit — revocation hardening."""
+
+    def test_cross_agent_revocation_blocked(self, test_client):
+        """Agent B cannot revoke Agent A's token (RFC 7009 §2.1 ownership)."""
+        a = _register(test_client, scope="read")
+        b = _register(test_client, scope="read")
+
+        tok_a = _cc_token(test_client, a)["access_token"]
+
+        # B tries to revoke A's token — should silently fail (200 but no effect)
+        assert _revoke(test_client, tok_a, b["client_id"], b["client_secret"]) == 200
+
+        # A's token must still be active
+        assert _introspect(test_client, tok_a)["active"] is True
+
+    def test_revoke_without_client_secret_rejected(self, test_client):
+        """Revoke endpoint requires client authentication (client_secret)."""
+        creds = _register(test_client, scope="read")
+        tok = _cc_token(test_client, creds)["access_token"]
+
+        # Attempt revoke without client_secret
+        resp = test_client.post(
+            "/revoke",
+            data={
+                "token": tok,
+                "client_id": creds["client_id"],
+            },
+        )
+        assert resp.status_code == 401
+
+    def test_revoke_with_wrong_secret_rejected(self, test_client):
+        """Revoke endpoint rejects wrong client_secret."""
+        creds = _register(test_client, scope="read")
+        tok = _cc_token(test_client, creds)["access_token"]
+
+        resp = test_client.post(
+            "/revoke",
+            data={
+                "token": tok,
+                "client_id": creds["client_id"],
+                "client_secret": "wrong-secret",
+            },
+        )
+        assert resp.status_code == 401
+
+
+class TestInputSanitization:
+    """Tests from adversarial security audit — input validation."""
+
+    def test_null_byte_in_form_data_rejected(self, test_client):
+        """Null byte (%00) in form data must be rejected, not crash the server."""
+        creds = _register(test_client, scope="read")
+
+        resp = test_client.post(
+            "/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": creds["client_id"] + "\x00admin",
+                "client_secret": creds["client_secret"],
+            },
+        )
+        # Should get 400 from sanitization middleware or 401 from auth — not 500
+        assert resp.status_code in (400, 401)
+
+    def test_empty_agent_name_rejected(self, test_client):
+        """Agent name must not be empty (min_length=1 validation)."""
+        resp = test_client.post(
+            "/agents",
+            json={
+                "name": "",
+                "owner": "test@example.com",
+                "allowed_scopes": ["read"],
+            },
+        )
+        assert resp.status_code == 422
+
+
+# ═════════════════════════════════════════════════════════════════════
+# 13. DISCOVERY METADATA ACCURACY
 # ═════════════════════════════════════════════════════════════════════
 
 

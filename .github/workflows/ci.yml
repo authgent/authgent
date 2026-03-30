@@ -32,11 +32,11 @@ jobs:
         run: mypy authgent_server/ --ignore-missing-imports
       - name: Run server tests
         working-directory: server
-        run: pytest tests/ --ignore=tests/simulation_test.py --ignore=tests/agent_to_agent_simulation.py -v --tb=short
+        run: pytest tests/ --ignore=tests/simulation_test.py --ignore=tests/agent_to_agent_simulation.py --ignore=tests/adversarial_live_test.py -v --tb=short
       - name: Coverage
         working-directory: server
         run: |
-          coverage run -m pytest tests/ --ignore=tests/simulation_test.py --ignore=tests/agent_to_agent_simulation.py -v
+          coverage run -m pytest tests/ --ignore=tests/simulation_test.py --ignore=tests/agent_to_agent_simulation.py --ignore=tests/adversarial_live_test.py -v
           coverage report --fail-under=80
 
   sdk-python-tests:

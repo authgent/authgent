@@ -65,6 +65,7 @@ async def test_token_exchange_with_revoked_subject_token(test_client):
         data={
             "token": access_token,
             "client_id": parent["client_id"],
+            "client_secret": parent["client_secret"],
         },
     )
 
