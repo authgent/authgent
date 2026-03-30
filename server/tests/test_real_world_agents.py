@@ -114,10 +114,12 @@ def _introspect(c, token):
     return resp.json()
 
 
-def _revoke(c, token, client_id=None):
+def _revoke(c, token, client_id=None, client_secret=None):
     data = {"token": token}
     if client_id:
         data["client_id"] = client_id
+    if client_secret:
+        data["client_secret"] = client_secret
     return c.post("/revoke", data=data)
 
 
@@ -707,7 +709,12 @@ class TestTokenTheftIncidentResponse:
         assert pre_revoke.status_code == 200
 
         # Security team revokes the orchestrator token
-        _revoke(test_client, orch_token["access_token"], orchestrator["client_id"])
+        _revoke(
+            test_client,
+            orch_token["access_token"],
+            orchestrator["client_id"],
+            orchestrator["client_secret"],
+        )
 
         # Orchestrator token is now inactive
         intro = _introspect(test_client, orch_token["access_token"])
@@ -736,7 +743,7 @@ class TestTokenTheftIncidentResponse:
         token_b = _cc_token(test_client, agent["client_id"], agent["client_secret"], scope="read")
 
         # Revoke token A
-        _revoke(test_client, token_a["access_token"], agent["client_id"])
+        _revoke(test_client, token_a["access_token"], agent["client_id"], agent["client_secret"])
 
         # Token A is dead
         assert _introspect(test_client, token_a["access_token"])["active"] is False
@@ -812,7 +819,12 @@ class TestMultiAudienceDelegation:
             assert intro["active"] is True
 
         # Revoking one doesn't affect the others
-        _revoke(test_client, search_resp.json()["access_token"])
+        _revoke(
+            test_client,
+            search_resp.json()["access_token"],
+            search_client["client_id"],
+            search_client["client_secret"],
+        )
         assert _introspect(test_client, search_resp.json()["access_token"])["active"] is False
         assert _introspect(test_client, email_resp.json()["access_token"])["active"] is True
         assert _introspect(test_client, db_resp.json()["access_token"])["active"] is True
@@ -1158,7 +1170,13 @@ class TestEdgeCasesRealAgents:
     @pytest.mark.asyncio
     async def test_revoke_nonexistent_token_succeeds(self, test_client):
         """RFC 7009: Revocation of unknown tokens SHOULD return 200."""
-        resp = _revoke(test_client, "nonexistent-token-value")
+        agent = _create_agent(test_client, "revoke-nonexist-test", scopes=["read"])
+        resp = _revoke(
+            test_client,
+            "nonexistent-token-value",
+            agent["client_id"],
+            agent["client_secret"],
+        )
         assert resp.status_code in (200, 204)
 
 

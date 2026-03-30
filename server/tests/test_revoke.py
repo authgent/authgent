@@ -33,6 +33,7 @@ def test_revoke_token(test_client: TestClient) -> None:
         data={
             "token": token,
             "client_id": reg["client_id"],
+            "client_secret": reg["client_secret"],
         },
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
@@ -42,11 +43,22 @@ def test_revoke_token(test_client: TestClient) -> None:
 
 def test_revoke_invalid_token(test_client: TestClient) -> None:
     """RFC 7009: revoking invalid tokens should not error."""
+    # Register a client so we have valid credentials
+    reg = test_client.post(
+        "/register",
+        json={
+            "client_name": "revoke-invalid-test",
+            "grant_types": ["client_credentials"],
+            "scope": "test:scope",
+        },
+    ).json()
+
     resp = test_client.post(
         "/revoke",
         data={
             "token": "not.a.real.token",
-            "client_id": "test",
+            "client_id": reg["client_id"],
+            "client_secret": reg["client_secret"],
         },
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )

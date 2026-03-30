@@ -85,6 +85,7 @@ ignore = ["N818"]
 [tool.ruff.lint.per-file-ignores]
 "tests/simulation_test.py" = ["E501"]
 "tests/agent_to_agent_simulation.py" = ["E501"]
+"tests/adversarial_live_test.py" = ["E501", "F401", "F541", "F841", "I001"]
 "migrations/**" = ["E501"]
 
 [tool.mypy]

@@ -14,10 +14,7 @@ cd server
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev,migrations]"
 
-# Initialize
-authgent-server init
-
-# Run tests
+# Run tests (no init needed — tests handle their own setup)
 pytest -v
 
 # Lint

@@ -8,6 +8,9 @@ Self-hosted OAuth 2.1 server with native delegation chain tracking.
 `pip install`, 60 seconds, done. Works alongside Auth0/Okta or standalone.
 
 [![CI](https://github.com/authgent/authgent/actions/workflows/ci.yml/badge.svg)](https://github.com/authgent/authgent/actions/workflows/ci.yml)
+[![PyPI - Server](https://img.shields.io/pypi/v/authgent-server?label=authgent-server&color=blue)](https://pypi.org/project/authgent-server/)
+[![PyPI - SDK](https://img.shields.io/pypi/v/authgent?label=authgent%20SDK&color=blue)](https://pypi.org/project/authgent/)
+[![npm](https://img.shields.io/npm/v/authgent?label=authgent%20npm&color=CB3837)](https://www.npmjs.com/package/authgent)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg)](https://python.org)
 [![Node 20+](https://img.shields.io/badge/node-20+-339933.svg)](https://nodejs.org)
@@ -22,10 +25,11 @@ Self-hosted OAuth 2.1 server with native delegation chain tracking.
 
 ```bash
 pip install authgent-server
-authgent-server init && authgent-server run
+authgent-server run
 ```
 
-That’s it. Full OAuth 2.1 server at `localhost:8000`. No account signup, no dashboard, no Java.
+That's it. Full OAuth 2.1 server at `localhost:8000`. No account signup, no dashboard, no Java.
+First run auto-generates a secret key and `.env` — no separate init step needed.
 
 - **MCP auth server** out of the box — OAuth discovery, dynamic client registration, scoped tool access
 - **Agent identity** — each agent gets its own credentials, scoped capabilities, lifecycle management
@@ -112,12 +116,11 @@ At each hop: scope can only shrink, the `act` chain grows, DPoP rebinds the toke
 
 ## Quick Start
 
-### Option 1: pip
+### Option 1: pip — [pypi.org/project/authgent-server](https://pypi.org/project/authgent-server/)
 
 ```bash
 pip install authgent-server
-authgent-server init    # generates secret, creates DB, signing key
-authgent-server run     # starts on http://localhost:8000
+authgent-server run     # auto-initializes on first run, starts on http://localhost:8000
 ```
 
 ### Option 2: Docker
@@ -133,7 +136,7 @@ docker compose up -d
 git clone https://github.com/authgent/authgent.git
 cd authgent/server
 pip install -e ".[dev]"
-authgent-server init && authgent-server run
+authgent-server run
 ```
 
 Auto-discovery endpoints:
@@ -202,8 +205,8 @@ The `authgent-server` CLI provides rich-formatted output for managing agents, to
 
 | Command | Description |
 |:--------|:------------|
-| `authgent-server init` | Generate secret key, create database, initialize signing key |
-| `authgent-server run` | Start the OAuth 2.1 server |
+| `authgent-server run` | Start the OAuth 2.1 server (auto-initializes on first run) |
+| `authgent-server init` | Explicitly initialize (custom DB URL, force-regenerate config) |
 | `authgent-server create-agent` | Register a new agent with scoped capabilities |
 | `authgent-server list-agents` | Table of all agents with status, scopes, owner |
 | `authgent-server get-token` | Issue a token directly from the CLI |
@@ -294,11 +297,11 @@ One server per environment. All agents point to the same authgent-server — it'
 | **[LangChain Tool](examples/langchain_tool/)** | AuthgentToolWrapper for automatic token management | `python examples/langchain_tool/langchain_agent.py` |
 | **[OpenAI Agents SDK](examples/openai_agents/)** | Auth pattern for multi-agent orchestration + handoffs | `python examples/openai_agents/openai_agents_demo.py` |
 | **[CrewAI](examples/crewai/)** | Per-agent identity + scoped tokens for crew members | `python examples/crewai/crewai_demo.py` |
-| **[Interactive Playground](playground/)** | 7-step visual demo with HITL approval | Open `playground/index.html` |
+| **[Interactive Playground](playground/)** | 7-step visual demo with HITL approval | `docker compose up` → [localhost:3000](http://localhost:3000) |
 
 ## SDKs
 
-### Python
+### Python — [pypi.org/project/authgent](https://pypi.org/project/authgent/)
 
 ```bash
 pip install authgent
@@ -330,7 +333,7 @@ verify_delegation_chain(
 
 See the full [Python SDK documentation](sdks/python/README.md).
 
-### TypeScript / JavaScript
+### TypeScript / JavaScript — [npmjs.com/package/authgent](https://www.npmjs.com/package/authgent)
 
 ```bash
 npm install authgent

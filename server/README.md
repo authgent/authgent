@@ -18,10 +18,7 @@ pip install authgent-server[postgres]
 ## Quick Start
 
 ```bash
-# Initialize (generates secret key, creates DB, generates signing key)
-authgent-server init
-
-# Start the server
+# Start the server (auto-initializes on first run)
 authgent-server run
 ```
 
@@ -33,8 +30,8 @@ Server starts at `http://localhost:8000`:
 ## CLI Commands
 
 ```bash
-authgent-server init            # Generate .env, create DB, signing key
-authgent-server run             # Start server (uvicorn)
+authgent-server run             # Start server (auto-initializes on first run)
+authgent-server init            # Explicitly init (custom DB URL, force-regenerate)
 authgent-server create-agent    # Register an agent interactively
 authgent-server migrate         # Run Alembic migrations
 authgent-server migrate --dry-run  # Preview pending migrations
