@@ -297,6 +297,7 @@ One server per environment. All agents point to the same authgent-server — it'
 | **[LangChain Tool](examples/langchain_tool/)** | AuthgentToolWrapper for automatic token management | `python examples/langchain_tool/langchain_agent.py` |
 | **[OpenAI Agents SDK](examples/openai_agents/)** | Auth pattern for multi-agent orchestration + handoffs | `python examples/openai_agents/openai_agents_demo.py` |
 | **[CrewAI](examples/crewai/)** | Per-agent identity + scoped tokens for crew members | `python examples/crewai/crewai_demo.py` |
+| **[OpenClaw](examples/openclaw/)** | 5 drop-in skills for secure agent delegation (zero code changes) | `python examples/openclaw/demo_openclaw_authgent.py` |
 | **[Interactive Playground](playground/)** | 7-step visual demo with HITL approval | `docker compose up` → [localhost:3000](http://localhost:3000) |
 
 ## SDKs
@@ -471,7 +472,8 @@ authgent/
 │   ├── mcp_server/              # MCP server with authgent OAuth
 │   ├── langchain_tool/          # LangChain AuthgentToolWrapper demo
 │   ├── openai_agents/           # OpenAI Agents SDK auth patterns
-│   └── crewai/                  # CrewAI per-agent identity demo
+│   ├── crewai/                  # CrewAI per-agent identity demo
+│   └── openclaw/                # OpenClaw skills — zero code changes
 ├── playground/                  # Interactive browser-based demo
 │   └── index.html               # Delegation chain visualizer
 ├── ARCHITECTURE.md

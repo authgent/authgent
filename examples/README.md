@@ -5,7 +5,7 @@ Runnable examples showing exactly how to use authgent in real scenarios.
 **All examples require authgent-server running:**
 ```bash
 pip install authgent-server
-authgent-server init && authgent-server run  # http://localhost:8000
+authgent-server run  # http://localhost:8000 (auto-initializes on first run)
 ```
 
 ---
@@ -78,6 +78,14 @@ Auth pattern for OpenAI Agents: orchestrator delegates to research + writer agen
 python examples/crewai/crewai_demo.py
 ```
 Auth pattern for CrewAI: 3 crew members (researcher, analyst, writer) each with role-scoped tokens. Shows per-agent identity, cross-agent delegation with scope narrowing, escalation blocking, and bulk revocation on crew completion.
+
+---
+
+### "I'm using OpenClaw" → [`openclaw/`](openclaw/)
+```bash
+python examples/openclaw/demo_openclaw_authgent.py
+```
+5 drop-in skills that add cryptographic identity, scoped delegation chains, and a kill switch to OpenClaw — **zero OpenClaw code changes**. Each agent gets a signed JWT, delegations are scope-narrowed via token exchange, and one API call revokes an entire chain.
 
 ---
 

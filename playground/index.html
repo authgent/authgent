@@ -3,743 +3,459 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>authgent — Live Delegation Playground</title>
+<title>authgent — Interactive Delegation Playground</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script>
+tailwind.config={theme:{extend:{
+  fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']},
+  colors:{
+    bg:{DEFAULT:'#06060b','2':'#0a0a14','3':'#0f0f1a'},
+    surface:{DEFAULT:'#12121f','2':'#1a1a2e','3':'#22223a','4':'#2a2a44'},
+    border:{DEFAULT:'#252545',hl:'#3a3a65'},
+    accent:{DEFAULT:'#7c5cfc','2':'#9b7fff'},
+    emr:{DEFAULT:'#34d399'},rose2:{DEFAULT:'#f87171'},
+    amb:{DEFAULT:'#fbbf24'},cyn:{DEFAULT:'#22d3ee'},sky2:{DEFAULT:'#60a5fa'},
+  }
+}}}
+</script>
 <style>
-/* ════════════════════════════════════════════════════════════════
-   DESIGN SYSTEM
-   ════════════════════════════════════════════════════════════════ */
-:root{
-  --bg:#050509;--bg2:#0c0c14;--surface:#111119;--surface2:#181824;
-  --surface3:#1f1f30;--border:#252540;--border-hl:#3a3a60;
-  --text:#ededf4;--text2:#b0b0c8;--text3:#6e6e8a;
-  --accent:#7c5cfc;--accent2:#9b7fff;--accent-glow:rgba(124,92,252,.25);
-  --green:#34d399;--green-bg:rgba(52,211,153,.08);--green-bdr:rgba(52,211,153,.25);
-  --red:#f87171;--red-bg:rgba(248,113,113,.08);--red-bdr:rgba(248,113,113,.25);
-  --orange:#fbbf24;--cyan:#22d3ee;--blue:#60a5fa;
-  --r:12px;--r2:16px;--mono:'JetBrains Mono',monospace;--sans:'Inter',system-ui,sans-serif;
-}
-*{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;
-  overflow-x:hidden;-webkit-font-smoothing:antialiased}
-
-/* ── Animated background mesh ─────────────────────── */
-body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(124,92,252,.12),transparent),
-             radial-gradient(ellipse 60% 40% at 80% 100%,rgba(52,211,153,.06),transparent),
-             radial-gradient(ellipse 50% 30% at 10% 60%,rgba(34,211,238,.04),transparent)}
-
-/* ════════════════════════════════════════════════════════════════
-   HEADER
-   ════════════════════════════════════════════════════════════════ */
-.hero{position:relative;z-index:1;text-align:center;padding:3.5rem 1.5rem 2.5rem}
-.hero-badge{display:inline-flex;align-items:center;gap:.5rem;
-  background:var(--surface2);border:1px solid var(--border);border-radius:100px;
-  padding:.35rem .9rem;font-size:.75rem;color:var(--text2);margin-bottom:1.25rem}
-.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green);
-  box-shadow:0 0 6px var(--green);animation:pulse 2s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.hero h1{font-size:2.8rem;font-weight:800;letter-spacing:-.04em;
-  background:linear-gradient(135deg,#fff 0%,var(--accent2) 50%,var(--cyan) 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.hero p{color:var(--text2);font-size:1.1rem;max-width:540px;margin:.75rem auto 0;line-height:1.6}
-.server-bar{display:inline-flex;align-items:center;gap:.5rem;margin-top:1.5rem;
-  background:var(--surface);border:1px solid var(--border);border-radius:10px;
-  padding:.5rem .75rem .5rem 1rem;font-family:var(--mono);font-size:.82rem}
-.server-bar label{color:var(--text3);font-size:.7rem;text-transform:uppercase;letter-spacing:.08em}
-.server-bar input{background:0;border:0;color:var(--cyan);font-family:var(--mono);
-  font-size:.82rem;width:220px;outline:0}
-.server-bar .status{width:8px;height:8px;border-radius:50%;background:var(--text3);
-  transition:background .3s}
-.server-bar .status.ok{background:var(--green);box-shadow:0 0 8px rgba(52,211,153,.5)}
-.server-bar .status.err{background:var(--red);box-shadow:0 0 8px rgba(248,113,113,.5)}
-
-/* ════════════════════════════════════════════════════════════════
-   MAIN LAYOUT
-   ════════════════════════════════════════════════════════════════ */
-.wrap{position:relative;z-index:1;max-width:1140px;margin:0 auto;padding:0 1.5rem 4rem;
-  display:grid;grid-template-columns:320px 1fr;gap:2rem;align-items:start}
-@media(max-width:900px){.wrap{grid-template-columns:1fr;gap:1.5rem}}
-
-/* ════════════════════════════════════════════════════════════════
-   LEFT: CHAIN VISUALIZATION (sticky)
-   ════════════════════════════════════════════════════════════════ */
-.chain-panel{position:sticky;top:1.5rem;background:var(--surface);
-  border:1px solid var(--border);border-radius:var(--r2);padding:1.5rem;
-  backdrop-filter:blur(20px)}
-.chain-panel h3{font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;
-  color:var(--text3);margin-bottom:1.25rem}
-
-.chain-graph{display:flex;flex-direction:column;gap:0;align-items:stretch}
-.cg-node{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;
-  border-radius:var(--r);border:1.5px solid var(--border);background:var(--bg2);
-  transition:all .4s cubic-bezier(.25,.8,.25,1);position:relative}
-.cg-node .icon{width:36px;height:36px;border-radius:10px;display:flex;
-  align-items:center;justify-content:center;font-size:1.1rem;
-  background:var(--surface2);border:1px solid var(--border);flex-shrink:0;transition:all .4s}
-.cg-node .info{flex:1;min-width:0}
-.cg-node .name{font-weight:600;font-size:.85rem}
-.cg-node .meta{font-size:.7rem;color:var(--text3);font-family:var(--mono);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cg-node.idle{opacity:.35}
-.cg-node.registered{opacity:.6;border-color:var(--border)}
-.cg-node.active{opacity:1;border-color:var(--accent);
-  box-shadow:0 0 0 1px var(--accent),0 4px 24px var(--accent-glow);
-  background:linear-gradient(135deg,rgba(124,92,252,.06),var(--bg2))}
-.cg-node.active .icon{background:var(--accent);border-color:var(--accent);color:#fff}
-.cg-node.done{opacity:1;border-color:var(--green);
-  box-shadow:0 0 0 1px rgba(52,211,153,.2)}
-.cg-node.done .icon{background:rgba(52,211,153,.15);border-color:var(--green);color:var(--green)}
-.cg-node.revoked{opacity:.5;border-color:var(--red);border-style:dashed}
-.cg-node.revoked .icon{background:rgba(248,113,113,.1);border-color:var(--red);color:var(--red)}
-
-.cg-edge{display:flex;align-items:center;padding:0 0 0 17px;height:32px;position:relative}
-.cg-edge .line{width:2px;height:100%;background:var(--border);transition:background .4s}
-.cg-edge.active .line{background:var(--accent)}
-.cg-edge.done .line{background:var(--green)}
-.cg-edge .scope-tag{position:absolute;left:32px;font-family:var(--mono);font-size:.65rem;
-  color:var(--text3);background:var(--surface2);padding:.15rem .5rem;border-radius:4px;
-  border:1px solid var(--border);transition:all .4s;opacity:0;transform:translateX(-5px)}
-.cg-edge.active .scope-tag,.cg-edge.done .scope-tag{opacity:1;transform:translateX(0)}
-.cg-edge.active .scope-tag{color:var(--accent2);border-color:rgba(124,92,252,.3)}
-.cg-edge.done .scope-tag{color:var(--green);border-color:var(--green-bdr)}
-
-/* Scope bars */
-.scope-viz{margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border)}
-.scope-viz h4{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;
-  color:var(--text3);margin-bottom:.75rem}
-.scope-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
-.scope-row .lbl{font-size:.65rem;color:var(--text3);width:54px;text-align:right;flex-shrink:0;
-  font-family:var(--mono)}
-.scope-row .bar-track{flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden}
-.scope-row .bar-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.25,.8,.25,1),
-  background .4s;width:0}
-
-/* Reset btn */
-.reset-btn{margin-top:1.25rem;width:100%;padding:.6rem;border-radius:var(--r);
-  border:1px solid var(--border);background:var(--surface2);color:var(--text3);
-  font-size:.78rem;font-weight:500;cursor:pointer;transition:all .2s;font-family:var(--sans)}
-.reset-btn:hover{border-color:var(--red-bdr);color:var(--red);background:var(--red-bg)}
-
-/* ════════════════════════════════════════════════════════════════
-   RIGHT: STEPS
-   ════════════════════════════════════════════════════════════════ */
-.steps{display:flex;flex-direction:column;gap:.75rem}
-
-.step{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);
-  overflow:hidden;transition:all .35s cubic-bezier(.25,.8,.25,1)}
-.step.active{border-color:var(--accent);box-shadow:0 2px 20px var(--accent-glow)}
-.step.done{border-color:rgba(52,211,153,.2)}
-.step.locked{opacity:.3;pointer-events:none;filter:grayscale(.5)}
-.step.error-state{border-color:var(--red);box-shadow:0 2px 20px var(--red-bg)}
-
-.step-head{display:flex;align-items:center;gap:1rem;padding:1rem 1.25rem;cursor:default}
-.step-left{display:flex;align-items:center;gap:.75rem;flex:1;min-width:0}
-.step-num{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;
-  justify-content:center;font-size:.78rem;font-weight:700;flex-shrink:0;
-  background:var(--surface3);border:1.5px solid var(--border);transition:all .3s}
-.step.active .step-num{background:var(--accent);border-color:var(--accent);color:#fff}
-.step.done .step-num{background:var(--green);border-color:var(--green);color:#fff}
-.step.error-state .step-num{background:var(--red);border-color:var(--red);color:#fff}
-.step-text h4{font-weight:600;font-size:.9rem;line-height:1.3}
-.step-text p{font-size:.75rem;color:var(--text3);margin-top:.15rem;font-family:var(--mono)}
-
-.step-btn{flex-shrink:0;background:var(--accent);color:#fff;border:0;
-  padding:.55rem 1.3rem;border-radius:8px;font-size:.82rem;font-weight:600;
-  cursor:pointer;transition:all .2s;font-family:var(--sans);white-space:nowrap}
-.step-btn:hover{background:var(--accent2);transform:translateY(-1px);
-  box-shadow:0 4px 16px var(--accent-glow)}
-.step-btn:active{transform:translateY(0)}
-.step-btn:disabled{background:var(--surface3);color:var(--text3);cursor:default;
-  transform:none;box-shadow:none}
-
-/* ── Result panels ──────────────────────────── */
-.step-body{border-top:1px solid var(--border);overflow:hidden;
-  max-height:0;transition:max-height .5s cubic-bezier(.25,.8,.25,1)}
-.step-body.open{max-height:2000px}
-.step-body-inner{padding:1.25rem}
-
-/* Request/Response tabs */
-.tabs{display:flex;gap:0;margin-bottom:1rem;background:var(--bg2);
-  border-radius:8px;padding:3px;border:1px solid var(--border)}
-.tab{flex:1;padding:.45rem .75rem;border-radius:6px;border:0;background:0;
-  color:var(--text3);font-size:.75rem;font-weight:600;cursor:pointer;
-  transition:all .2s;font-family:var(--sans);text-align:center}
-.tab.on{background:var(--surface3);color:var(--text)}
-.tab-pane{display:none}
-.tab-pane.on{display:block}
-
-/* HTTP block */
-.http-block{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
-  overflow:hidden;margin-bottom:.75rem}
-.http-header{display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;
-  border-bottom:1px solid var(--border);background:var(--surface)}
-.http-method{font-family:var(--mono);font-size:.7rem;font-weight:700;
-  padding:.15rem .4rem;border-radius:4px;background:rgba(124,92,252,.15);color:var(--accent2)}
-.http-url{font-family:var(--mono);font-size:.72rem;color:var(--text2);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.http-status{margin-left:auto;font-family:var(--mono);font-size:.7rem;font-weight:700;
-  padding:.15rem .5rem;border-radius:4px}
-.http-status.s2{background:var(--green-bg);color:var(--green)}
-.http-status.s4{background:var(--red-bg);color:var(--red)}
-.http-body{padding:.75rem;font-family:var(--mono);font-size:.72rem;line-height:1.6;
-  overflow-x:auto;white-space:pre-wrap;word-break:break-all;color:var(--text2)}
-
-/* JWT decode */
-.jwt-decoded{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
-@media(max-width:700px){.jwt-decoded{grid-template-columns:1fr}}
-.jwt-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
-  padding:.75rem 1rem;overflow:hidden}
-.jwt-card h5{font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;
-  color:var(--text3);margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
-.jwt-card h5 .badge{font-size:.55rem;padding:.1rem .3rem;border-radius:3px;
-  background:rgba(124,92,252,.15);color:var(--accent2);text-transform:uppercase}
-.jwt-line{font-family:var(--mono);font-size:.72rem;line-height:1.7;display:flex;gap:.3rem}
-.jwt-key{color:var(--cyan)}
-.jwt-val{color:var(--text)}
-.jwt-val.str{color:var(--green)}
-.jwt-val.num{color:var(--orange)}
-.jwt-val.highlight{color:var(--accent2);font-weight:600}
-.jwt-val.danger{color:var(--red);font-weight:600}
-
-/* Act chain box */
-.act-box{margin-top:.75rem;background:linear-gradient(135deg,rgba(124,92,252,.06),rgba(34,211,238,.03));
-  border:1px solid rgba(124,92,252,.2);border-radius:var(--r);padding:.75rem 1rem;
-  animation:fadeSlide .4s ease-out}
-.act-box h5{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;
-  color:var(--accent2);margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
-.act-box h5::before{content:'';width:8px;height:8px;border-radius:50%;
-  background:var(--accent);box-shadow:0 0 8px var(--accent-glow)}
-.act-box pre{font-family:var(--mono);font-size:.72rem;color:var(--text2);line-height:1.6}
-.act-box .chain-visual{display:flex;align-items:center;gap:.5rem;margin-top:.5rem;flex-wrap:wrap}
-.act-box .cv-node{display:flex;align-items:center;gap:.3rem;padding:.25rem .6rem;
-  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
-  font-family:var(--mono);font-size:.7rem;color:var(--text)}
-.act-box .cv-arrow{color:var(--accent2);font-size:.8rem}
-
-/* Blocked / success banners */
-.banner{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;
-  border-radius:var(--r);margin-bottom:.75rem;animation:fadeSlide .3s ease-out}
-.banner.success{background:var(--green-bg);border:1px solid var(--green-bdr)}
-.banner.success .banner-icon{color:var(--green);font-size:1.2rem}
-.banner.success .banner-text{color:var(--green)}
-.banner.blocked{background:var(--red-bg);border:1px solid var(--red-bdr)}
-.banner.blocked .banner-icon{color:var(--red);font-size:1.2rem}
-.banner.blocked .banner-text{color:var(--red)}
-.banner-text{font-size:.85rem;font-weight:600}
-.banner-sub{font-size:.75rem;color:var(--text3);margin-top:.15rem;font-weight:400}
-
-/* Insight callout */
-.insight{display:flex;gap:.6rem;padding:.6rem .75rem;background:var(--surface2);
-  border-radius:8px;border-left:3px solid var(--accent);margin-top:.75rem}
-.insight p{font-size:.78rem;color:var(--text2);line-height:1.5}
-.insight code{font-family:var(--mono);font-size:.72rem;color:var(--cyan);
-  background:var(--bg2);padding:.1rem .3rem;border-radius:3px}
-
-/* Error */
-.err-box{background:var(--red-bg);border:1px solid var(--red-bdr);border-radius:var(--r);
-  padding:.75rem 1rem;color:var(--red);font-size:.82rem}
-
-/* ════════════════════════════════════════════════════════════════
-   FOOTER
-   ════════════════════════════════════════════════════════════════ */
-.footer{position:relative;z-index:1;text-align:center;padding:3rem 1.5rem;
-  border-top:1px solid var(--border);margin-top:2rem}
-.footer-links{display:flex;justify-content:center;gap:1.5rem;margin-bottom:1rem}
-.footer-links a{color:var(--text3);text-decoration:none;font-size:.82rem;
-  font-weight:500;transition:color .2s}
-.footer-links a:hover{color:var(--accent2)}
-.footer-sub{color:var(--text3);font-size:.75rem}
-
-/* ════════════════════════════════════════════════════════════════
-   ANIMATIONS
-   ════════════════════════════════════════════════════════════════ */
-@keyframes fadeSlide{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(124,92,252,.08),transparent)}
+.phase-card{position:relative;border-radius:20px;border:2px solid #252545;background:#12121f;padding:20px 22px;cursor:pointer;transition:all .4s;opacity:.32;user-select:none}
+.phase-card.p-active{opacity:1}.phase-card.p-done{opacity:1}.phase-card.p-error{opacity:1;border-color:rgba(248,113,113,.5)}
+.phase-card.p-selected{outline:2.5px solid rgba(124,92,252,.45);outline-offset:4px}
+.phase-card[data-phase="1"].p-active{border-color:#34d399;box-shadow:0 0 40px rgba(52,211,153,.1)}
+.phase-card[data-phase="1"].p-done{border-color:rgba(52,211,153,.35)}.phase-card[data-phase="1"].p-selected{outline-color:rgba(52,211,153,.5)}
+.phase-card[data-phase="2"].p-active{border-color:#f87171;box-shadow:0 0 40px rgba(248,113,113,.1)}
+.phase-card[data-phase="2"].p-done{border-color:rgba(248,113,113,.35)}.phase-card[data-phase="2"].p-selected{outline-color:rgba(248,113,113,.5)}
+.phase-card[data-phase="3"].p-active{border-color:#fbbf24;box-shadow:0 0 40px rgba(251,191,36,.1)}
+.phase-card[data-phase="3"].p-done{border-color:rgba(251,191,36,.35)}.phase-card[data-phase="3"].p-selected{outline-color:rgba(251,191,36,.5)}
+.sub-step{border:1.5px solid #252545;border-radius:16px;overflow:hidden;margin-bottom:14px;background:#0d0d16;transition:all .4s}
+.sub-step.ss-running{border-color:#7c5cfc;box-shadow:0 0 20px rgba(124,92,252,.08)}
+.sub-step.ss-done{border-color:rgba(52,211,153,.25)}.sub-step.ss-blocked{border-color:rgba(248,113,113,.25)}.sub-step.ss-error{border-color:rgba(248,113,113,.5)}
+.phase-detail{display:none}.phase-detail.visible{display:block;animation:fadeSlide .3s ease-out}
+.card-body{max-height:0;overflow:hidden;transition:max-height .6s cubic-bezier(.25,.8,.25,1)}.card-body.open{max-height:8000px}
+.code-block{background:#0a0a14;border:1px solid #252545;border-radius:12px;overflow:hidden;margin-bottom:12px}
+.code-head{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#12121f;border-bottom:1px solid #252545;font-size:12px}
+.code-body{padding:14px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;overflow-x:auto;white-space:pre-wrap;word-break:break-all;color:#b0b0c8}
+.scope-bar{height:100%;border-radius:9999px;transition:width .8s cubic-bezier(.25,.8,.25,1)}
 @keyframes spin{to{transform:rotate(360deg)}}
-.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);
-  border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;
-  margin-right:6px;vertical-align:middle}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}.shake-it{animation:shake .5s ease-in-out}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.anim-in{animation:fadeSlide .4s ease-out}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#252545;border-radius:3px}
+.topo-line{position:relative;display:flex;align-items:center;justify-content:center;height:36px}
+.topo-line::before{content:'';position:absolute;left:50%;width:2px;height:100%;background:#252545;transition:all .5s}
+.topo-line.done::before{background:#34d399}.topo-line.revoked::before{background:#f87171}
+/* Pipeline nodes */
+.pipe-node{flex-shrink:0;width:88px;text-align:center;padding:7px 4px 9px;border-radius:12px;border:1.5px solid #252545;background:#12121f;cursor:default;transition:all .4s;opacity:.28;position:relative}
+.pipe-node.pactive{opacity:1;border-color:#7c5cfc;box-shadow:0 0 20px rgba(124,92,252,.15);background:linear-gradient(135deg,rgba(124,92,252,.08),#12121f)}
+.pipe-node.pdone{opacity:1;border-color:rgba(52,211,153,.5)}
+.pipe-node.pblocked{opacity:1;border-color:rgba(248,113,113,.5)}
+.pipe-node.perror{opacity:1;border-color:rgba(248,113,113,.5)}
+.pipe-node .picon{width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:#22223a;border:1px solid #252545;transition:all .4s;vertical-align:middle}
+.pipe-node.pactive .picon{background:#7c5cfc;border-color:#7c5cfc}.pipe-node.pactive .picon i{color:#fff!important}
+.pipe-node.pdone .picon{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.4)}.pipe-node.pdone .picon i{color:#34d399!important}
+.pipe-node.pblocked .picon{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.4)}.pipe-node.pblocked .picon i{color:#f87171!important}
+.pipe-node .ptitle{font-size:9px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;line-height:1}
+.pipe-node .pstep{font-size:10px;font-weight:800;vertical-align:middle;margin-left:2px}
+/* Pipeline arrows */
+.pipe-arrow{flex:1;min-width:24px;max-width:120px;display:flex;flex-direction:column;align-items:center;padding:0 2px}
+.pipe-arrow .aw{display:flex;align-items:center;width:100%}
+.pipe-arrow .al{flex:1;height:2px;background:#252545;transition:background .5s}
+.pipe-arrow .ah{width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;border-left:7px solid #252545;transition:border-color .5s;flex-shrink:0}
+.pipe-arrow.adone .al{background:#34d399}.pipe-arrow.adone .ah{border-left-color:#34d399}
+.pipe-arrow.aactive .al{background:#7c5cfc}.pipe-arrow.aactive .ah{border-left-color:#7c5cfc}
+.pipe-arrow .alabel{font-size:8px;color:#6e6e8a;font-family:'JetBrains Mono',monospace;white-space:nowrap;margin-top:2px}
+.pipe-arrow.adone .alabel{color:#34d399}
 </style>
 </head>
-<body>
+<body class="bg-bg text-white min-h-screen overflow-x-hidden antialiased font-sans">
 
-<!-- ═══════════════ HERO ═══════════════ -->
-<div class="hero">
-  <div class="hero-badge"><span class="dot"></span> Live Interactive Demo</div>
-  <h1>authgent playground</h1>
-  <p>Build a multi-agent delegation chain step-by-step. Watch tokens transform, scopes narrow, and delegation claims grow in real time.</p>
-  <div class="server-bar">
-    <label>Server</label>
-    <input id="serverUrl" value="" oninput="checkServer()"/>
-    <span class="status" id="serverStatus"></span>
+<!-- TOP BAR -->
+<header class="relative z-10 border-b border-border/50 bg-bg/80 backdrop-blur-md sticky top-0">
+  <div class="max-w-[1800px] mx-auto px-4 md:px-6 py-2.5 flex items-center gap-3 flex-wrap">
+    <h1 class="text-base md:text-lg font-black bg-gradient-to-r from-white to-accent-2 bg-clip-text text-transparent whitespace-nowrap">authgent<span class="text-gray-500 font-normal text-xs ml-1.5 hidden md:inline">playground</span></h1>
+    <div class="flex-1"></div>
+    <div class="flex items-center gap-2 bg-surface rounded-lg border border-border px-3 py-1.5">
+      <i data-lucide="globe" class="w-3.5 h-3.5 text-gray-500"></i>
+      <input id="serverUrl" type="text" class="bg-transparent text-xs font-mono text-gray-300 outline-none w-36 md:w-44" placeholder="http://localhost:8000" onchange="checkServer()">
+      <span class="w-2 h-2 rounded-full bg-emr shadow-[0_0_8px_#34d399] transition-all" id="serverStatus"></span>
+    </div>
+    <button class="flex items-center gap-2 bg-accent hover:bg-accent-2 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-40" id="autoPlayBtn" onclick="autoPlay()"><i data-lucide="play" class="w-4 h-4"></i> Watch Story</button>
+    <button class="text-gray-500 hover:text-white text-xs font-medium transition-colors flex items-center gap-1" onclick="resetAll()"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset</button>
   </div>
-</div>
+</header>
 
-<!-- ═══════════════ MAIN ═══════════════ -->
-<div class="wrap">
+<main class="relative z-10 max-w-[1800px] mx-auto px-4 md:px-6 pb-8">
 
-  <!-- ── LEFT: Chain Visualization ──── -->
-  <div class="chain-panel">
-    <h3>Delegation Chain</h3>
-    <div class="chain-graph">
-      <div class="cg-node idle" id="cn-orch">
-        <div class="icon">O</div>
-        <div class="info">
-          <div class="name">Orchestrator</div>
-          <div class="meta" id="cn-orch-meta">not registered</div>
+  <!-- HERO (compact) -->
+  <section class="pt-5 pb-4 text-center">
+    <h2 class="text-2xl md:text-3xl font-black tracking-tight bg-gradient-to-r from-white via-accent-2 to-cyn bg-clip-text text-transparent pb-1">authgent playground</h2>
+    <p class="text-gray-400 text-xs md:text-sm max-w-xl mx-auto mt-1 leading-relaxed">3 scenarios — tokens flow, scopes shrink, attacks get blocked, humans stay in control.</p>
+  </section>
+
+  <!-- SPLIT LAYOUT: sidebar + main -->
+  <div class="flex flex-col md:flex-row gap-4 md:gap-5">
+
+    <!-- LEFT SIDEBAR: 3 scenario cards -->
+    <div class="flex flex-row md:flex-col gap-3 md:w-60 lg:w-64 shrink-0 overflow-x-auto md:overflow-visible pb-2 md:pb-0 md:sticky md:top-16 md:self-start">
+
+      <!-- Scenario 1 -->
+      <div class="phase-card p-active p-selected min-w-[200px] md:min-w-0" id="phase-1" data-phase="1" onclick="selectPhase(1)">
+        <div class="flex items-center gap-2.5 mb-2">
+          <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-emr/12 border border-emr/25 shrink-0"><i data-lucide="route" class="w-4 h-4 text-emr"></i></div>
+          <div><div class="text-[9px] uppercase tracking-wider text-emr font-bold">Scenario 1</div><div class="text-sm font-bold leading-tight">Happy Path</div></div>
         </div>
+        <p class="text-[11px] text-gray-400 leading-relaxed mb-2.5 hidden md:block">Register, authenticate, delegate, chain 2 hops.</p>
+        <button class="w-full flex items-center justify-center gap-1.5 bg-emr/15 hover:bg-emr/25 text-emr px-3 py-2 rounded-lg text-xs font-semibold transition-all border border-emr/20 disabled:opacity-30" id="phase-btn-1" onclick="event.stopPropagation();runPhase(1)"><i data-lucide="play" class="w-3 h-3"></i> Run</button>
       </div>
-      <div class="cg-edge" id="ce-1"><div class="line"></div><span class="scope-tag" id="ce-1-tag">search db:read</span></div>
-      <div class="cg-node idle" id="cn-search">
-        <div class="icon">S</div>
-        <div class="info">
-          <div class="name">Search Agent</div>
-          <div class="meta" id="cn-search-meta">not registered</div>
+
+      <!-- Scenario 2 -->
+      <div class="phase-card min-w-[200px] md:min-w-0" id="phase-2" data-phase="2" onclick="selectPhase(2)">
+        <div class="flex items-center gap-2.5 mb-2">
+          <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-rose2/12 border border-rose2/25 shrink-0"><i data-lucide="shield-alert" class="w-4 h-4 text-rose2"></i></div>
+          <div><div class="text-[9px] uppercase tracking-wider text-rose2 font-bold">Scenario 2</div><div class="text-sm font-bold leading-tight">The Attack</div></div>
         </div>
+        <p class="text-[11px] text-gray-400 leading-relaxed mb-2.5 hidden md:block">Scope escalation attempt — blocked.</p>
+        <button class="w-full flex items-center justify-center gap-1.5 bg-rose2/15 hover:bg-rose2/25 text-rose2 px-3 py-2 rounded-lg text-xs font-semibold transition-all border border-rose2/20 disabled:opacity-30" id="phase-btn-2" onclick="event.stopPropagation();runPhase(2)"><i data-lucide="play" class="w-3 h-3"></i> Run</button>
       </div>
-      <div class="cg-edge" id="ce-2"><div class="line"></div><span class="scope-tag" id="ce-2-tag">db:read</span></div>
-      <div class="cg-node idle" id="cn-db">
-        <div class="icon">D</div>
-        <div class="info">
-          <div class="name">DB Agent</div>
-          <div class="meta" id="cn-db-meta">not registered</div>
+
+      <!-- Scenario 3 -->
+      <div class="phase-card min-w-[200px] md:min-w-0" id="phase-3" data-phase="3" onclick="selectPhase(3)">
+        <div class="flex items-center gap-2.5 mb-2">
+          <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-amb/12 border border-amb/25 shrink-0"><i data-lucide="user-check" class="w-4 h-4 text-amb"></i></div>
+          <div><div class="text-[9px] uppercase tracking-wider text-amb font-bold">Scenario 3</div><div class="text-sm font-bold leading-tight">Human Control</div></div>
         </div>
+        <p class="text-[11px] text-gray-400 leading-relaxed mb-2.5 hidden md:block">Approval workflow + kill switch.</p>
+        <button class="w-full flex items-center justify-center gap-1.5 bg-amb/15 hover:bg-amb/25 text-amb px-3 py-2 rounded-lg text-xs font-semibold transition-all border border-amb/20 disabled:opacity-30" id="phase-btn-3" onclick="event.stopPropagation();runPhase(3)"><i data-lucide="play" class="w-3 h-3"></i> Run</button>
       </div>
     </div>
 
-    <div class="scope-viz">
-      <h4>Scope Narrowing</h4>
-      <div class="scope-row"><span class="lbl">read</span><div class="bar-track"><div class="bar-fill" id="bar-read" style="background:var(--blue)"></div></div></div>
-      <div class="scope-row"><span class="lbl">write</span><div class="bar-track"><div class="bar-fill" id="bar-write" style="background:var(--orange)"></div></div></div>
-      <div class="scope-row"><span class="lbl">search</span><div class="bar-track"><div class="bar-fill" id="bar-search" style="background:var(--cyan)"></div></div></div>
-      <div class="scope-row"><span class="lbl">db:read</span><div class="bar-track"><div class="bar-fill" id="bar-dbread" style="background:var(--green)"></div></div></div>
-    </div>
+    <!-- RIGHT MAIN: pipeline + details -->
+    <div class="flex-1 min-w-0">
 
-    <button class="reset-btn" id="resetBtn" onclick="resetAll()">Reset Demo</button>
+      <!-- Scope strip -->
+      <div class="flex items-center gap-4 px-1 pb-2.5 mb-3 border-b border-border/30 text-[10px] flex-wrap">
+        <span class="text-gray-600 uppercase tracking-wider font-semibold">Scopes</span>
+        <div class="flex items-center gap-1.5"><span class="text-gray-500 font-mono">read</span><div class="w-14 h-1.5 bg-surface-3 rounded-full overflow-hidden"><div id="bar-read" class="scope-bar bg-sky2 w-0"></div></div></div>
+        <div class="flex items-center gap-1.5"><span class="text-gray-500 font-mono">write</span><div class="w-14 h-1.5 bg-surface-3 rounded-full overflow-hidden"><div id="bar-write" class="scope-bar bg-amb w-0"></div></div></div>
+        <div class="flex items-center gap-1.5"><span class="text-gray-500 font-mono">search</span><div class="w-14 h-1.5 bg-surface-3 rounded-full overflow-hidden"><div id="bar-search" class="scope-bar bg-cyn w-0"></div></div></div>
+        <div class="flex items-center gap-1.5"><span class="text-gray-500 font-mono">db:read</span><div class="w-14 h-1.5 bg-surface-3 rounded-full overflow-hidden"><div id="bar-dbread" class="scope-bar bg-emr w-0"></div></div></div>
+      </div>
+
+      <!-- Phase 1: Happy Path -->
+      <div id="phase-detail-1" class="phase-detail visible">
+        <div class="overflow-x-auto pb-3 mb-3">
+          <div class="flex items-center min-w-[520px] px-1">
+            <div class="pipe-node pactive" id="pipe-1"><div><span class="picon"><i data-lucide="users" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">1</span></div><div class="ptitle">Register</div></div>
+            <div class="pipe-arrow" id="parr-1"><div class="aw"><div class="al"></div><div class="ah"></div></div><div class="alabel">authenticate</div></div>
+            <div class="pipe-node" id="pipe-2"><div><span class="picon"><i data-lucide="key" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">2</span></div><div class="ptitle">Auth</div></div>
+            <div class="pipe-arrow" id="parr-2"><div class="aw"><div class="al"></div><div class="ah"></div></div><div class="alabel">delegate ↓scope</div></div>
+            <div class="pipe-node" id="pipe-3"><div><span class="picon"><i data-lucide="arrow-right-left" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">3</span></div><div class="ptitle">Handoff</div></div>
+            <div class="pipe-arrow" id="parr-3"><div class="aw"><div class="al"></div><div class="ah"></div></div><div class="alabel">chain ↓scope</div></div>
+            <div class="pipe-node" id="pipe-4"><div><span class="picon"><i data-lucide="git-branch" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">4</span></div><div class="ptitle">Deeper</div></div>
+          </div>
+        </div>
+        <div class="sub-step" id="step-1"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-1">1</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="users" class="w-4 h-4 text-emr"></i><h4 class="font-bold text-sm md:text-base">Register 3 AI Agents</h4></div><p class="text-xs text-gray-400">Orchestrator, Search Agent, DB Agent — each with <em>exactly</em> the permissions it needs.</p></div><button class="shrink-0 bg-emr/15 hover:bg-emr/25 text-emr px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-emr/20 disabled:opacity-30" id="btn-1" onclick="runStep(1)">Register</button></div><div class="card-body" id="body-1"><div class="border-t border-border/50 p-4 md:p-5" id="inner-1"></div></div></div>
+        <div class="sub-step" id="step-2"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-2">2</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="key" class="w-4 h-4 text-emr"></i><h4 class="font-bold text-sm md:text-base">Orchestrator Gets a JWT</h4></div><p class="text-xs text-gray-400">Authenticates via <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[10px] font-mono">client_credentials</code> — signed JWT with full scope.</p></div><button class="shrink-0 bg-emr/15 hover:bg-emr/25 text-emr px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-emr/20 disabled:opacity-30" id="btn-2" onclick="runStep(2)">Authenticate</button></div><div class="card-body" id="body-2"><div class="border-t border-border/50 p-4 md:p-5" id="inner-2"></div></div></div>
+        <div class="sub-step" id="step-3"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-3">3</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="arrow-right-left" class="w-4 h-4 text-emr"></i><h4 class="font-bold text-sm md:text-base">Delegate with Scope Narrowing</h4></div><p class="text-xs text-gray-400">Orchestrator → Search Agent via <strong>token exchange</strong>. Only <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[10px] font-mono">search + db:read</code> survive.</p></div><button class="shrink-0 bg-emr/15 hover:bg-emr/25 text-emr px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-emr/20 disabled:opacity-30" id="btn-3" onclick="runStep(3)">Delegate</button></div><div class="card-body" id="body-3"><div class="border-t border-border/50 p-4 md:p-5" id="inner-3"></div></div></div>
+        <div class="sub-step" id="step-4"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-4">4</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="git-branch" class="w-4 h-4 text-emr"></i><h4 class="font-bold text-sm md:text-base">2-Hop Nested Delegation</h4></div><p class="text-xs text-gray-400">Search → DB Agent. Only <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[10px] font-mono">db:read</code> remains. <code class="text-accent-2 bg-accent/10 px-1 py-0.5 rounded text-[10px] font-mono">act</code> nests 2 levels.</p></div><button class="shrink-0 bg-emr/15 hover:bg-emr/25 text-emr px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-emr/20 disabled:opacity-30" id="btn-4" onclick="runStep(4)">Delegate</button></div><div class="card-body" id="body-4"><div class="border-t border-border/50 p-4 md:p-5" id="inner-4"></div></div></div>
+      </div>
+
+      <!-- Phase 2: Attack -->
+      <div id="phase-detail-2" class="phase-detail">
+        <div class="overflow-x-auto pb-3 mb-3">
+          <div class="flex items-center px-1">
+            <div class="pipe-node pactive" id="pipe-5"><div><span class="picon"><i data-lucide="shield-alert" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">5</span></div><div class="ptitle text-rose2">Attack</div></div>
+          </div>
+        </div>
+        <div class="sub-step" id="step-5"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-5">5</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="shield-alert" class="w-4 h-4 text-rose2"></i><h4 class="font-bold text-sm md:text-base text-rose2">Scope Escalation Attempt</h4></div><p class="text-xs text-gray-400">A compromised agent tries to grab <code class="text-rose2 bg-rose2/10 px-1 py-0.5 rounded text-[10px] font-mono">write</code> access. authgent enforces: <strong>never escalate beyond parent's scope</strong>.</p></div><button class="shrink-0 bg-rose2/15 hover:bg-rose2/25 text-rose2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-rose2/20 disabled:opacity-30" id="btn-5" onclick="runStep(5)">Attack</button></div><div class="card-body" id="body-5"><div class="border-t border-border/50 p-4 md:p-5" id="inner-5"></div></div></div>
+      </div>
+
+      <!-- Phase 3: Human Control -->
+      <div id="phase-detail-3" class="phase-detail">
+        <div class="overflow-x-auto pb-3 mb-3">
+          <div class="flex items-center min-w-[280px] px-1">
+            <div class="pipe-node pactive" id="pipe-6"><div><span class="picon"><i data-lucide="user-check" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">6</span></div><div class="ptitle">Gatekeeper</div></div>
+            <div class="pipe-arrow" id="parr-6"><div class="aw"><div class="al"></div><div class="ah"></div></div><div class="alabel">revoke</div></div>
+            <div class="pipe-node" id="pipe-7"><div><span class="picon"><i data-lucide="power" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">7</span></div><div class="ptitle text-rose2">Kill Switch</div></div>
+          </div>
+        </div>
+        <div class="sub-step" id="step-6"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-6">6</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="user-check" class="w-4 h-4 text-amb"></i><h4 class="font-bold text-sm md:text-base">Human-in-the-Loop Approval</h4></div><p class="text-xs text-gray-400">Agent wants to <code class="text-rose2 bg-rose2/10 px-1 py-0.5 rounded text-[10px] font-mono">delete_all_records</code> on production. It <strong>cannot proceed</strong> until a human approves.</p></div><button class="shrink-0 bg-amb/15 hover:bg-amb/25 text-amb px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-amb/20 disabled:opacity-30" id="btn-6" onclick="runStep(6)">Request Approval</button></div><div class="card-body" id="body-6"><div class="border-t border-border/50 p-4 md:p-5" id="inner-6"></div></div></div>
+        <div class="sub-step" id="step-7"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-7">7</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="power" class="w-4 h-4 text-rose2"></i><h4 class="font-bold text-sm md:text-base">The Kill Switch — Revoke Entire Chain</h4></div><p class="text-xs text-gray-400">One API call revokes the root token. Introspection confirms dead. <strong>All downstream dies instantly.</strong></p></div><button class="shrink-0 bg-rose2/15 hover:bg-rose2/25 text-rose2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-rose2/20 disabled:opacity-30" id="btn-7" onclick="runStep(7)">Revoke</button></div><div class="card-body" id="body-7"><div class="border-t border-border/50 p-4 md:p-5" id="inner-7"></div></div></div>
+      </div>
+
+    </div><!-- /right -->
+  </div><!-- /split -->
+
+  <!-- Hidden topology compat -->
+  <div class="hidden" aria-hidden="true">
+    <div id="cn-orch"><div id="cn-orch-icon"><i class="text-gray-500"></i></div><span id="cn-orch-meta"></span></div>
+    <div class="topo-line" id="ce-1"><span id="ce-1-tag"></span></div>
+    <div id="cn-search"><div id="cn-search-icon"><i class="text-gray-500"></i></div><span id="cn-search-meta"></span></div>
+    <div class="topo-line" id="ce-2"><span id="ce-2-tag"></span></div>
+    <div id="cn-db"><div id="cn-db-icon"><i class="text-gray-500"></i></div><span id="cn-db-meta"></span></div>
   </div>
+</main>
 
-  <!-- ── RIGHT: Steps ──── -->
-  <div class="steps">
-
-    <!-- Step 1 -->
-    <div class="step active" id="step-1">
-      <div class="step-head">
-        <div class="step-left"><div class="step-num">1</div>
-          <div class="step-text"><h4>Register three agents</h4><p>POST /agents · POST /register</p></div>
-        </div>
-        <button class="step-btn" id="btn-1" onclick="runStep(1)">Register</button>
-      </div>
-      <div class="step-body" id="body-1"><div class="step-body-inner" id="inner-1"></div></div>
-    </div>
-
-    <!-- Step 2 -->
-    <div class="step locked" id="step-2">
-      <div class="step-head">
-        <div class="step-left"><div class="step-num">2</div>
-          <div class="step-text"><h4>Orchestrator authenticates</h4><p>POST /token · client_credentials</p></div>
-        </div>
-        <button class="step-btn" id="btn-2" onclick="runStep(2)">Get Token</button>
-      </div>
-      <div class="step-body" id="body-2"><div class="step-body-inner" id="inner-2"></div></div>
-    </div>
-
-    <!-- Step 3 -->
-    <div class="step locked" id="step-3">
-      <div class="step-head">
-        <div class="step-left"><div class="step-num">3</div>
-          <div class="step-text"><h4>Delegate to Search Agent</h4><p>POST /token · token-exchange (RFC 8693)</p></div>
-        </div>
-        <button class="step-btn" id="btn-3" onclick="runStep(3)">Exchange</button>
-      </div>
-      <div class="step-body" id="body-3"><div class="step-body-inner" id="inner-3"></div></div>
-    </div>
-
-    <!-- Step 4 -->
-    <div class="step locked" id="step-4">
-      <div class="step-head">
-        <div class="step-left"><div class="step-num">4</div>
-          <div class="step-text"><h4>Search → DB Agent (nested chain)</h4><p>POST /token · second exchange</p></div>
-        </div>
-        <button class="step-btn" id="btn-4" onclick="runStep(4)">Exchange</button>
-      </div>
-      <div class="step-body" id="body-4"><div class="step-body-inner" id="inner-4"></div></div>
-    </div>
-
-    <!-- Step 5 -->
-    <div class="step locked" id="step-5">
-      <div class="step-head">
-        <div class="step-left"><div class="step-num">5</div>
-          <div class="step-text"><h4>Scope escalation attack</h4><p>POST /token · request unauthorized "write"</p></div>
-        </div>
-        <button class="step-btn" id="btn-5" onclick="runStep(5)">Attack</button>
-      </div>
-      <div class="step-body" id="body-5"><div class="step-body-inner" id="inner-5"></div></div>
-    </div>
-
-    <!-- Step 6 -->
-    <div class="step locked" id="step-6">
-      <div class="step-head">
-        <div class="step-left"><div class="step-num">6</div>
-          <div class="step-text"><h4>Human-in-the-loop step-up</h4><p>POST /stepup · GET /stepup/{id} · POST /stepup/{id}/approve</p></div>
-        </div>
-        <button class="step-btn" id="btn-6" onclick="runStep(6)">Request Approval</button>
-      </div>
-      <div class="step-body" id="body-6"><div class="step-body-inner" id="inner-6"></div></div>
-    </div>
-
-    <!-- Step 7 -->
-    <div class="step locked" id="step-7">
-      <div class="step-head">
-        <div class="step-left"><div class="step-num">7</div>
-          <div class="step-text"><h4>Revoke root token (incident response)</h4><p>POST /revoke · POST /introspect</p></div>
-        </div>
-        <button class="step-btn" id="btn-7" onclick="runStep(7)">Revoke</button>
-      </div>
-      <div class="step-body" id="body-7"><div class="step-body-inner" id="inner-7"></div></div>
-    </div>
-
+<footer class="relative z-10 text-center py-4 px-4 border-t border-border/30">
+  <div class="flex justify-center gap-5 mb-1 flex-wrap">
+    <a href="https://github.com/authgent/authgent" class="text-gray-500 hover:text-accent-2 transition-colors text-xs font-medium flex items-center gap-1"><i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub</a>
+    <a href="https://pypi.org/project/authgent-server/" class="text-gray-500 hover:text-accent-2 transition-colors text-xs font-medium flex items-center gap-1"><i data-lucide="package" class="w-3.5 h-3.5"></i> PyPI</a>
+    <a href="https://www.npmjs.com/package/authgent" class="text-gray-500 hover:text-accent-2 transition-colors text-xs font-medium flex items-center gap-1"><i data-lucide="hexagon" class="w-3.5 h-3.5"></i> npm</a>
   </div>
-</div>
-
-<!-- ═══════════════ FOOTER ═══════════════ -->
-<div class="footer">
-  <div class="footer-links">
-    <a href="https://github.com/authgent/authgent">GitHub</a>
-    <a href="https://github.com/authgent/authgent/tree/main/examples">Examples</a>
-    <a href="https://github.com/authgent/authgent/blob/main/ARCHITECTURE.md">Architecture</a>
-    <a href="https://github.com/authgent/authgent/blob/main/SECURITY.md">Security</a>
-  </div>
-  <div class="footer-sub">authgent — OAuth for MCP servers and AI agents, with delegation chain tracking</div>
-</div>
+  <p class="text-gray-700 text-[10px] font-mono">pip install authgent-server && authgent-server init && authgent-server run</p>
+</footer>
 
 <script>
-/* ════════════════════════════════════════════════════════════════
-   ENGINE
-   ════════════════════════════════════════════════════════════════ */
 const $=id=>document.getElementById(id);
-// Auto-detect server URL:
-// - file:// (opened from disk) → default to localhost:8000
-// - Docker/deployed (served via nginx proxy) → use same origin (API proxied through nginx)
 (()=>{const i=$('serverUrl');if(!i.value){const o=location.origin;i.value=(!o||o==='null'||location.protocol==='file:')?'http://localhost:8000':o}})();
 const base=()=>$('serverUrl').value.replace(/\/+$/,'');
 const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
 const S={orch:null,searchClient:null,dbClient:null,orchToken:null,searchToken:null,dbToken:null};
+let autoPlaying=false;
+lucide.createIcons();
 
-/* ── Server health check ──────────────── */
 async function checkServer(){
   const dot=$('serverStatus');
-  try{
-    const r=await fetch(base()+'/health',{signal:AbortSignal.timeout(2000)});
-    dot.className='status '+(r.ok?'ok':'err');
-  }catch{dot.className='status err'}
+  try{const r=await fetch(base()+'/health',{signal:AbortSignal.timeout(2000)});dot.className=r.ok?'w-2 h-2 rounded-full bg-emr shadow-[0_0_8px_#34d399] transition-all':'w-2 h-2 rounded-full bg-rose2 shadow-[0_0_8px_#f87171] transition-all'}
+  catch{dot.className='w-2 h-2 rounded-full bg-rose2 shadow-[0_0_8px_#f87171] transition-all'}
 }
 checkServer();setInterval(checkServer,10000);
 
-/* ── API helper ───────────────────────── */
 async function api(method,path,body,isForm=false){
-  const url=base()+path;
-  const opts={method};
+  const url=base()+path,opts={method};
   if(body&&isForm){opts.body=new URLSearchParams(body);opts.headers={'Content-Type':'application/x-www-form-urlencoded'}}
   else if(body){opts.body=JSON.stringify(body);opts.headers={'Content-Type':'application/json'}}
-  const resp=await fetch(url,opts);
-  const data=await resp.json();
-  return{status:resp.status,data,url,method};
+  const resp=await fetch(url,opts);const data=await resp.json();return{status:resp.status,data,url,method};
 }
 
-/* ── JWT decode ───────────────────────── */
-function decodeJwt(t){
-  try{const p=t.split('.')[1];return JSON.parse(atob(p.replace(/-/g,'+').replace(/_/g,'/')))}catch{return null}
-}
-function decodeJwtHeader(t){
-  try{return JSON.parse(atob(t.split('.')[0].replace(/-/g,'+').replace(/_/g,'/')))}catch{return null}
-}
+function decodeJwt(t){try{return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))}catch{return null}}
+function decodeJwtHeader(t){try{return JSON.parse(atob(t.split('.')[0].replace(/-/g,'+').replace(/_/g,'/')))}catch{return null}}
 
-/* ── Step state management ────────────── */
-function setStep(n,state){
-  const el=$('step-'+n);
-  el.className='step '+state;
-  if(state==='active')el.scrollIntoView({behavior:'smooth',block:'nearest'});
+/* ── Phase management ── */
+const phaseSteps={1:[1,2,3,4],2:[5],3:[6,7]};
+const stepToPhase={1:1,2:1,3:1,4:1,5:2,6:3,7:3};
+let currentPhase=1;
+
+function selectPhase(p){
+  if(p<1||p>3)return;
+  const card=$('phase-'+p);
+  if(!card.classList.contains('p-active')&&!card.classList.contains('p-done'))return;
+  for(let i=1;i<=3;i++){$('phase-'+i).classList.remove('p-selected');$('phase-detail-'+i).classList.remove('visible')}
+  card.classList.add('p-selected');$('phase-detail-'+p).classList.add('visible');currentPhase=p;
+}
+function setPhaseState(p,state){
+  const card=$('phase-'+p);card.classList.remove('p-active','p-done','p-error');
+  if(state)card.classList.add('p-'+state);
+}
+function setSubStep(n,state){
+  const el=$('step-'+n),num=$('num-'+n);if(!el)return;
+  el.className='sub-step'+(state?' ss-'+state:'');
+  if(state==='running')num.className='shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-accent text-white';
+  else if(state==='done')num.className='shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-emr text-white';
+  else if(state==='blocked'||state==='error')num.className='shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-rose2 text-white';
+  else num.className='shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500';
+  /* sync pipe-node visual */
+  const pipe=$('pipe-'+n);if(!pipe)return;
+  pipe.className='pipe-node';
+  if(state==='running')pipe.classList.add('pactive');
+  else if(state==='done')pipe.classList.add('pdone');
+  else if(state==='blocked')pipe.classList.add('pblocked');
+  else if(state==='error')pipe.classList.add('perror');
+  lucide.createIcons();
 }
 function openBody(n){$('body-'+n).classList.add('open')}
 function closeBody(n){$('body-'+n).classList.remove('open')}
-function setBtn(n,html,disabled=false){const b=$('btn-'+n);b.innerHTML=html;b.disabled=disabled}
+function setBtn(n,html,dis=false){const b=$('btn-'+n);b.innerHTML=html;b.disabled=dis}
+/* No-ops for step runner compat */
+function setPipeArrow(){}function setPipeNode(){}function setForkPath(){}function setStep(){}
+
 function unlockNext(cur){
-  setStep(cur,'done');setBtn(cur,'Done',true);
-  if(cur<7)setStep(cur+1,'active');
+  setSubStep(cur,'done');setBtn(cur,'Done',true);
+  /* animate pipe-arrow after this step */
+  const arr=$('parr-'+cur);if(arr)arr.className='pipe-arrow adone';
+  const p=stepToPhase[cur],stps=phaseSteps[p],idx=stps.indexOf(cur);
+  if(idx<stps.length-1){
+    /* more steps in this phase — nothing else to do */
+  } else {
+    setPhaseState(p,'done');
+    $('phase-btn-'+p).innerHTML='<i data-lucide="check" class="w-3.5 h-3.5"></i> Done';$('phase-btn-'+p).disabled=true;
+    if(p<3){setPhaseState(p+1,'active');if(!autoPlaying)selectPhase(p+1)}
+    lucide.createIcons();
+  }
 }
 
-/* ── Chain viz helpers ────────────────── */
-function setNode(id,cls,meta){
-  $(id).className='cg-node '+cls;
-  if(meta)$(id+'-meta').textContent=meta;
+function setNode(id,state,meta){
+  const el=$(id),icon=$(id+'-icon'),metaEl=$(id+'-meta');
+  if(meta&&metaEl)metaEl.textContent=meta;if(!el)return;
+  el.style.opacity='';el.className=el.className.replace(/border-\S+/g,'border-border');
+  if(icon)icon.className=icon.className.replace(/bg-\S+/g,'bg-surface-3').replace(/border-\S+/g,'border-border');
+  if(state==='idle')el.style.opacity='.3';
+  else if(state==='registered')el.style.opacity='.6';
+  else if(state==='active'){el.style.opacity='1';el.className=el.className.replace('border-border','border-accent');if(icon){icon.className=icon.className.replace('bg-surface-3','bg-accent').replace('border-border','border-accent');icon.querySelectorAll('i').forEach(i=>i.className=i.className.replace('text-gray-500','text-white'))}}
+  else if(state==='done'){el.style.opacity='1';el.className=el.className.replace('border-border','border-emr/40');if(icon){icon.className=icon.className.replace('bg-surface-3','bg-emr/15').replace('border-border','border-emr/40');icon.querySelectorAll('i').forEach(i=>i.className=i.className.replace('text-gray-500','text-emr'))}}
+  else if(state==='revoked'){el.style.opacity='.5';el.className=el.className.replace('border-border','border-rose2/40 border-dashed');if(icon){icon.className=icon.className.replace('bg-surface-3','bg-rose2/10').replace('border-border','border-rose2/40');icon.querySelectorAll('i').forEach(i=>i.className=i.className.replace('text-gray-500','text-rose2').replace('text-emr','text-rose2').replace('text-white','text-rose2'))}}
 }
-function setEdge(id,cls){$(id).className='cg-edge '+cls}
-
+function setEdge(id,state){
+  const el=$(id),tag=$(id+'-tag');if(!el)return;
+  el.className='topo-line'+(state?' '+state:'');
+  if(tag){if(state==='active'||state==='done')tag.style.opacity='1';else tag.style.opacity='0'}
+}
 function setScopeBars(scopes){
-  const all=['read','write','search','db:read'];
   const map={'read':'bar-read','write':'bar-write','search':'bar-search','db:read':'bar-dbread'};
-  all.forEach(s=>{
-    const el=$(map[s]);
-    el.style.width=scopes.includes(s)?'100%':'0';
-  });
+  Object.entries(map).forEach(([s,id])=>{const el=$(id);if(el)el.style.width=scopes.includes(s)?'100%':'0'});
 }
 
-/* ── Render: HTTP request/response ──── */
 function renderHttp(req,res){
-  const sc=res.status<400?'s2':'s4';
-  return`<div class="http-block">
-    <div class="http-header">
-      <span class="http-method">${req.method}</span>
-      <span class="http-url">${esc(req.url)}</span>
-      <span class="http-status ${sc}">${res.status}</span>
-    </div>
-    <div class="http-body">${esc(JSON.stringify(res.data,null,2))}</div>
-  </div>`;
+  const sc=res.status<400?'text-emr bg-emr/10':'text-rose2 bg-rose2/10';
+  return`<div class="code-block anim-in"><div class="code-head"><span class="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-accent/15 text-accent-2">${req.method}</span><span class="font-mono text-[11px] text-gray-400 truncate">${esc(req.url||'')}</span><span class="ml-auto font-mono text-[11px] font-bold px-2 py-0.5 rounded ${sc}">${res.status}</span></div><div class="code-body">${esc(JSON.stringify(res.data,null,2))}</div></div>`;
 }
-
-/* ── Render: JWT decoded view ─────── */
 function renderJwt(token,label){
   const h=decodeJwtHeader(token),p=decodeJwt(token);
-  if(!p)return'<div class="err-box">Failed to decode JWT</div>';
-
-  let headerHtml='';
-  for(const[k,v]of Object.entries(h)){
-    headerHtml+=`<div class="jwt-line"><span class="jwt-key">"${k}"</span>: <span class="jwt-val str">"${esc(String(v))}"</span></div>`;
-  }
-
-  let payloadHtml='';
+  if(!p)return'<div class="bg-rose2/10 border border-rose2/25 rounded-xl p-3 text-rose2 text-sm">Failed to decode JWT</div>';
+  let hHtml='',pHtml='';
+  for(const[k,v]of Object.entries(h)){hHtml+=`<div class="font-mono text-[11px] leading-relaxed"><span class="text-cyn">"${k}"</span>: <span class="text-emr">"${esc(String(v))}"</span></div>`}
   for(const[k,v]of Object.entries(p)){
-    if(k==='act')continue;
-    const isNum=typeof v==='number';
-    const isStr=typeof v==='string';
-    const cls=isNum?'num':isStr?'str':'';
-    const highlight=k==='scope'?'highlight':'';
-    const val=isStr?`"${esc(v)}"`:esc(JSON.stringify(v));
-    payloadHtml+=`<div class="jwt-line"><span class="jwt-key">"${k}"</span>: <span class="jwt-val ${cls} ${highlight}">${val}</span></div>`;
+    if(k==='act')continue;const val=typeof v==='string'?`"${esc(v)}"`:esc(JSON.stringify(v));
+    const cls=typeof v==='number'?'text-amb':typeof v==='string'?'text-emr':'text-gray-300';
+    const hl=k==='scope'?' font-semibold text-accent-2':'';
+    pHtml+=`<div class="font-mono text-[11px] leading-relaxed"><span class="text-cyn">"${k}"</span>: <span class="${cls}${hl}">${val}</span></div>`
   }
-
   let actHtml='';
   if(p.act){
-    const chain=[];
-    let a=p.act;
-    while(a&&typeof a==='object'){chain.push(a.sub||'?');a=a.act}
-    const visual=chain.map(s=>`<span class="cv-node">${esc(s)}</span>`).join('<span class="cv-arrow">→</span>');
-    actHtml=`<div class="act-box">
-      <h5>Delegation Chain</h5>
-      <pre>${esc(JSON.stringify(p.act,null,2))}</pre>
-      <div class="chain-visual">${visual}</div>
-    </div>`;
+    const chain=[];let a=p.act;while(a&&typeof a==='object'){chain.push(a.sub||'?');a=a.act}
+    const visual=chain.map(s=>`<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-surface-3 border border-border rounded font-mono text-[11px]">${esc(s.length>16?s.slice(0,16)+'...':s)}</span>`).join('<span class="text-accent-2 mx-1">&rarr;</span>');
+    actHtml=`<div class="mt-3 bg-gradient-to-r from-accent/5 to-cyn/5 border border-accent/20 rounded-xl p-4 anim-in"><div class="text-[10px] uppercase tracking-wider text-accent-2 font-semibold mb-2 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-accent shadow-[0_0_8px_rgba(124,92,252,.5)]"></span> Delegation Chain (act claim)</div><pre class="font-mono text-[11px] text-gray-400 leading-relaxed mb-2">${esc(JSON.stringify(p.act,null,2))}</pre><div class="flex items-center gap-1 flex-wrap">${visual}</div></div>`;
   }
-
-  return`<div class="jwt-decoded">
-    <div class="jwt-card"><h5>Header <span class="badge">ES256</span></h5>${headerHtml}</div>
-    <div class="jwt-card"><h5>Payload <span class="badge">${label}</span></h5>${payloadHtml}</div>
-  </div>${actHtml}`;
+  return`<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 anim-in"><div class="bg-bg-2 border border-border rounded-xl p-3"><div class="text-[10px] uppercase tracking-wider text-gray-500 mb-2">Header</div>${hHtml}</div><div class="bg-bg-2 border border-border rounded-xl p-3"><div class="text-[10px] uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-2">Payload <span class="text-[9px] px-1.5 py-0.5 rounded bg-accent/15 text-accent-2">${label}</span></div>${pHtml}</div></div>${actHtml}`;
 }
-
-/* ════════════════════════════════════════════════════════════════
-   STEP RUNNERS
-   ════════════════════════════════════════════════════════════════ */
+function successBanner(title,sub){return`<div class="flex items-center gap-3 p-3 rounded-xl bg-emr/8 border border-emr/25 mb-3 anim-in"><i data-lucide="check-circle" class="w-5 h-5 text-emr shrink-0"></i><div><div class="text-sm font-semibold text-emr">${title}</div><div class="text-xs text-gray-400 mt-0.5">${sub}</div></div></div>`}
+function blockedBanner(title,sub){return`<div class="flex items-center gap-3 p-3 rounded-xl bg-rose2/8 border border-rose2/25 mb-3 anim-in"><i data-lucide="shield-x" class="w-5 h-5 text-rose2 shrink-0"></i><div><div class="text-sm font-semibold text-rose2">${title}</div><div class="text-xs text-gray-400 mt-0.5">${sub}</div></div></div>`}
+function insight(text){return`<div class="flex gap-3 p-3 bg-surface-2 rounded-xl border-l-[3px] border-accent mt-3 anim-in"><i data-lucide="lightbulb" class="w-4 h-4 text-accent-2 shrink-0 mt-0.5"></i><p class="text-xs text-gray-400 leading-relaxed">${text}</p></div>`}
+function subhead(text){return`<div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mt-4 mb-2">${text}</div>`}
 
 const steps={
-
-  // ── 1: Register ─────────────────────────
-  1: async()=>{
-    const r1=await api('POST','/agents',{name:'demo-orchestrator',allowed_scopes:['read','write','search','db:read']});
-    S.orch=r1.data;
-    const r2=await api('POST','/register',{client_name:'demo-search-agent',grant_types:['client_credentials','urn:ietf:params:oauth:grant-type:token-exchange'],scope:'search db:read'});
-    S.searchClient=r2.data;
-    const r3=await api('POST','/register',{client_name:'demo-db-agent',grant_types:['client_credentials','urn:ietf:params:oauth:grant-type:token-exchange'],scope:'db:read'});
-    S.dbClient=r3.data;
-
-    setNode('cn-orch','registered',S.orch.client_id);
-    setNode('cn-search','registered',S.searchClient.client_id);
-    setNode('cn-db','registered',S.dbClient.client_id);
-
-    $('inner-1').innerHTML=`
-      <div class="banner success"><span class="banner-icon">&#10003;</span>
-        <div><div class="banner-text">3 agents registered</div>
-          <div class="banner-sub">Each with different allowed scopes — scope ceiling enforcement starts here</div></div>
-      </div>
-      ${renderHttp({method:'POST',url:base()+'/agents'},{status:r1.status,data:{orchestrator:S.orch.client_id,search:S.searchClient.client_id,db:S.dbClient.client_id}})}
-      <div class="insight"><p>Every agent gets a <code>client_id</code> + <code>client_secret</code>. The <code>allowed_scopes</code> set the maximum permissions — agents can never exceed these, even via delegation.</p></div>`;
-    openBody(1);
+  1:async()=>{
+    const r1=await api('POST','/agents',{name:'demo-orchestrator',allowed_scopes:['read','write','search','db:read']});S.orch=r1.data;
+    const r2=await api('POST','/register',{client_name:'demo-search-agent',grant_types:['client_credentials','urn:ietf:params:oauth:grant-type:token-exchange'],scope:'search db:read'});S.searchClient=r2.data;
+    const r3=await api('POST','/register',{client_name:'demo-db-agent',grant_types:['client_credentials','urn:ietf:params:oauth:grant-type:token-exchange'],scope:'db:read'});S.dbClient=r3.data;
+    setNode('cn-orch','registered',S.orch.client_id);setNode('cn-search','registered',S.searchClient.client_id);setNode('cn-db','registered',S.dbClient.client_id);
+    $('inner-1').innerHTML=successBanner('3 agents registered','Each with different allowed scopes — scope ceiling enforcement starts here')+renderHttp({method:'POST',url:base()+'/agents'},{status:r1.status,data:{orchestrator:S.orch.client_id,search:S.searchClient.client_id,db:S.dbClient.client_id}})+insight('Every agent gets a <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">client_id</code> + <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">client_secret</code>. The <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">allowed_scopes</code> set the maximum permissions — agents can never exceed these, even via delegation.');
+    openBody(1);lucide.createIcons();
   },
-
-  // ── 2: Get token ────────────────────────
-  2: async()=>{
-    const r=await api('POST','/token',{grant_type:'client_credentials',client_id:S.orch.client_id,client_secret:S.orch.client_secret,scope:'read write search db:read'},true);
-    S.orchToken=r.data.access_token;
-
-    setNode('cn-orch','active','authenticated');
-    setScopeBars(['read','write','search','db:read']);
-
-    $('inner-2').innerHTML=`
-      <div class="banner success"><span class="banner-icon">&#9889;</span>
-        <div><div class="banner-text">Token issued — full scope</div>
-          <div class="banner-sub">Orchestrator has read, write, search, db:read — the widest token in the chain</div></div>
-      </div>
-      ${renderHttp({method:'POST',url:base()+'/token'},{status:r.status,data:{access_token:r.data.access_token.slice(0,50)+'...',token_type:r.data.token_type,expires_in:r.data.expires_in,scope:r.data.scope}})}
-      ${renderJwt(S.orchToken,'Root Token')}
-      <div class="insight"><p>No <code>act</code> claim yet — this is the root of the chain. The subject (<code>sub</code>) is the orchestrator's identity.</p></div>`;
-    openBody(2);
+  2:async()=>{
+    const r=await api('POST','/token',{grant_type:'client_credentials',client_id:S.orch.client_id,client_secret:S.orch.client_secret,scope:'read write search db:read'},true);S.orchToken=r.data.access_token;
+    setNode('cn-orch','active','authenticated');setScopeBars(['read','write','search','db:read']);
+    $('inner-2').innerHTML=successBanner('Token issued — full scope','Orchestrator has read, write, search, db:read — the widest token in the chain')+renderHttp({method:'POST',url:base()+'/token'},{status:r.status,data:{access_token:r.data.access_token.slice(0,50)+'...',token_type:r.data.token_type,expires_in:r.data.expires_in,scope:r.data.scope}})+renderJwt(S.orchToken,'Root Token')+insight('No <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">act</code> claim yet — this is the <strong>root</strong> of the chain.');
+    openBody(2);lucide.createIcons();
   },
-
-  // ── 3: Delegate to search ───────────────
-  3: async()=>{
-    const r=await api('POST','/token',{grant_type:'urn:ietf:params:oauth:grant-type:token-exchange',subject_token:S.orchToken,subject_token_type:'urn:ietf:params:oauth:token-type:access_token',client_id:S.searchClient.client_id,client_secret:S.searchClient.client_secret,audience:'https://search.example.com',scope:'search db:read'},true);
-    S.searchToken=r.data.access_token;
-
-    setNode('cn-orch','done','delegated');
-    setNode('cn-search','active','has token');
-    setEdge('ce-1','done');
-    setScopeBars(['search','db:read']);
-
-    $('inner-3').innerHTML=`
-      <div class="banner success"><span class="banner-icon">&#128279;</span>
-        <div><div class="banner-text">Token exchanged — scope narrowed</div>
-          <div class="banner-sub">read, write dropped. Only search + db:read remain.</div></div>
-      </div>
-      ${renderHttp({method:'POST',url:base()+'/token'},{status:r.status,data:{access_token:r.data.access_token.slice(0,50)+'...',scope:r.data.scope}})}
-      ${renderJwt(S.searchToken,'Delegated Token')}
-      <div class="insight"><p>The <code>act</code> claim now appears — it records that the orchestrator delegated this token. The <code>sub</code> is preserved (original identity). Scope can only shrink.</p></div>`;
-    openBody(3);
+  3:async()=>{
+    const r=await api('POST','/token',{grant_type:'urn:ietf:params:oauth:grant-type:token-exchange',subject_token:S.orchToken,subject_token_type:'urn:ietf:params:oauth:token-type:access_token',client_id:S.searchClient.client_id,client_secret:S.searchClient.client_secret,audience:'https://search.example.com',scope:'search db:read'},true);S.searchToken=r.data.access_token;
+    setNode('cn-orch','done','delegated');setNode('cn-search','active','has token');setEdge('ce-1','done');setScopeBars(['search','db:read']);
+    $('inner-3').innerHTML=successBanner('Token exchanged — scope narrowed','read, write dropped. Only search + db:read remain.')+renderHttp({method:'POST',url:base()+'/token'},{status:r.status,data:{access_token:r.data.access_token.slice(0,50)+'...',scope:r.data.scope}})+renderJwt(S.searchToken,'Delegated Token')+insight('The <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">act</code> claim now appears — it records who delegated. Scope can only <strong>shrink</strong>, never grow.');
+    openBody(3);lucide.createIcons();
   },
-
-  // ── 4: Search → DB ─────────────────────
-  4: async()=>{
-    const r=await api('POST','/token',{grant_type:'urn:ietf:params:oauth:grant-type:token-exchange',subject_token:S.searchToken,subject_token_type:'urn:ietf:params:oauth:token-type:access_token',client_id:S.dbClient.client_id,client_secret:S.dbClient.client_secret,audience:'https://db.example.com',scope:'db:read'},true);
-    S.dbToken=r.data.access_token;
-
-    setNode('cn-search','done','delegated');
-    setNode('cn-db','active','has token');
-    setEdge('ce-2','done');
-    setScopeBars(['db:read']);
-
-    $('inner-4').innerHTML=`
-      <div class="banner success"><span class="banner-icon">&#128279;</span>
-        <div><div class="banner-text">Nested delegation — 2 hops deep</div>
-          <div class="banner-sub">db:read only. The act claim is now nested: search → orchestrator.</div></div>
-      </div>
-      ${renderHttp({method:'POST',url:base()+'/token'},{status:r.status,data:{access_token:r.data.access_token.slice(0,50)+'...',scope:r.data.scope}})}
-      ${renderJwt(S.dbToken,'2-Hop Delegated Token')}
-      <div class="insight"><p>The <code>act</code> claim is now <strong>nested</strong>: <code>act.sub</code> = search agent, <code>act.act.sub</code> = orchestrator. Any receiver can walk this chain to verify the full delegation path back to the root.</p></div>`;
-    openBody(4);
+  4:async()=>{
+    const r=await api('POST','/token',{grant_type:'urn:ietf:params:oauth:grant-type:token-exchange',subject_token:S.searchToken,subject_token_type:'urn:ietf:params:oauth:token-type:access_token',client_id:S.dbClient.client_id,client_secret:S.dbClient.client_secret,audience:'https://db.example.com',scope:'db:read'},true);S.dbToken=r.data.access_token;
+    setNode('cn-search','done','delegated');setNode('cn-db','active','has token');setEdge('ce-2','done');setScopeBars(['db:read']);
+    $('inner-4').innerHTML=successBanner('Nested delegation — 2 hops deep','db:read only. The act claim is now nested: search → orchestrator.')+renderHttp({method:'POST',url:base()+'/token'},{status:r.status,data:{access_token:r.data.access_token.slice(0,50)+'...',scope:r.data.scope}})+renderJwt(S.dbToken,'2-Hop Delegated Token')+insight('The <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">act</code> claim is now <strong>nested</strong>: <code class="text-accent-2 bg-accent/10 px-1 py-0.5 rounded text-[11px] font-mono">act.sub</code> = search, <code class="text-accent-2 bg-accent/10 px-1 py-0.5 rounded text-[11px] font-mono">act.act.sub</code> = orchestrator.');
+    openBody(4);lucide.createIcons();
   },
-
-  // ── 5: Scope escalation ────────────────
-  5: async()=>{
+  5:async()=>{
     const r=await api('POST','/token',{grant_type:'urn:ietf:params:oauth:grant-type:token-exchange',subject_token:S.searchToken,subject_token_type:'urn:ietf:params:oauth:token-type:access_token',client_id:S.dbClient.client_id,client_secret:S.dbClient.client_secret,audience:'https://db.example.com',scope:'db:read write'},true);
-
     const blocked=r.status>=400;
-    $('inner-5').innerHTML=`
-      <div class="banner ${blocked?'blocked':'success'}">
-        <span class="banner-icon">${blocked?'&#128683;':'&#9888;'}</span>
-        <div><div class="banner-text">${blocked?'BLOCKED — Scope escalation rejected':'Unexpected: allowed'}</div>
-          <div class="banner-sub">${blocked?'The search token has "search db:read". Requesting "write" is impossible — authgent enforces scope ceiling.':'This should have been blocked. Check server configuration.'}</div></div>
-      </div>
-      ${renderHttp({method:'POST',url:base()+'/token'},{status:r.status,data:r.data})}
-      <div class="insight"><p>This is the core security guarantee: agents can <strong>never</strong> escalate beyond their parent token's scope. A compromised downstream agent cannot grant itself more power.</p></div>`;
-    openBody(5);
+    $('step-5').classList.add('shake-it');setTimeout(()=>$('step-5').classList.remove('shake-it'),600);
+    $('inner-5').innerHTML=(blocked?blockedBanner('BLOCKED — Scope escalation rejected','Search token has "search db:read". Requesting "write" is impossible — authgent enforces scope ceiling.'):successBanner('Unexpected: allowed','This should have been blocked.'))+renderHttp({method:'POST',url:base()+'/token'},{status:r.status,data:r.data})+insight('This is the core security guarantee: agents can <strong>never</strong> escalate beyond their parent\'s scope. Blocks <strong>confused deputy</strong> and <strong>privilege escalation</strong> attacks.');
+    openBody(5);lucide.createIcons();
+    if(blocked){
+      setBtn(5,'Blocked',true);
+      return'skip-unlock';
+    }
   },
-
-  // ── 6: HITL Step-Up ───────────────────
-  6: async()=>{
-    // Create a step-up request (agent asks for elevated permission)
+  6:async()=>{
     const agentId=S.orch.id||S.orch.client_id;
-    const create=await api('POST','/stepup',{
-      agent_id:agentId,
-      action:'delete_all_records',
-      scope:'db:delete',
-      resource:'https://db.example.com/production',
-      delegation_chain:{sub:agentId,act:{sub:'search-agent'}},
-      metadata:{reason:'User requested full data wipe',risk:'high'}
-    });
+    const create=await api('POST','/stepup',{agent_id:agentId,action:'delete_all_records',scope:'db:delete',resource:'https://db.example.com/production',delegation_chain:{sub:agentId,act:{sub:'search-agent'}},metadata:{reason:'User requested full data wipe',risk:'high'}});
     const reqId=create.data.id;
-
-    // Poll — should be pending
     const poll1=await api('GET',`/stepup/${reqId}`);
-
-    // Human approves
     const approve=await api('POST',`/stepup/${reqId}/approve`,{approved_by:'alice@company.com'});
-
-    // Poll again — should be approved
     const poll2=await api('GET',`/stepup/${reqId}`);
-
-    $('inner-6').innerHTML=`
-      <div class="banner success"><span class="banner-icon">&#9989;</span>
-        <div><div class="banner-text">Human-in-the-loop: dangerous action approved by a human</div>
-          <div class="banner-sub">Agent requested db:delete on production. A human reviewer approved it before the agent could proceed.</div></div>
-      </div>
-      <h5 style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin:1rem 0 .5rem">1. Agent requests step-up</h5>
-      ${renderHttp({method:'POST',url:base()+'/stepup'},{status:create.status,data:create.data})}
-      <h5 style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin:1rem 0 .5rem">2. Agent polls — status: pending</h5>
-      ${renderHttp({method:'GET',url:base()+'/stepup/'+reqId},{status:poll1.status,data:{id:poll1.data.id,status:poll1.data.status,action:poll1.data.action,scope:poll1.data.scope}})}
-      <h5 style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin:1rem 0 .5rem">3. Human reviewer approves</h5>
-      ${renderHttp({method:'POST',url:base()+'/stepup/'+reqId+'/approve'},{status:approve.status,data:{id:approve.data.id,status:approve.data.status,approved_by:approve.data.approved_by,approved_at:approve.data.approved_at}})}
-      <h5 style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin:1rem 0 .5rem">4. Agent polls again — approved ✓</h5>
-      ${renderHttp({method:'GET',url:base()+'/stepup/'+reqId},{status:poll2.status,data:poll2.data})}
-      <div class="insight"><p>The agent <strong>cannot proceed</strong> until a human approves. This is critical for dangerous operations like <code>db:delete</code> on production. The approval is recorded with <code>approved_by</code> and <code>approved_at</code> for audit. In production, the poll loop runs async while the agent waits or does other work.</p></div>`;
-    openBody(6);
+    $('inner-6').innerHTML=successBanner('Human approved a dangerous action','Agent requested db:delete on production. A human reviewer approved before the agent could proceed.')+subhead('1. Agent requests step-up')+renderHttp({method:'POST',url:base()+'/stepup'},{status:create.status,data:create.data})+subhead('2. Agent polls — pending')+renderHttp({method:'GET',url:base()+'/stepup/'+reqId},{status:poll1.status,data:{id:poll1.data.id,status:poll1.data.status,action:poll1.data.action,scope:poll1.data.scope}})+subhead('3. Human reviewer approves')+renderHttp({method:'POST',url:base()+'/stepup/'+reqId+'/approve'},{status:approve.status,data:{id:approve.data.id,status:approve.data.status,approved_by:approve.data.approved_by,approved_at:approve.data.approved_at}})+subhead('4. Agent polls again — approved')+renderHttp({method:'GET',url:base()+'/stepup/'+reqId},{status:poll2.status,data:poll2.data})+insight('The agent <strong>cannot proceed</strong> until a human approves. The approval is recorded with <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">approved_by</code> and timestamp for audit.');
+    openBody(6);lucide.createIcons();
   },
-
-  // ── 7: Revoke ──────────────────────────
-  7: async()=>{
+  7:async()=>{
     await api('POST','/revoke',{token:S.orchToken,client_id:S.orch.client_id},true);
     const intro=await api('POST','/introspect',{token:S.orchToken},true);
     const exch=await api('POST','/token',{grant_type:'urn:ietf:params:oauth:grant-type:token-exchange',subject_token:S.orchToken,subject_token_type:'urn:ietf:params:oauth:token-type:access_token',client_id:S.searchClient.client_id,client_secret:S.searchClient.client_secret,audience:'https://search.example.com',scope:'search'},true);
-
-    setNode('cn-orch','revoked','REVOKED');
-    setNode('cn-search','revoked','chain killed');
-    setNode('cn-db','revoked','chain killed');
-    setEdge('ce-1','');setEdge('ce-2','');
-    setScopeBars([]);
-
-    $('inner-7').innerHTML=`
-      <div class="banner blocked"><span class="banner-icon">&#128680;</span>
-        <div><div class="banner-text">Root token revoked — entire chain killed</div>
-          <div class="banner-sub">Introspection returns active=false. New exchanges using revoked token are rejected.</div></div>
-      </div>
-      ${renderHttp({method:'POST',url:base()+'/revoke'},{status:200,data:{result:'revoked'}})}
-      ${renderHttp({method:'POST',url:base()+'/introspect'},{status:intro.status,data:intro.data})}
-      ${renderHttp({method:'POST',url:base()+'/token (re-exchange attempt)'},{status:exch.status,data:exch.data})}
-      <div class="insight"><p>In a real incident: security team revokes the compromised token. All downstream delegations that depend on it are immediately unable to generate new tokens. This is <strong>kill-switch</strong> capability for agent supply chains.</p></div>`;
-    openBody(7);
-  },
+    setNode('cn-orch','revoked','REVOKED');setNode('cn-search','revoked','chain killed');setNode('cn-db','revoked','chain killed');
+    setEdge('ce-1','revoked');setEdge('ce-2','revoked');setScopeBars([]);
+    $('inner-7').innerHTML=blockedBanner('Root token revoked — entire chain killed','Introspection returns active=false. New exchanges using revoked token are rejected.')+subhead('Revoke root token')+renderHttp({method:'POST',url:base()+'/revoke'},{status:200,data:{result:'revoked'}})+subhead('Introspect — dead')+renderHttp({method:'POST',url:base()+'/introspect'},{status:intro.status,data:intro.data})+subhead('Re-exchange attempt — rejected')+renderHttp({method:'POST',url:base()+'/token'},{status:exch.status,data:exch.data})+insight('In a real incident: security team revokes the compromised token. <strong>All downstream delegations</strong> immediately fail. Kill-switch for agent supply chains.');
+    openBody(7);lucide.createIcons();
+  }
 };
 
-/* ── Step runner with loading + error ── */
 async function runStep(n){
+  setSubStep(n,'running');
   setBtn(n,'<span class="spinner"></span>Running...',true);
   try{
-    await steps[n]();
-    unlockNext(n);
-  }catch(e){
-    $('inner-'+n).innerHTML=`<div class="err-box"><strong>Error:</strong> ${esc(e.message)}<br><br>Is authgent-server running at <code>${esc(base())}</code>?<br>Run: <code>authgent-server run</code></div>`;
-    openBody(n);
-    setStep(n,'error-state');
-    setBtn(n,'Retry',false);
+    const result=await steps[n]();
+    if(result==='skip-unlock'){
+      setSubStep(n,'blocked');
+      const p=stepToPhase[n];
+      setPhaseState(p,'done');
+      $('phase-btn-'+p).innerHTML='<i data-lucide="shield-x" class="w-3.5 h-3.5"></i> Blocked';$('phase-btn-'+p).disabled=true;
+      if(p<3){setPhaseState(p+1,'active');if(!autoPlaying)selectPhase(p+1)}
+      lucide.createIcons();
+    } else {
+      unlockNext(n);
+    }
+  } catch(e){
+    $('inner-'+n).innerHTML=`<div class="bg-rose2/10 border border-rose2/25 rounded-xl p-4 text-sm anim-in"><div class="flex items-center gap-2 text-rose2 font-semibold mb-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Connection Error</div><p class="text-gray-400 text-xs">${esc(e.message)}</p><p class="text-gray-500 text-xs mt-2">Is authgent-server running at <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded font-mono">${esc(base())}</code>?</p></div>`;
+    openBody(n);setSubStep(n,'error');setBtn(n,'Retry',false);lucide.createIcons();
   }
 }
 
-/* ── Reset ──────────────────────────── */
-function resetAll(){
-  for(let i=1;i<=7;i++){
-    setStep(i,i===1?'active':'locked');
-    closeBody(i);
-    $('inner-'+i).innerHTML='';
-    setBtn(i,['','Register','Get Token','Exchange','Exchange','Attack','Request Approval','Revoke'][i],false);
+async function runPhase(p){
+  selectPhase(p);setPhaseState(p,'active');
+  const stps=phaseSteps[p];
+  for(const n of stps){
+    await runStep(n);
+    $('step-'+n).scrollIntoView({behavior:'smooth',block:'nearest'});
+    if(n!==stps[stps.length-1])await new Promise(r=>setTimeout(r,1200));
   }
-  setNode('cn-orch','idle','not registered');
-  setNode('cn-search','idle','not registered');
-  setNode('cn-db','idle','not registered');
-  setEdge('ce-1','');setEdge('ce-2','');
-  setScopeBars([]);
-  Object.keys(S).forEach(k=>S[k]=null);
-  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+async function autoPlay(){
+  if(autoPlaying)return;autoPlaying=true;
+  $('autoPlayBtn').innerHTML='<span class="spinner"></span> Playing...';$('autoPlayBtn').disabled=true;
+  resetAll();await new Promise(r=>setTimeout(r,600));
+  for(let p=1;p<=3;p++){
+    await runPhase(p);
+    if(p<3)await new Promise(r=>setTimeout(r,2200));
+  }
+  autoPlaying=false;
+  $('autoPlayBtn').innerHTML='<i data-lucide="play" class="w-4 h-4"></i> Watch Again';$('autoPlayBtn').disabled=false;
+  lucide.createIcons();
+}
+
+function resetAll(){
+  const labels=['','Register','Authenticate','Delegate','Delegate','Attack','Request Approval','Revoke'];
+  for(let i=1;i<=7;i++){setSubStep(i,'');closeBody(i);$('inner-'+i).innerHTML='';setBtn(i,labels[i],false)}
+  /* reset pipe-arrows */
+  [1,2,3,6].forEach(n=>{const a=$('parr-'+n);if(a)a.className='pipe-arrow'});
+  /* reset first pipe-node in each phase to active */
+  [1,5,6].forEach(n=>{const p=$('pipe-'+n);if(p){p.className='pipe-node pactive'}});
+  for(let p=1;p<=3;p++){
+    setPhaseState(p,p===1?'active':'');
+    $('phase-btn-'+p).disabled=false;
+    $('phase-btn-'+p).innerHTML='<i data-lucide="play" class="w-3 h-3"></i> Run';
+  }
+  setNode('cn-orch','idle','Plans & delegates');setNode('cn-search','idle','Finds data');setNode('cn-db','idle','Accesses database');
+  setEdge('ce-1','');setEdge('ce-2','');setScopeBars([]);
+  Object.keys(S).forEach(k=>S[k]=null);currentPhase=1;selectPhase(1);lucide.createIcons();
 }
 </script>
 </body>
