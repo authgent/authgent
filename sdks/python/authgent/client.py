@@ -312,12 +312,19 @@ class AgentAuthClient:
     async def revoke_token(
         self,
         token: str,
-        client_id: str | None = None,
+        client_id: str,
+        client_secret: str,
     ) -> None:
-        """Revoke an access or refresh token."""
-        data: dict = {"token": token}
-        if client_id:
-            data["client_id"] = client_id
+        """Revoke an access or refresh token.
+
+        Requires client authentication (client_id + client_secret).
+        Only the token's owning client can revoke it.
+        """
+        data: dict = {
+            "token": token,
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             resp = await client.post(

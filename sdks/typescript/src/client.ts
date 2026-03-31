@@ -151,10 +151,21 @@ export class AgentAuthClient {
     return this.parseTokenResult(resp);
   }
 
-  /** Revoke an access or refresh token. */
-  async revokeToken(token: string, clientId?: string): Promise<void> {
-    const body = new URLSearchParams({ token });
-    if (clientId) body.set("client_id", clientId);
+  /** Revoke an access or refresh token.
+   *
+   * Requires client authentication (clientId + clientSecret).
+   * Only the token's owning client can revoke it.
+   */
+  async revokeToken(
+    token: string,
+    clientId: string,
+    clientSecret: string,
+  ): Promise<void> {
+    const body = new URLSearchParams({
+      token,
+      client_id: clientId,
+      client_secret: clientSecret,
+    });
 
     const resp = await fetch(`${this.baseUrl}/revoke`, {
       method: "POST",
