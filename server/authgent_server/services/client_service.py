@@ -58,6 +58,10 @@ class ClientService:
             allowed_resources=request.allowed_resources,
             token_endpoint_auth_method=request.token_endpoint_auth_method,
             dpop_bound_access_tokens=request.dpop_bound_access_tokens,
+            jwks_uri=request.jwks_uri,
+            jwks=request.jwks,
+            client_uri=request.client_uri,
+            contacts=request.contacts or None,
             agent_id=agent_id,
         )
         db.add(client)
@@ -74,6 +78,10 @@ class ClientService:
             scope=request.scope,
             token_endpoint_auth_method=request.token_endpoint_auth_method,
             dpop_bound_access_tokens=request.dpop_bound_access_tokens,
+            jwks_uri=request.jwks_uri,
+            jwks=request.jwks,
+            client_uri=request.client_uri,
+            contacts=request.contacts or [],
         )
 
     async def authenticate_client(

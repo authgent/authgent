@@ -140,10 +140,67 @@ authgent-server run
 ```
 
 Auto-discovery endpoints:
-- `GET /.well-known/oauth-authorization-server` — server metadata
+- `GET /.well-known/oauth-authorization-server` — server metadata (RFC 8414)
 - `GET /.well-known/oauth-protected-resource` — resource server metadata (RFC 9728)
-- `GET /.well-known/jwks.json` — public signing keys
-- `GET /docs` — interactive API docs (Swagger)
+- `GET /.well-known/openid-configuration` — OIDC discovery alias
+- `GET /.well-known/jwks.json` — public signing keys (RFC 7517)
+- `GET /openapi.json` — full OpenAPI spec with `securitySchemes` for automated parsing
+- `GET /docs` — interactive API docs (Swagger UI with PKCE support)
+
+### Foreign Agent Auto-Discovery
+
+A foreign agent with **zero prior configuration** can fully bootstrap itself against authgent. Here's the complete flow:
+
+**Step 1 — Hit a protected endpoint, get pointed to the auth server:**
+```bash
+curl -i https://your-mcp-server.example.com/tools/search
+# HTTP/1.1 401 Unauthorized
+# WWW-Authenticate: Bearer realm="authgent",
+#   authorization_uri="http://localhost:8000/token",
+#   resource_metadata="http://localhost:8000/.well-known/oauth-protected-resource",
+#   error="invalid_token"
+```
+
+**Step 2 — Fetch server metadata to learn capabilities:**
+```bash
+curl -s http://localhost:8000/.well-known/oauth-authorization-server | jq .
+# {
+#   "issuer": "http://localhost:8000",
+#   "token_endpoint": "http://localhost:8000/token",
+#   "registration_endpoint": "http://localhost:8000/register",
+#   "grant_types_supported": ["client_credentials", "authorization_code",
+#     "urn:ietf:params:oauth:grant-type:token-exchange", ...],
+#   "code_challenge_methods_supported": ["S256"],
+#   ...
+# }
+```
+
+**Step 3 — Dynamically register (RFC 7591):**
+```bash
+curl -s -X POST http://localhost:8000/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_name": "foreign-search-bot",
+    "grant_types": ["client_credentials"],
+    "scope": "search:execute",
+    "client_uri": "https://foreign-agent.example.com",
+    "contacts": ["admin@foreign-agent.example.com"]
+  }' | jq .
+# { "client_id": "agnt_xxx", "client_secret": "sec_xxx", ... }
+```
+
+**Step 4 — Request a scoped token and call the protected resource:**
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8000/token \
+  -d "grant_type=client_credentials&client_id=agnt_xxx&client_secret=sec_xxx&scope=search:execute" \
+  | jq -r .access_token)
+
+curl -s https://your-mcp-server.example.com/tools/search \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"query": "latest AI papers"}'
+```
+
+No SDK required. No hardcoded URLs. The entire flow is discoverable from a single 401 response.
 
 ### Register an Agent & Get a Token
 
