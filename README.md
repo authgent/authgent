@@ -2,10 +2,10 @@
 
 # authgent
 
-### Add OAuth to any MCP server in minutes. Track every agent-to-agent delegation.
+### The OAuth 2.1 server that knows who delegated what to whom.
 
-Self-hosted OAuth 2.1 server with native delegation chain tracking.
-`pip install`, 60 seconds, done. Works alongside Auth0/Okta or standalone.
+Self-hosted auth for AI agents — login, delegation chains, scope enforcement, and kill switch.<br>
+`pip install`, 60 seconds, works standalone or alongside Auth0/Okta.
 
 [![CI](https://github.com/authgent/authgent/actions/workflows/ci.yml/badge.svg)](https://github.com/authgent/authgent/actions/workflows/ci.yml)
 [![PyPI - Server](https://img.shields.io/pypi/v/authgent-server?label=authgent-server&color=blue)](https://pypi.org/project/authgent-server/)
@@ -15,11 +15,57 @@ Self-hosted OAuth 2.1 server with native delegation chain tracking.
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg)](https://python.org)
 [![Node 20+](https://img.shields.io/badge/node-20+-339933.svg)](https://nodejs.org)
 
-[Quick Start](#60-second-setup) · [When to use authgent](#when-to-use-authgent) · [SDKs](#sdks) · [Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md)
+<img src="docs/assets/demo.gif" alt="authgent demo — register agents, delegate with scope narrowing, block escalation, revoke chain" width="720">
+
+```bash
+pip install authgent-server && authgent-server run
+```
+
+[Live Playground](https://authgent.github.io/authgent/) · [Quick Start](#quick-start) · [When to use authgent](#when-to-use-authgent) · [SDKs](#sdks) · [Architecture](ARCHITECTURE.md)
 
 </div>
 
 ---
+
+## When to use authgent
+
+Every IdP handles login. But **login is just the first token.** When agents start delegating to other agents, you need something that tracks the chain:
+
+```
+Human → Agent A → Agent B → Agent C → Database
+                                          ↑
+              Who authorized THIS access?
+              Was scope reduced at each hop?
+              Can we prove the chain wasn't forged?
+```
+
+authgent is a complete OAuth 2.1 server — it handles agent login (Auth Code + PKCE, Client Credentials, Device Auth) **and** tracks what happens after. One server for the full lifecycle.
+
+### Use authgent when you need...
+
+| Scenario | authgent | Auth0 / Okta | Keycloak |
+|:---------|:--------:|:------------:|:--------:|
+| **Agent login** — Auth Code + PKCE, Client Credentials, Device Auth | ✅ built-in | ✅ built-in | ✅ built-in |
+| **MCP server auth** — add OAuth to any MCP server | ✅ built-in | Add-on | Community guide |
+| **Delegation chain tracking** — who delegated what to whom | ✅ native, one server | Requires 4 products (Token Vault + FGA + XAA + Async Auth) | Not built-in |
+| **Scope enforcement per hop** — agents can't escalate | ✅ automatic | Manual policy wiring | Manual |
+| **Cryptographic delegation receipts** — prove chains weren't forged | ✅ built-in | [Not available](https://www.okta.com/blog/) — Okta acknowledges no IdP ships this natively | Not available |
+| **Human-in-the-loop mid-chain** — require approval for dangerous ops | ✅ built-in | Separate product | Not built-in |
+| **60-second setup** — `pip install` and go | ✅ | Account + dashboard + config | Java + XML + 20 min |
+
+### Already using Auth0/Okta?
+
+authgent works **alongside** your existing IdP. Keep Auth0 for human SSO, social login, and compliance — bridge into authgent via token exchange for the agent delegation layer:
+
+```bash
+# Exchange an Auth0 id_token to start a delegation chain in authgent
+curl -X POST http://localhost:8000/token \
+  -d "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
+  -d "subject_token=$AUTH0_ID_TOKEN" \
+  -d "subject_token_type=urn:ietf:params:oauth:token-type:id_token"
+```
+
+Or use authgent standalone — it handles the full auth lifecycle without any external IdP.
 
 ## 60-Second Setup
 
@@ -31,63 +77,19 @@ authgent-server run
 That's it. Full OAuth 2.1 server at `localhost:8000`. No account signup, no dashboard, no Java.
 First run auto-generates a secret key and `.env` — no separate init step needed.
 
-- **MCP auth server** out of the box — OAuth discovery, dynamic client registration, scoped tool access
-- **Agent identity** — each agent gets its own credentials, scoped capabilities, lifecycle management
-- **Delegation chain tracking** — when Agent A delegates to Agent B, every hop is recorded in the token
+What you get out of the box:
+
+- **Delegation chain tracking** — when Agent A delegates to Agent B, every hop is recorded in the JWT
 - **Scope enforcement per hop** — agents can only give away permissions they have, never escalate
+- **MCP auth server** — OAuth discovery, dynamic client registration, scoped tool access
 - **Human-in-the-loop** — require human approval for sensitive operations mid-chain
-- **DPoP token binding** — tokens are bound to the sender’s key, useless if stolen from logs
+- **DPoP token binding** — tokens are bound to the sender's key, useless if stolen from logs
 - **Bridge from Auth0/Okta** — exchange external id_tokens to start a delegation chain
 
-## When to use authgent
+<details>
+<summary><b>How delegation chains work inside the JWT</b></summary>
 
-Auth0, Keycloak, and Stytch handle login — brilliantly. But **login is just the first token.** When agents start delegating to other agents, you need something that tracks the chain:
-
-```
-Human → Agent A → Agent B → Agent C → Database
-                                          ↑
-              Who authorized THIS access?
-              Was scope reduced at each hop?
-              Can we prove the chain wasn't forged?
-```
-
-Auth0 issues the first token. It doesn't track what happens after. authgent does — because it was built for the chain, not just the first hop.
-
-### Use authgent when you need...
-
-| Scenario | authgent | Auth0 / Okta | Keycloak |
-|:---------|:--------:|:------------:|:--------:|
-| **MCP server auth** — add OAuth to any MCP server | ✅ built-in | Add-on | Community guide |
-| **Delegation chain tracking** — who delegated what to whom | ✅ native, one server | Requires 4 products (Token Vault + FGA + XAA + Async Auth) | Not built-in |
-| **Scope enforcement per hop** — agents can't escalate | ✅ automatic | Manual policy wiring | Manual |
-| **Cryptographic delegation receipts** — prove chains weren't forged | ✅ built-in | [Not available](https://www.okta.com/blog/) — Okta acknowledges no IdP ships this natively | Not available |
-| **Human-in-the-loop mid-chain** — require approval for dangerous ops | ✅ built-in | Separate product | Not built-in |
-| **60-second setup** — `pip install` and go | ✅ | Account + dashboard + config | Java + XML + 20 min |
-
-### Use Auth0/Okta when you need...
-
-- **Human SSO** — social login, MFA, enterprise SAML/OIDC federation
-- **Compliance certifications** — SOC 2 Type II, HIPAA, FedRAMP
-- **Managed service** — you don't want to run infrastructure
-- **Existing user base** — millions of human accounts already in Auth0
-
-### Best of both worlds
-
-authgent bridges from Auth0/Okta via token exchange. Auth0 handles human login, authgent handles the agent delegation chain:
-
-```bash
-# Exchange an Auth0 id_token to start a delegation chain in authgent
-curl -X POST http://localhost:8000/token \
-  -d "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
-  -d "subject_token=$AUTH0_ID_TOKEN" \
-  -d "subject_token_type=urn:ietf:params:oauth:token-type:id_token"
-```
-
-**You don't have to choose.** Use Auth0 for login. Use authgent for everything after.
-
-## The Delegation Chain Problem
-
-When agents delegate to other agents, the token at each hop should answer: *who is acting, on behalf of whom, with what scope, and can we prove it?*
+When agents delegate to other agents, the token at each hop answers: *who is acting, on behalf of whom, with what scope, and can we prove it?*
 
 **Hop 1 — Human authorizes Orchestrator:**
 ```json
@@ -114,6 +116,8 @@ At each hop: scope can only shrink, the `act` chain grows, DPoP rebinds the toke
 
 **Why chain integrity matters:** RFC 8693 token exchange has a [structural weakness](http://www.mail-archive.com/oauth@ietf.org/msg25680.html) — a compromised intermediary can splice tokens from different chains. authgent mitigates this with per-step signed receipts, the first open-source implementation of this defense.
 
+</details>
+
 ## Quick Start
 
 ### Option 1: pip — [pypi.org/project/authgent-server](https://pypi.org/project/authgent-server/)
@@ -122,6 +126,8 @@ At each hop: scope can only shrink, the `act` chain grows, DPoP rebinds the toke
 pip install authgent-server
 authgent-server run     # auto-initializes on first run, starts on http://localhost:8000
 ```
+
+> Defaults to SQLite for dev. For production, set `AUTHGENT_DATABASE_URL=postgresql+asyncpg://...` — see [Configuration](#configuration-authgent-environment-variables).
 
 ### Option 2: Docker
 
@@ -242,19 +248,9 @@ curl -s -X POST http://localhost:8000/token \
 
 ### Bridge from Auth0 / Okta / Any OIDC Provider
 
-Already using Auth0? See [Best of both worlds](#best-of-both-worlds) — exchange external id_tokens to start a delegation chain.
+Already using Auth0? See [Already using Auth0/Okta?](#already-using-auth0okta) — exchange external id_tokens to start a delegation chain.
 
 Configure trusted issuers: `AUTHGENT_TRUSTED_OIDC_ISSUERS='["https://your-tenant.auth0.com/"]'`
-
-## See It In Action
-
-3 agents, scope narrowing, escalation attack blocked, human-in-the-loop, revocation — all live against a real server:
-
-<p align="center">
-  <img src="docs/assets/demo.gif" alt="authgent terminal demo — multi-hop agent delegation with scope narrowing" width="720">
-</p>
-
-> **Run it yourself:** `pip install rich httpx && python demo_showcase.py` (requires a running server)
 
 ## CLI Commands
 
@@ -355,7 +351,7 @@ One server per environment. All agents point to the same authgent-server — it'
 | **[OpenAI Agents SDK](examples/openai_agents/)** | Auth pattern for multi-agent orchestration + handoffs | `python examples/openai_agents/openai_agents_demo.py` |
 | **[CrewAI](examples/crewai/)** | Per-agent identity + scoped tokens for crew members | `python examples/crewai/crewai_demo.py` |
 | **[OpenClaw](examples/openclaw/)** | 5 drop-in skills for secure agent delegation (zero code changes) | `python examples/openclaw/demo_openclaw_authgent.py` |
-| **[Interactive Playground](playground/)** | 7-step visual demo with HITL approval | `docker compose up` → [localhost:3000](http://localhost:3000) |
+| **[Interactive Playground](playground/)** | 7-step visual demo with HITL approval | [Try it live](https://authgent.github.io/authgent/) or `docker compose up` → [localhost:3000](http://localhost:3000) |
 
 ## SDKs
 
@@ -514,12 +510,12 @@ authgent/
 │   │   ├── config.py            # Pydantic Settings (AUTHGENT_* env vars)
 │   │   ├── crypto.py            # HKDF + AES-256-GCM
 │   │   └── errors.py            # RFC 9457 Problem Details hierarchy
-│   ├── tests/                   # 350+ tests — unit, integration, security, E2E
+│   ├── tests/                   # 370+ tests — unit, integration, security, E2E
 │   ├── migrations/              # Alembic (SQLite dev → PostgreSQL prod)
 │   └── Dockerfile
 ├── sdks/
 │   ├── python/                  # authgent SDK (PyPI: authgent)
-│   │   └── tests/               # 29 tests
+│   │   └── tests/               # 48 tests
 │   └── typescript/              # authgent SDK (npm: authgent)
 │       └── tests/               # 47 vitest tests
 ├── examples/                    # Runnable integration examples
@@ -608,7 +604,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for development
 git clone https://github.com/authgent/authgent.git
 cd authgent/server
 pip install -e ".[dev]"
-pytest -v   # 350+ tests
+pytest -v   # 370+ tests
 ```
 
 ## License

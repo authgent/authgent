@@ -192,7 +192,7 @@ server/
 │   ├── schemas/            # Pydantic request/response schemas
 │   ├── services/           # 10 business logic services
 │   └── templates/          # Jinja2 consent page
-├── tests/                  # 29 test files, ~345 tests
+├── tests/                  # 29 test files, 372 tests
 ├── migrations/             # Alembic (alembic.ini + env.py + versions/)
 └── Dockerfile
 ```
