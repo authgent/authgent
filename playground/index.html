@@ -7,455 +7,1278 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 <script>
 tailwind.config={theme:{extend:{
   fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']},
   colors:{
-    bg:{DEFAULT:'#06060b','2':'#0a0a14','3':'#0f0f1a'},
-    surface:{DEFAULT:'#12121f','2':'#1a1a2e','3':'#22223a','4':'#2a2a44'},
-    border:{DEFAULT:'#252545',hl:'#3a3a65'},
-    accent:{DEFAULT:'#7c5cfc','2':'#9b7fff'},
-    emr:{DEFAULT:'#34d399'},rose2:{DEFAULT:'#f87171'},
-    amb:{DEFAULT:'#fbbf24'},cyn:{DEFAULT:'#22d3ee'},sky2:{DEFAULT:'#60a5fa'},
+    zinc:{950:'#09090b',900:'#18181b',800:'#27272a',700:'#3f3f46',600:'#52525b',500:'#71717a',400:'#a1a1aa',300:'#d4d4d8',200:'#e4e4e7',100:'#f4f4f5',50:'#fafafa'},
+    em:'#10b981',
+    rd:'#ef4444',
+    am:'#f59e0b',
+    cy:'#06b6d4',
   }
 }}}
 </script>
 <style>
-body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(124,92,252,.08),transparent)}
-.phase-card{position:relative;border-radius:20px;border:2px solid #252545;background:#12121f;padding:20px 22px;cursor:pointer;transition:all .4s;opacity:.32;user-select:none}
-.phase-card.p-active{opacity:1}.phase-card.p-done{opacity:1}.phase-card.p-error{opacity:1;border-color:rgba(248,113,113,.5)}
-.phase-card.p-selected{outline:2.5px solid rgba(124,92,252,.45);outline-offset:4px}
-.phase-card[data-phase="1"].p-active{border-color:#34d399;box-shadow:0 0 40px rgba(52,211,153,.1)}
-.phase-card[data-phase="1"].p-done{border-color:rgba(52,211,153,.35)}.phase-card[data-phase="1"].p-selected{outline-color:rgba(52,211,153,.5)}
-.phase-card[data-phase="2"].p-active{border-color:#f87171;box-shadow:0 0 40px rgba(248,113,113,.1)}
-.phase-card[data-phase="2"].p-done{border-color:rgba(248,113,113,.35)}.phase-card[data-phase="2"].p-selected{outline-color:rgba(248,113,113,.5)}
-.phase-card[data-phase="3"].p-active{border-color:#fbbf24;box-shadow:0 0 40px rgba(251,191,36,.1)}
-.phase-card[data-phase="3"].p-done{border-color:rgba(251,191,36,.35)}.phase-card[data-phase="3"].p-selected{outline-color:rgba(251,191,36,.5)}
-.sub-step{border:1.5px solid #252545;border-radius:16px;overflow:hidden;margin-bottom:14px;background:#0d0d16;transition:all .4s}
-.sub-step.ss-running{border-color:#7c5cfc;box-shadow:0 0 20px rgba(124,92,252,.08)}
-.sub-step.ss-done{border-color:rgba(52,211,153,.25)}.sub-step.ss-blocked{border-color:rgba(248,113,113,.25)}.sub-step.ss-error{border-color:rgba(248,113,113,.5)}
-.phase-detail{display:none}.phase-detail.visible{display:block;animation:fadeSlide .3s ease-out}
-.card-body{max-height:0;overflow:hidden;transition:max-height .6s cubic-bezier(.25,.8,.25,1)}.card-body.open{max-height:8000px}
-.code-block{background:#0a0a14;border:1px solid #252545;border-radius:12px;overflow:hidden;margin-bottom:12px}
-.code-head{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#12121f;border-bottom:1px solid #252545;font-size:12px}
-.code-body{padding:14px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;overflow-x:auto;white-space:pre-wrap;word-break:break-all;color:#b0b0c8}
-.scope-bar{height:100%;border-radius:9999px;transition:width .8s cubic-bezier(.25,.8,.25,1)}
+*{box-sizing:border-box}
+body{background:#09090b;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:48px 48px}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#3f3f46;border-radius:3px}
+
+/* Pipeline nodes — idle state is visible outline, not hidden */
+.pnode{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(24,24,27,.6);border:1.5px solid #3f3f46;border-radius:10px;transition:all .4s ease;opacity:.65;cursor:default;user-select:none;width:166px}
+.pnode .badge{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;background:#27272a;color:#52525b;flex-shrink:0;transition:all .4s}
+.pnode .info{min-width:0}
+.pnode .title{font-size:12px;font-weight:700;color:#71717a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .4s}
+.pnode .sub{font-size:10px;color:#52525b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pnode.next{opacity:1;border-color:#52525b;cursor:pointer;background:#18181b}
+.pnode.next:hover{border-color:#a1a1aa;transform:translate(-50%,-50%) translateY(-1px);box-shadow:0 6px 20px rgba(0,0,0,.4)}
+.pnode.next .badge{background:#3f3f46;color:#fafafa}
+.pnode.next .title{color:#d4d4d8}
+.pnode.next .sub{color:#71717a}
+.pnode.running{opacity:1;border-color:#06b6d4;background:#18181b;box-shadow:0 0 24px rgba(6,182,212,.12)}
+.pnode.running .badge{background:rgba(6,182,212,.15);color:#06b6d4}
+.pnode.running .title{color:#d4d4d8}
+.pnode.done{opacity:1;border-color:#10b981;background:#18181b;cursor:pointer}
+.pnode.done:hover{box-shadow:0 0 16px rgba(16,185,129,.12);transform:translate(-50%,-50%) translateY(-1px)}
+.pnode.done .badge{background:rgba(16,185,129,.12);color:#10b981}
+.pnode.done .title{color:#10b981}
+.pnode.done .sub{color:#71717a}
+.pnode.blocked{opacity:1;border-color:#ef4444;background:#18181b;cursor:pointer}
+.pnode.blocked:hover{box-shadow:0 0 16px rgba(239,68,68,.12);transform:translate(-50%,-50%) translateY(-1px)}
+.pnode.blocked .badge{background:rgba(239,68,68,.12);color:#ef4444}
+.pnode.blocked .title{color:#ef4444}
+.pnode.viewing{outline:2px solid #06b6d4;outline-offset:2px}
+.pnode.revoked{opacity:.6;border-color:#ef4444;border-style:dashed;background:rgba(24,24,27,.5)}
+.pnode.revoked .badge{background:rgba(239,68,68,.1);color:#ef4444}
+.pnode.revoked .title{color:#ef4444}
+
+/* Fork diamond */
+.fork-diamond{position:absolute;transform:translate(-50%,-50%) rotate(45deg);width:20px;height:20px;background:#27272a;border:1.5px solid #52525b;transition:all .5s;opacity:.6}
+.fork-diamond.lit{opacity:1;background:#18181b;border-color:#71717a}
+
+/* Branch labels — dim but readable by default */
+.branch-label{position:absolute;transform:translate(-50%,-50%);font-size:11px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;opacity:.25;transition:opacity .6s}
+.branch-label.visible{opacity:1}
+
+/* SVG connections — visible outlines by default */
+.conn{fill:none;stroke:#3f3f46;stroke-width:2;stroke-linecap:round;transition:stroke .5s,opacity .5s;opacity:.4;stroke-dasharray:4 6}
+.conn.lit{stroke:#52525b;opacity:.6;stroke-dasharray:none}
+.conn.active{stroke:#06b6d4;opacity:.8;stroke-dasharray:8 4;animation:flowDash .8s linear infinite}
+.conn.done{stroke:#10b981;opacity:.7;stroke-dasharray:none;animation:none}
+.conn.blocked{stroke:#ef4444;opacity:.6;stroke-dasharray:4 4;animation:none}
+.conn.revoked{stroke:#ef4444;opacity:.35;stroke-dasharray:4 4;animation:none}
+@keyframes flowDash{to{stroke-dashoffset:-12}}
+
+/* Arrowheads */
+.ah-default{fill:#52525b}.ah-done{fill:#10b981}.ah-active{fill:#06b6d4}.ah-blocked{fill:#ef4444}.ah-revoked{fill:#ef4444;opacity:.4}
+
+/* Scope chips */
+.scope-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;border:1px solid #3f3f46;background:#18181b;color:#71717a;transition:all .5s}
+.scope-chip.on{color:#fafafa;border-color:currentColor}
+.scope-chip.off{opacity:.3;text-decoration:line-through}
+.scope-chip .dot{width:6px;height:6px;border-radius:50%;background:currentColor;transition:all .5s;opacity:.4}
+.scope-chip.on .dot{opacity:1;box-shadow:0 0 6px currentColor}
+
+/* Tabs */
+.tab-btn{padding:5px 14px;border-radius:8px;font-size:11px;font-weight:700;transition:all .25s;color:#71717a;background:transparent;border:1.5px solid transparent;cursor:pointer}
+.tab-btn:hover{color:#a1a1aa}
+.tab-btn.active{color:#fafafa;background:#18181b;border-color:#3f3f46}
+.fcard{background:#18181b;border:1px solid #27272a;border-radius:10px;padding:12px 14px;transition:border-color .3s}
+.fcard:hover{border-color:#3f3f46}
+.fcard .ftag{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;letter-spacing:.03em}
+.dd-section-title{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#52525b;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #27272a;display:flex;align-items:center;gap:8px}
+.dd-result{background:#0f0f12;border:1px solid #27272a;border-radius:8px;padding:10px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;color:#a1a1aa;overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto}
+
+/* Code blocks */
+.cblock{background:#0f0f12;border:1px solid #27272a;border-radius:8px;overflow:hidden;margin-bottom:8px}
+.cblock-head{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#141417;border-bottom:1px solid #27272a;font-size:11px}
+.cblock-body{padding:10px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.65;overflow-x:auto;white-space:pre-wrap;word-break:break-all;color:#a1a1aa}
+
+/* Next button */
+.next-btn{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;transition:all .25s;border:1.5px solid rgba(16,185,129,.4);background:rgba(16,185,129,.08);color:#10b981;cursor:pointer;white-space:nowrap}
+.next-btn:hover:not(:disabled){background:rgba(16,185,129,.15);border-color:#10b981}
+.next-btn:disabled{opacity:.3;cursor:default}
+.next-btn.finished{border-color:#3f3f46;background:#18181b;color:#a1a1aa}
+@keyframes nextPulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.25)}50%{box-shadow:0 0 14px 3px rgba(16,185,129,.15)}}
+.next-btn:not(:disabled):not(.finished){animation:nextPulse 2.5s ease-in-out infinite}
+.next-btn:hover:not(:disabled){animation:none}
+
+/* Step nav pills */
+.step-pill{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;transition:all .25s;border:1.5px solid transparent;cursor:default;color:#52525b;background:#18181b}
+.step-pill.has{cursor:pointer;border-color:#3f3f46;color:#a1a1aa;background:#27272a}
+.step-pill.has:hover{border-color:#71717a;background:#3f3f46}
+.step-pill.viewing{border-color:#06b6d4;color:#06b6d4;background:rgba(6,182,212,.1);box-shadow:0 0 8px rgba(6,182,212,.15)}
+
+/* Split panel */
+.detail-left{border-right:1px solid #27272a}
+@media(max-width:1023px){.detail-left{border-right:none;border-bottom:1px solid #27272a}}
+
+/* Agent cards in narrative */
+.agent-card{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid;transition:all .3s}
+.chain-arrow{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:8px;background:#18181b;border:1px solid #3f3f46}
+.chain-line{width:28px;height:2px;background:#3f3f46;position:relative}
+.chain-line::after{content:'';position:absolute;right:-1px;top:-3px;border:4px solid transparent;border-left:6px solid #3f3f46}
+
+/* Progress dots */
+.prog-dot{width:6px;height:6px;border-radius:50%;background:#3f3f46;transition:all .3s}
+.prog-dot.done{background:#10b981}.prog-dot.active{background:#06b6d4;box-shadow:0 0 6px #06b6d4}.prog-dot.blocked{background:#ef4444}
+
+/* Animations */
 @keyframes spin{to{transform:rotate(360deg)}}
-.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;margin-right:6px;vertical-align:middle}
-@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}.shake-it{animation:shake .5s ease-in-out}
-@keyframes fadeSlide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.anim-in{animation:fadeSlide .4s ease-out}
-::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#252545;border-radius:3px}
-.topo-line{position:relative;display:flex;align-items:center;justify-content:center;height:36px}
-.topo-line::before{content:'';position:absolute;left:50%;width:2px;height:100%;background:#252545;transition:all .5s}
-.topo-line.done::before{background:#34d399}.topo-line.revoked::before{background:#f87171}
-/* Pipeline nodes */
-.pipe-node{flex-shrink:0;width:88px;text-align:center;padding:7px 4px 9px;border-radius:12px;border:1.5px solid #252545;background:#12121f;cursor:default;transition:all .4s;opacity:.28;position:relative}
-.pipe-node.pactive{opacity:1;border-color:#7c5cfc;box-shadow:0 0 20px rgba(124,92,252,.15);background:linear-gradient(135deg,rgba(124,92,252,.08),#12121f)}
-.pipe-node.pdone{opacity:1;border-color:rgba(52,211,153,.5)}
-.pipe-node.pblocked{opacity:1;border-color:rgba(248,113,113,.5)}
-.pipe-node.perror{opacity:1;border-color:rgba(248,113,113,.5)}
-.pipe-node .picon{width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:#22223a;border:1px solid #252545;transition:all .4s;vertical-align:middle}
-.pipe-node.pactive .picon{background:#7c5cfc;border-color:#7c5cfc}.pipe-node.pactive .picon i{color:#fff!important}
-.pipe-node.pdone .picon{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.4)}.pipe-node.pdone .picon i{color:#34d399!important}
-.pipe-node.pblocked .picon{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.4)}.pipe-node.pblocked .picon i{color:#f87171!important}
-.pipe-node .ptitle{font-size:9px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px;line-height:1}
-.pipe-node .pstep{font-size:10px;font-weight:800;vertical-align:middle;margin-left:2px}
-/* Pipeline arrows */
-.pipe-arrow{flex:1;min-width:24px;max-width:120px;display:flex;flex-direction:column;align-items:center;padding:0 2px}
-.pipe-arrow .aw{display:flex;align-items:center;width:100%}
-.pipe-arrow .al{flex:1;height:2px;background:#252545;transition:background .5s}
-.pipe-arrow .ah{width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;border-left:7px solid #252545;transition:border-color .5s;flex-shrink:0}
-.pipe-arrow.adone .al{background:#34d399}.pipe-arrow.adone .ah{border-left-color:#34d399}
-.pipe-arrow.aactive .al{background:#7c5cfc}.pipe-arrow.aactive .ah{border-left-color:#7c5cfc}
-.pipe-arrow .alabel{font-size:8px;color:#6e6e8a;font-family:'JetBrains Mono',monospace;white-space:nowrap;margin-top:2px}
-.pipe-arrow.adone .alabel{color:#34d399}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;margin-right:5px;vertical-align:middle}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+.shake-it{animation:shake .5s ease-in-out}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.anim-in{animation:fadeUp .35s ease-out}
+@keyframes pulse-border{0%,100%{border-color:rgba(6,182,212,.4)}50%{border-color:rgba(6,182,212,.8)}}
+.pnode.next{animation:pulse-border 2s ease-in-out infinite}
+.pnode.next:hover{animation:none}
+
+/* Responsive */
+@media(max-width:768px){
+  .pnode{width:140px;padding:8px 10px;gap:8px}
+  .pnode .badge{width:22px;height:22px;font-size:10px}
+  .pnode .title{font-size:11px}
+  .pnode .sub{font-size:9px}
+  .fcard{padding:10px 12px}
+  .cblock-body{font-size:10px;padding:8px}
+  .dd-result{font-size:10px;padding:8px}
+}
 </style>
 </head>
-<body class="bg-bg text-white min-h-screen overflow-x-hidden antialiased font-sans">
+<body class="text-zinc-100 min-h-screen antialiased font-sans">
 
-<!-- TOP BAR -->
-<header class="relative z-10 border-b border-border/50 bg-bg/80 backdrop-blur-md sticky top-0">
-  <div class="max-w-[1800px] mx-auto px-4 md:px-6 py-2.5 flex items-center gap-3 flex-wrap">
-    <h1 class="text-base md:text-lg font-black bg-gradient-to-r from-white to-accent-2 bg-clip-text text-transparent whitespace-nowrap">authgent<span class="text-gray-500 font-normal text-xs ml-1.5 hidden md:inline">playground</span></h1>
-    <div class="flex-1"></div>
-    <div class="flex items-center gap-2 bg-surface rounded-lg border border-border px-3 py-1.5">
-      <i data-lucide="globe" class="w-3.5 h-3.5 text-gray-500"></i>
-      <input id="serverUrl" type="text" class="bg-transparent text-xs font-mono text-gray-300 outline-none w-36 md:w-44" placeholder="http://localhost:8000" onchange="checkServer()">
-      <span class="w-2 h-2 rounded-full bg-emr shadow-[0_0_8px_#34d399] transition-all" id="serverStatus"></span>
+<!-- ─── HEADER ─── -->
+<header class="border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-50">
+  <div class="max-w-[1440px] mx-auto px-3 sm:px-5 py-2 flex items-center gap-3">
+    <div class="flex items-center gap-2">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      <span class="text-sm font-extrabold tracking-tight text-zinc-50">authgent</span>
+      <span class="text-[10px] font-medium text-zinc-600 hidden sm:inline">playground</span>
     </div>
-    <button class="flex items-center gap-2 bg-accent hover:bg-accent-2 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all disabled:opacity-40" id="autoPlayBtn" onclick="autoPlay()"><i data-lucide="play" class="w-4 h-4"></i> Watch Story</button>
-    <button class="text-gray-500 hover:text-white text-xs font-medium transition-colors flex items-center gap-1" onclick="resetAll()"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset</button>
+    <div class="flex-1"></div>
+    <div class="flex items-center gap-1.5 bg-zinc-900 rounded-lg border border-zinc-800 px-2.5 py-1">
+      <i data-lucide="server" class="w-3 h-3 text-zinc-600"></i>
+      <input id="serverUrl" type="text" class="bg-transparent text-[11px] font-mono text-zinc-400 outline-none w-24 sm:w-36" placeholder="http://localhost:8000" onchange="checkServer()">
+      <div class="w-2 h-2 rounded-full bg-zinc-700 transition-all" id="healthDot"></div>
+    </div>
   </div>
 </header>
 
-<main class="relative z-10 max-w-[1800px] mx-auto px-4 md:px-6 pb-8">
+<!-- ─── PIPELINE ─── -->
+<section class="max-w-[1440px] mx-auto px-3 sm:px-5 pt-3 pb-1">
+  <div class="relative overflow-x-auto" style="min-height:340px">
+    <div class="relative" style="width:1380px;height:340px;margin:0 auto">
 
-  <!-- HERO (compact) -->
-  <section class="pt-5 pb-4 text-center">
-    <h2 class="text-2xl md:text-3xl font-black tracking-tight bg-gradient-to-r from-white via-accent-2 to-cyn bg-clip-text text-transparent pb-1">authgent playground</h2>
-    <p class="text-gray-400 text-xs md:text-sm max-w-xl mx-auto mt-1 leading-relaxed">3 scenarios — tokens flow, scopes shrink, attacks get blocked, humans stay in control.</p>
-  </section>
+      <!-- SVG layer -->
+      <svg class="absolute inset-0" width="1380" height="340" viewBox="0 0 1380 340" fill="none">
+        <defs>
+          <marker id="ah" viewBox="0 0 8 6" refX="8" refY="3" markerWidth="8" markerHeight="6" orient="auto"><path d="M0 0L8 3L0 6Z" class="ah-default"/></marker>
+          <marker id="ah-done" viewBox="0 0 8 6" refX="8" refY="3" markerWidth="8" markerHeight="6" orient="auto"><path d="M0 0L8 3L0 6Z" class="ah-done"/></marker>
+          <marker id="ah-active" viewBox="0 0 8 6" refX="8" refY="3" markerWidth="8" markerHeight="6" orient="auto"><path d="M0 0L8 3L0 6Z" class="ah-active"/></marker>
+          <marker id="ah-blocked" viewBox="0 0 8 6" refX="8" refY="3" markerWidth="8" markerHeight="6" orient="auto"><path d="M0 0L8 3L0 6Z" class="ah-blocked"/></marker>
+        </defs>
+        <!-- Happy path connections -->
+        <path id="c12" class="conn" d="M183,155 L237,155" marker-end="url(#ah)"/>
+        <path id="c23" class="conn" d="M403,155 L457,155" marker-end="url(#ah)"/>
+        <path id="c34" class="conn" d="M623,155 L677,155" marker-end="url(#ah)"/>
+        <path id="c4f" class="conn" d="M843,155 L880,155" marker-end="url(#ah)"/>
+        <!-- Fork branches -->
+        <path id="cf5" class="conn" d="M920,155 C970,155 1000,62 1037,62" marker-end="url(#ah)"/>
+        <path id="cf6" class="conn" d="M920,155 C970,155 970,278 1007,278" marker-end="url(#ah)"/>
+        <path id="c67" class="conn" d="M1173,278 L1207,278" marker-end="url(#ah)"/>
+      </svg>
 
-  <!-- SPLIT LAYOUT: sidebar + main -->
-  <div class="flex flex-col md:flex-row gap-4 md:gap-5">
+      <!-- Fork diamond -->
+      <div id="fork" class="fork-diamond" style="left:900px;top:155px"></div>
 
-    <!-- LEFT SIDEBAR: 3 scenario cards -->
-    <div class="flex flex-row md:flex-col gap-3 md:w-60 lg:w-64 shrink-0 overflow-x-auto md:overflow-visible pb-2 md:pb-0 md:sticky md:top-16 md:self-start">
+      <!-- Branch labels -->
+      <div id="lbl-attack" class="branch-label text-rd" style="left:990px;top:108px">What if an agent goes rogue?</div>
+      <div id="lbl-control" class="branch-label text-am" style="left:980px;top:220px">How do we stay in control?</div>
 
-      <!-- Scenario 1 -->
-      <div class="phase-card p-active p-selected min-w-[200px] md:min-w-0" id="phase-1" data-phase="1" onclick="selectPhase(1)">
-        <div class="flex items-center gap-2.5 mb-2">
-          <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-emr/12 border border-emr/25 shrink-0"><i data-lucide="route" class="w-4 h-4 text-emr"></i></div>
-          <div><div class="text-[9px] uppercase tracking-wider text-emr font-bold">Scenario 1</div><div class="text-sm font-bold leading-tight">Happy Path</div></div>
-        </div>
-        <p class="text-[11px] text-gray-400 leading-relaxed mb-2.5 hidden md:block">Register, authenticate, delegate, chain 2 hops.</p>
-        <button class="w-full flex items-center justify-center gap-1.5 bg-emr/15 hover:bg-emr/25 text-emr px-3 py-2 rounded-lg text-xs font-semibold transition-all border border-emr/20 disabled:opacity-30" id="phase-btn-1" onclick="event.stopPropagation();runPhase(1)"><i data-lucide="play" class="w-3 h-3"></i> Run</button>
+      <!-- Pipeline nodes -->
+      <div class="pnode next" id="n1" data-step="1" style="left:100px;top:155px" onclick="clickNode(1)">
+        <div class="badge">1</div>
+        <div class="info"><div class="title">Register Agents</div><div class="sub">3 agents, scoped creds</div></div>
+      </div>
+      <div class="pnode" id="n2" data-step="2" style="left:320px;top:155px" onclick="clickNode(2)">
+        <div class="badge">2</div>
+        <div class="info"><div class="title">Authenticate</div><div class="sub">client_credentials JWT</div></div>
+      </div>
+      <div class="pnode" id="n3" data-step="3" style="left:540px;top:155px" onclick="clickNode(3)">
+        <div class="badge">3</div>
+        <div class="info"><div class="title">Delegate &rarr; Search</div><div class="sub">token exchange, scope &darr;</div></div>
+      </div>
+      <div class="pnode" id="n4" data-step="4" style="left:760px;top:155px" onclick="clickNode(4)">
+        <div class="badge">4</div>
+        <div class="info"><div class="title">Delegate &rarr; DB</div><div class="sub">2-hop chain, scope &darr;&darr;</div></div>
+      </div>
+      <div class="pnode" id="n5" data-step="5" style="left:1120px;top:62px" onclick="clickNode(5)">
+        <div class="badge">5</div>
+        <div class="info"><div class="title">Scope Escalation</div><div class="sub">request &ldquo;write&rdquo; &mdash; blocked</div></div>
+      </div>
+      <div class="pnode" id="n6" data-step="6" style="left:1090px;top:278px" onclick="clickNode(6)">
+        <div class="badge">6</div>
+        <div class="info"><div class="title">Human Approval</div><div class="sub">HITL step-up gate</div></div>
+      </div>
+      <div class="pnode" id="n7" data-step="7" style="left:1290px;top:278px" onclick="clickNode(7)">
+        <div class="badge">7</div>
+        <div class="info"><div class="title">Kill Switch</div><div class="sub">revoke entire chain</div></div>
       </div>
 
-      <!-- Scenario 2 -->
-      <div class="phase-card min-w-[200px] md:min-w-0" id="phase-2" data-phase="2" onclick="selectPhase(2)">
-        <div class="flex items-center gap-2.5 mb-2">
-          <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-rose2/12 border border-rose2/25 shrink-0"><i data-lucide="shield-alert" class="w-4 h-4 text-rose2"></i></div>
-          <div><div class="text-[9px] uppercase tracking-wider text-rose2 font-bold">Scenario 2</div><div class="text-sm font-bold leading-tight">The Attack</div></div>
-        </div>
-        <p class="text-[11px] text-gray-400 leading-relaxed mb-2.5 hidden md:block">Scope escalation attempt — blocked.</p>
-        <button class="w-full flex items-center justify-center gap-1.5 bg-rose2/15 hover:bg-rose2/25 text-rose2 px-3 py-2 rounded-lg text-xs font-semibold transition-all border border-rose2/20 disabled:opacity-30" id="phase-btn-2" onclick="event.stopPropagation();runPhase(2)"><i data-lucide="play" class="w-3 h-3"></i> Run</button>
-      </div>
+      <!-- Phase labels -->
+      <div class="absolute text-[10px] font-bold uppercase tracking-widest" style="left:1085px;top:14px;color:rgba(239,68,68,.5)">Attack Scenario</div>
+      <div class="absolute text-[10px] font-bold uppercase tracking-widest" style="left:1140px;top:320px;color:rgba(245,158,11,.45)">Human Control</div>
+    </div>
+  </div>
+</section>
 
-      <!-- Scenario 3 -->
-      <div class="phase-card min-w-[200px] md:min-w-0" id="phase-3" data-phase="3" onclick="selectPhase(3)">
-        <div class="flex items-center gap-2.5 mb-2">
-          <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-amb/12 border border-amb/25 shrink-0"><i data-lucide="user-check" class="w-4 h-4 text-amb"></i></div>
-          <div><div class="text-[9px] uppercase tracking-wider text-amb font-bold">Scenario 3</div><div class="text-sm font-bold leading-tight">Human Control</div></div>
-        </div>
-        <p class="text-[11px] text-gray-400 leading-relaxed mb-2.5 hidden md:block">Approval workflow + kill switch.</p>
-        <button class="w-full flex items-center justify-center gap-1.5 bg-amb/15 hover:bg-amb/25 text-amb px-3 py-2 rounded-lg text-xs font-semibold transition-all border border-amb/20 disabled:opacity-30" id="phase-btn-3" onclick="event.stopPropagation();runPhase(3)"><i data-lucide="play" class="w-3 h-3"></i> Run</button>
+<!-- ─── CONTROL BAR ─── -->
+<section class="max-w-[1440px] mx-auto px-3 sm:px-5 pb-2">
+  <!-- Row 1: Scopes -->
+  <div class="flex items-center gap-2 mb-2 flex-wrap">
+    <span class="text-[9px] font-bold uppercase tracking-widest text-zinc-600">Scopes</span>
+    <div class="scope-chip" id="sc-read"><span class="dot" style="color:#10b981"></span>read</div>
+    <div class="scope-chip" id="sc-write"><span class="dot" style="color:#f59e0b"></span>write</div>
+    <div class="scope-chip" id="sc-search"><span class="dot" style="color:#06b6d4"></span>search</div>
+    <div class="scope-chip" id="sc-dbread"><span class="dot" style="color:#06b6d4"></span>db:read</div>
+  </div>
+  <!-- Row 2: Tabs + Controls -->
+  <div class="flex items-center gap-2 flex-wrap">
+    <button class="tab-btn active" id="tab-demo" onclick="switchTab('demo')"><i data-lucide="play-circle" class="w-3 h-3 inline -mt-px mr-1"></i>Demo</button>
+    <button class="tab-btn" id="tab-deep" onclick="switchTab('deep')"><i data-lucide="layers" class="w-3 h-3 inline -mt-px mr-1"></i>Deep Dive</button>
+    <div class="w-px h-4 bg-zinc-800 mx-0.5"></div>
+    <!-- Progress dots -->
+    <div class="flex items-center gap-1.5" id="progDots">
+      <div class="prog-dot" id="pd1"></div><div class="prog-dot" id="pd2"></div><div class="prog-dot" id="pd3"></div><div class="prog-dot" id="pd4"></div><div class="prog-dot" id="pd5"></div><div class="prog-dot" id="pd6"></div><div class="prog-dot" id="pd7"></div>
+    </div>
+    <div class="flex-1"></div>
+    <!-- Playback controls -->
+    <button id="nextBtn" onclick="stepNext()" class="next-btn"><span id="nextLabel">Start: Register Agents</span><i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></button>
+    <button id="autoBtn" onclick="autoPlay()" class="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all border border-zinc-700 disabled:opacity-30" title="Auto-play all steps"><i data-lucide="play" class="w-3 h-3"></i><span class="hidden sm:inline"> Auto</span></button>
+    <button onclick="resetAll()" class="text-zinc-500 hover:text-zinc-300 transition-colors flex items-center p-1.5" title="Reset"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i></button>
+  </div>
+</section>
+
+<!-- ─── DEMO PANEL ─── -->
+<section id="panel-demo" class="max-w-[1440px] mx-auto px-3 sm:px-5 pb-6">
+  <div id="detail" class="border border-zinc-800 rounded-xl bg-zinc-900/50 overflow-hidden min-h-[120px]">
+    <div id="detail-head" class="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 border-b border-zinc-800 bg-zinc-900">
+      <div class="flex gap-1" id="stepNav"></div>
+      <div class="w-px h-4 bg-zinc-800 mx-0.5"></div>
+      <span id="detail-title" class="text-xs font-semibold text-zinc-400">The Problem</span>
+      <div class="flex-1"></div>
+      <span id="detail-status" class="text-[10px] font-bold uppercase tracking-wider text-zinc-600"></span>
+    </div>
+    <div id="detail-body" class="grid grid-cols-1 lg:grid-cols-5">
+      <div id="detail-left" class="detail-left lg:col-span-3 p-3 sm:p-4 space-y-3"></div>
+      <div id="detail-right" class="lg:col-span-2 p-3 sm:p-4 space-y-2 bg-zinc-950/30"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── DEEP DIVE PANEL ─── -->
+<section id="panel-deep" class="max-w-[1440px] mx-auto px-3 sm:px-5 pb-6 hidden">
+
+  <!-- ── Discovery & Standards ── -->
+  <div class="mb-5">
+    <div class="dd-section-title"><i data-lucide="globe" class="w-4 h-4 text-cy"></i> OAuth Discovery &amp; Standards</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-cy/10 text-cy">RFC 8414</span><h4 class="text-sm font-bold text-zinc-200">Server Metadata</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed mb-2">Auto-discovery endpoint at <code class="text-cy text-[10px]">/.well-known/oauth-authorization-server</code>. Advertises all endpoints, grant types, scopes, DPoP algorithms. MCP auto-discovery compatible.</p>
+        <button onclick="ddFetch('/.well-known/oauth-authorization-server','dd-res-meta')" class="text-[10px] font-bold text-cy hover:text-em transition-colors">Fetch live &rarr;</button>
+        <div id="dd-res-meta" class="mt-2 hidden"></div>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-cy/10 text-cy">RFC 7517</span><h4 class="text-sm font-bold text-zinc-200">JWKS Public Keys</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed mb-2">JSON Web Key Set at <code class="text-cy text-[10px]">/.well-known/jwks.json</code>. Contains active + rotated ES256 public keys for JWT verification. SDKs fetch and cache automatically.</p>
+        <button onclick="ddFetch('/.well-known/jwks.json','dd-res-jwks')" class="text-[10px] font-bold text-cy hover:text-em transition-colors">Fetch live &rarr;</button>
+        <div id="dd-res-jwks" class="mt-2 hidden"></div>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-cy/10 text-cy">RFC 9728</span><h4 class="text-sm font-bold text-zinc-200">Protected Resource Metadata</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed mb-2">At <code class="text-cy text-[10px]">/.well-known/oauth-protected-resource</code>. Lets resource servers advertise which authorization server they use and which scopes they accept.</p>
+        <button onclick="ddFetch('/.well-known/oauth-protected-resource','dd-res-pr')" class="text-[10px] font-bold text-cy hover:text-em transition-colors">Fetch live &rarr;</button>
+        <div id="dd-res-pr" class="mt-2 hidden"></div>
       </div>
     </div>
-
-    <!-- RIGHT MAIN: pipeline + details -->
-    <div class="flex-1 min-w-0">
-
-      <!-- Scope strip -->
-      <div class="flex items-center gap-4 px-1 pb-2.5 mb-3 border-b border-border/30 text-[10px] flex-wrap">
-        <span class="text-gray-600 uppercase tracking-wider font-semibold">Scopes</span>
-        <div class="flex items-center gap-1.5"><span class="text-gray-500 font-mono">read</span><div class="w-14 h-1.5 bg-surface-3 rounded-full overflow-hidden"><div id="bar-read" class="scope-bar bg-sky2 w-0"></div></div></div>
-        <div class="flex items-center gap-1.5"><span class="text-gray-500 font-mono">write</span><div class="w-14 h-1.5 bg-surface-3 rounded-full overflow-hidden"><div id="bar-write" class="scope-bar bg-amb w-0"></div></div></div>
-        <div class="flex items-center gap-1.5"><span class="text-gray-500 font-mono">search</span><div class="w-14 h-1.5 bg-surface-3 rounded-full overflow-hidden"><div id="bar-search" class="scope-bar bg-cyn w-0"></div></div></div>
-        <div class="flex items-center gap-1.5"><span class="text-gray-500 font-mono">db:read</span><div class="w-14 h-1.5 bg-surface-3 rounded-full overflow-hidden"><div id="bar-dbread" class="scope-bar bg-emr w-0"></div></div></div>
-      </div>
-
-      <!-- Phase 1: Happy Path -->
-      <div id="phase-detail-1" class="phase-detail visible">
-        <div class="overflow-x-auto pb-3 mb-3">
-          <div class="flex items-center min-w-[520px] px-1">
-            <div class="pipe-node pactive" id="pipe-1"><div><span class="picon"><i data-lucide="users" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">1</span></div><div class="ptitle">Register</div></div>
-            <div class="pipe-arrow" id="parr-1"><div class="aw"><div class="al"></div><div class="ah"></div></div><div class="alabel">authenticate</div></div>
-            <div class="pipe-node" id="pipe-2"><div><span class="picon"><i data-lucide="key" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">2</span></div><div class="ptitle">Auth</div></div>
-            <div class="pipe-arrow" id="parr-2"><div class="aw"><div class="al"></div><div class="ah"></div></div><div class="alabel">delegate ↓scope</div></div>
-            <div class="pipe-node" id="pipe-3"><div><span class="picon"><i data-lucide="arrow-right-left" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">3</span></div><div class="ptitle">Handoff</div></div>
-            <div class="pipe-arrow" id="parr-3"><div class="aw"><div class="al"></div><div class="ah"></div></div><div class="alabel">chain ↓scope</div></div>
-            <div class="pipe-node" id="pipe-4"><div><span class="picon"><i data-lucide="git-branch" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">4</span></div><div class="ptitle">Deeper</div></div>
-          </div>
-        </div>
-        <div class="sub-step" id="step-1"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-1">1</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="users" class="w-4 h-4 text-emr"></i><h4 class="font-bold text-sm md:text-base">Register 3 AI Agents</h4></div><p class="text-xs text-gray-400">Orchestrator, Search Agent, DB Agent — each with <em>exactly</em> the permissions it needs.</p></div><button class="shrink-0 bg-emr/15 hover:bg-emr/25 text-emr px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-emr/20 disabled:opacity-30" id="btn-1" onclick="runStep(1)">Register</button></div><div class="card-body" id="body-1"><div class="border-t border-border/50 p-4 md:p-5" id="inner-1"></div></div></div>
-        <div class="sub-step" id="step-2"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-2">2</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="key" class="w-4 h-4 text-emr"></i><h4 class="font-bold text-sm md:text-base">Orchestrator Gets a JWT</h4></div><p class="text-xs text-gray-400">Authenticates via <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[10px] font-mono">client_credentials</code> — signed JWT with full scope.</p></div><button class="shrink-0 bg-emr/15 hover:bg-emr/25 text-emr px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-emr/20 disabled:opacity-30" id="btn-2" onclick="runStep(2)">Authenticate</button></div><div class="card-body" id="body-2"><div class="border-t border-border/50 p-4 md:p-5" id="inner-2"></div></div></div>
-        <div class="sub-step" id="step-3"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-3">3</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="arrow-right-left" class="w-4 h-4 text-emr"></i><h4 class="font-bold text-sm md:text-base">Delegate with Scope Narrowing</h4></div><p class="text-xs text-gray-400">Orchestrator → Search Agent via <strong>token exchange</strong>. Only <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[10px] font-mono">search + db:read</code> survive.</p></div><button class="shrink-0 bg-emr/15 hover:bg-emr/25 text-emr px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-emr/20 disabled:opacity-30" id="btn-3" onclick="runStep(3)">Delegate</button></div><div class="card-body" id="body-3"><div class="border-t border-border/50 p-4 md:p-5" id="inner-3"></div></div></div>
-        <div class="sub-step" id="step-4"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-4">4</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="git-branch" class="w-4 h-4 text-emr"></i><h4 class="font-bold text-sm md:text-base">2-Hop Nested Delegation</h4></div><p class="text-xs text-gray-400">Search → DB Agent. Only <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[10px] font-mono">db:read</code> remains. <code class="text-accent-2 bg-accent/10 px-1 py-0.5 rounded text-[10px] font-mono">act</code> nests 2 levels.</p></div><button class="shrink-0 bg-emr/15 hover:bg-emr/25 text-emr px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-emr/20 disabled:opacity-30" id="btn-4" onclick="runStep(4)">Delegate</button></div><div class="card-body" id="body-4"><div class="border-t border-border/50 p-4 md:p-5" id="inner-4"></div></div></div>
-      </div>
-
-      <!-- Phase 2: Attack -->
-      <div id="phase-detail-2" class="phase-detail">
-        <div class="overflow-x-auto pb-3 mb-3">
-          <div class="flex items-center px-1">
-            <div class="pipe-node pactive" id="pipe-5"><div><span class="picon"><i data-lucide="shield-alert" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">5</span></div><div class="ptitle text-rose2">Attack</div></div>
-          </div>
-        </div>
-        <div class="sub-step" id="step-5"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-5">5</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="shield-alert" class="w-4 h-4 text-rose2"></i><h4 class="font-bold text-sm md:text-base text-rose2">Scope Escalation Attempt</h4></div><p class="text-xs text-gray-400">A compromised agent tries to grab <code class="text-rose2 bg-rose2/10 px-1 py-0.5 rounded text-[10px] font-mono">write</code> access. authgent enforces: <strong>never escalate beyond parent's scope</strong>.</p></div><button class="shrink-0 bg-rose2/15 hover:bg-rose2/25 text-rose2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-rose2/20 disabled:opacity-30" id="btn-5" onclick="runStep(5)">Attack</button></div><div class="card-body" id="body-5"><div class="border-t border-border/50 p-4 md:p-5" id="inner-5"></div></div></div>
-      </div>
-
-      <!-- Phase 3: Human Control -->
-      <div id="phase-detail-3" class="phase-detail">
-        <div class="overflow-x-auto pb-3 mb-3">
-          <div class="flex items-center min-w-[280px] px-1">
-            <div class="pipe-node pactive" id="pipe-6"><div><span class="picon"><i data-lucide="user-check" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">6</span></div><div class="ptitle">Gatekeeper</div></div>
-            <div class="pipe-arrow" id="parr-6"><div class="aw"><div class="al"></div><div class="ah"></div></div><div class="alabel">revoke</div></div>
-            <div class="pipe-node" id="pipe-7"><div><span class="picon"><i data-lucide="power" class="w-3 h-3 text-gray-500"></i></span><span class="pstep">7</span></div><div class="ptitle text-rose2">Kill Switch</div></div>
-          </div>
-        </div>
-        <div class="sub-step" id="step-6"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-6">6</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="user-check" class="w-4 h-4 text-amb"></i><h4 class="font-bold text-sm md:text-base">Human-in-the-Loop Approval</h4></div><p class="text-xs text-gray-400">Agent wants to <code class="text-rose2 bg-rose2/10 px-1 py-0.5 rounded text-[10px] font-mono">delete_all_records</code> on production. It <strong>cannot proceed</strong> until a human approves.</p></div><button class="shrink-0 bg-amb/15 hover:bg-amb/25 text-amb px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-amb/20 disabled:opacity-30" id="btn-6" onclick="runStep(6)">Request Approval</button></div><div class="card-body" id="body-6"><div class="border-t border-border/50 p-4 md:p-5" id="inner-6"></div></div></div>
-        <div class="sub-step" id="step-7"><div class="flex items-center gap-3 p-4 md:p-5"><div class="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500" id="num-7">7</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><i data-lucide="power" class="w-4 h-4 text-rose2"></i><h4 class="font-bold text-sm md:text-base">The Kill Switch — Revoke Entire Chain</h4></div><p class="text-xs text-gray-400">One API call revokes the root token. Introspection confirms dead. <strong>All downstream dies instantly.</strong></p></div><button class="shrink-0 bg-rose2/15 hover:bg-rose2/25 text-rose2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-rose2/20 disabled:opacity-30" id="btn-7" onclick="runStep(7)">Revoke</button></div><div class="card-body" id="body-7"><div class="border-t border-border/50 p-4 md:p-5" id="inner-7"></div></div></div>
-      </div>
-
-    </div><!-- /right -->
-  </div><!-- /split -->
-
-  <!-- Hidden topology compat -->
-  <div class="hidden" aria-hidden="true">
-    <div id="cn-orch"><div id="cn-orch-icon"><i class="text-gray-500"></i></div><span id="cn-orch-meta"></span></div>
-    <div class="topo-line" id="ce-1"><span id="ce-1-tag"></span></div>
-    <div id="cn-search"><div id="cn-search-icon"><i class="text-gray-500"></i></div><span id="cn-search-meta"></span></div>
-    <div class="topo-line" id="ce-2"><span id="ce-2-tag"></span></div>
-    <div id="cn-db"><div id="cn-db-icon"><i class="text-gray-500"></i></div><span id="cn-db-meta"></span></div>
   </div>
-</main>
 
-<footer class="relative z-10 text-center py-4 px-4 border-t border-border/30">
-  <div class="flex justify-center gap-5 mb-1 flex-wrap">
-    <a href="https://github.com/authgent/authgent" class="text-gray-500 hover:text-accent-2 transition-colors text-xs font-medium flex items-center gap-1"><i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub</a>
-    <a href="https://pypi.org/project/authgent-server/" class="text-gray-500 hover:text-accent-2 transition-colors text-xs font-medium flex items-center gap-1"><i data-lucide="package" class="w-3.5 h-3.5"></i> PyPI</a>
-    <a href="https://www.npmjs.com/package/authgent" class="text-gray-500 hover:text-accent-2 transition-colors text-xs font-medium flex items-center gap-1"><i data-lucide="hexagon" class="w-3.5 h-3.5"></i> npm</a>
+  <!-- ── DPoP ── -->
+  <div class="mb-5">
+    <div class="dd-section-title"><i data-lucide="fingerprint" class="w-4 h-4 text-am"></i> DPoP — Sender-Constrained Tokens</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-am/10 text-am">RFC 9449</span><h4 class="text-sm font-bold text-zinc-200">DPoP Proof Verification</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">Clients generate an ephemeral ES256 key pair and attach a signed DPoP proof JWT to every request. The server verifies: <code class="text-am text-[10px]">typ=dpop+jwt</code>, method (<code class="text-am text-[10px]">htm</code>), URL (<code class="text-am text-[10px]">htu</code>), freshness (<code class="text-am text-[10px]">iat</code>), and access token binding (<code class="text-am text-[10px]">ath</code>). Tokens become sender-constrained — stolen tokens are useless without the private key.</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-am/10 text-am">Stateless</span><h4 class="text-sm font-bold text-zinc-200">HMAC-Based Nonces</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">DPoP nonces are computed as <code class="text-am text-[10px]">HMAC-SHA256(server_secret, time_bucket)</code> — no server-side storage. 5-minute buckets with 1-bucket grace period. The server returns <code class="text-am text-[10px]">DPoP-Nonce</code> header on 401, client retries with the nonce included. Zero-state, zero-DB-hits.</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-am/10 text-am">cnf.jkt</span><h4 class="text-sm font-bold text-zinc-200">Token Binding</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">When DPoP is used, the issued token contains a <code class="text-am text-[10px]">cnf.jkt</code> claim — the JWK Thumbprint (RFC 7638) of the client's public key. Token type becomes <code class="text-am text-[10px]">DPoP</code> instead of <code class="text-am text-[10px]">Bearer</code>. Configurable policy: <strong>strict</strong> (reject non-DPoP), <strong>audit</strong> (log), or <strong>permissive</strong>.</p>
+      </div>
+    </div>
   </div>
-  <p class="text-gray-700 text-[10px] font-mono">pip install authgent-server && authgent-server init && authgent-server run</p>
+
+  <!-- ── Delegation Security ── -->
+  <div class="mb-5">
+    <div class="dd-section-title"><i data-lucide="shield-check" class="w-4 h-4 text-em"></i> Delegation Chain Security</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-rd/10 text-rd">Enforced</span><h4 class="text-sm font-bold text-zinc-200">Delegation Depth Limit</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed mb-2">Configurable <code class="text-cy text-[10px]">max_delegation_depth</code> (default 5). When an exchange would create a chain deeper than the limit, the server returns <code class="text-rd text-[10px]">403 DelegationDepthExceeded</code>. Prevents infinite agent-to-agent delegation spirals.</p>
+        <button onclick="ddTestDepth()" class="text-[10px] font-bold text-cy hover:text-em transition-colors">Test depth limit &rarr;</button>
+        <div id="dd-res-depth" class="mt-2 hidden"></div>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-em/10 text-em">may_act</span><h4 class="text-sm font-bold text-zinc-200">Actor Authorization</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">Parent tokens can include a <code class="text-cy text-[10px]">may_act.sub</code> claim listing which specific actors are allowed to exchange the token. Any other actor gets <code class="text-rd text-[10px]">403 MayActViolation</code>. This creates explicit trust chains — the orchestrator decides exactly who can act on its behalf.</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-em/10 text-em">Anti-splice</span><h4 class="text-sm font-bold text-zinc-200">Signed Delegation Receipts</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">Every token exchange produces a signed JWT receipt stored server-side: <code class="text-cy text-[10px]">token_jti</code>, <code class="text-cy text-[10px]">parent_jti</code>, <code class="text-cy text-[10px]">actor_id</code>, and a SHA-256 <code class="text-cy text-[10px]">chain_hash</code> of the canonical chain JSON. Prevents chain-splicing attacks where adversaries graft delegation chains together.</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-em/10 text-em">RFC 8707</span><h4 class="text-sm font-bold text-zinc-200">Resource Indicators</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">The <code class="text-cy text-[10px]">audience</code> parameter in token exchange maps to RFC 8707 Resource Indicators. Agents can have <code class="text-cy text-[10px]">allowed_exchange_targets</code> restricting which resources they can delegate to. Matching modes: <strong>exact</strong> (full URL) or <strong>origin</strong> (scheme+host).</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-em/10 text-em">Pre-flight</span><h4 class="text-sm font-bold text-zinc-200">Token Exchange Pre-Check</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed mb-2"><code class="text-cy text-[10px]">POST /token/check</code> — validates subject token, client, grant type, exchange targets, scope subset, delegation depth, and <code class="text-cy text-[10px]">may_act</code> — all without issuing a token. Lets agents verify permissions before committing to a delegation.</p>
+        <button onclick="ddTestCheck()" class="text-[10px] font-bold text-cy hover:text-em transition-colors">Try dry-run check &rarr;</button>
+        <div id="dd-res-check" class="mt-2 hidden"></div>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-em/10 text-em">OIDC-A</span><h4 class="text-sm font-bold text-zinc-200">Agent Identity Claims</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">Delegation chains propagate <code class="text-cy text-[10px]">agent_type</code>, <code class="text-cy text-[10px]">agent_model</code>, <code class="text-cy text-[10px]">agent_version</code>, <code class="text-cy text-[10px]">agent_provider</code>, and <code class="text-cy text-[10px]">agent_instance_id</code> through every hop. Also preserves <code class="text-cy text-[10px]">human_root</code> — the original human identity that started the chain.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Additional Grant Types ── -->
+  <div class="mb-5">
+    <div class="dd-section-title"><i data-lucide="key-round" class="w-4 h-4 text-cy"></i> Additional OAuth Grant Types</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-cy/10 text-cy">OAuth 2.1</span><h4 class="text-sm font-bold text-zinc-200">Authorization Code + PKCE</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">Full browser-based consent flow with mandatory S256 PKCE. Shows a consent page (or auto-approves in dev mode). Issues access + refresh tokens. CSRF protection with HMAC-SHA256 tokens. The foundation for human-initiated agent authorization.</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-cy/10 text-cy">RFC 8628</span><h4 class="text-sm font-bold text-zinc-200">Device Authorization</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">For input-constrained agents (CLI tools, IoT). Agent gets a device code + user code, displays a verification URL. Human approves on a separate device. Agent polls until approved. Human-readable codes with no ambiguous characters (no 0/O/l/1).</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-cy/10 text-cy">Rotation</span><h4 class="text-sm font-bold text-zinc-200">Refresh Token + Replay Detection</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">Refresh tokens use family-based tracking. Each use rotates the token and returns a new one. If a previously-used token is replayed (stolen), the entire family is invalidated — all tokens in the lineage become dead. Atomic CAS operations prevent race conditions.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── External IdP ── -->
+  <div class="mb-5">
+    <div class="dd-section-title"><i data-lucide="link" class="w-4 h-4 text-em"></i> External Identity Provider Bridge</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-em/10 text-em">Bridge</span><h4 class="text-sm font-bold text-zinc-200">Auth0 / Clerk / Okta id_token Exchange</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">Agents authenticated by an external IdP can exchange their <code class="text-cy text-[10px]">id_token</code> for an authgent access token via token exchange. The server fetches and caches JWKS from trusted issuers, validates signatures, and carries forward <code class="text-cy text-[10px]">idp_iss</code> and <code class="text-cy text-[10px]">idp_sub</code> through the delegation chain. Configure via <code class="text-cy text-[10px]">AUTHGENT_TRUSTED_OIDC_ISSUERS</code>.</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-em/10 text-em">Cache</span><h4 class="text-sm font-bold text-zinc-200">Per-Issuer JWKS Cache</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">Each external issuer gets an independent JWKS cache with TTL expiry and async lock (thundering-herd protection). On unknown <code class="text-cy text-[10px]">kid</code>, one forced re-fetch is attempted to handle key rotation. Python and TypeScript SDKs have matching <code class="text-cy text-[10px]">JWKSFetcher</code> classes with the same caching behavior.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Audit ── -->
+  <div class="mb-5">
+    <div class="dd-section-title"><i data-lucide="scroll-text" class="w-4 h-4 text-am"></i> Audit &amp; Observability</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-am/10 text-am">Events</span><h4 class="text-sm font-bold text-zinc-200">Audit Trail</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed mb-2">Every token issuance, exchange, revocation, and replay attempt is recorded. Query via <code class="text-cy text-[10px]">GET /audit</code> with filters (action, actor, client_id, since) and pagination. 90-day retention with automatic cleanup.</p>
+        <button onclick="ddFetch('/audit?limit=10','dd-res-audit')" class="text-[10px] font-bold text-cy hover:text-em transition-colors">Fetch audit log &rarr;</button>
+        <div id="dd-res-audit" class="mt-2 hidden"></div>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-am/10 text-am">Redaction</span><h4 class="text-sm font-bold text-zinc-200">Structured Logging</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">structlog with JSON output. Regex-based redaction of 11+ sensitive patterns: <code class="text-rd text-[10px]">client_secret</code>, <code class="text-rd text-[10px]">access_token</code>, <code class="text-rd text-[10px]">password</code>, Bearer/DPoP/Basic tokens. Request IDs (ULID) + W3C traceparent propagation for distributed tracing. Secrets <em>never</em> appear in logs.</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-am/10 text-am">Inspect</span><h4 class="text-sm font-bold text-zinc-200">Token Inspector</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed mb-2"><code class="text-cy text-[10px]">GET /tokens/inspect?token=...</code> — decode any JWT without verification. Shows claims, delegation chain tree, DPoP binding, expiry status. Works on expired and revoked tokens. Useful for debugging.</p>
+        <button onclick="ddTestInspect()" class="text-[10px] font-bold text-cy hover:text-em transition-colors">Inspect demo token &rarr;</button>
+        <div id="dd-res-inspect" class="mt-2 hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Architecture ── -->
+  <div class="mb-5">
+    <div class="dd-section-title"><i data-lucide="blocks" class="w-4 h-4 text-zinc-400"></i> Architecture</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-zinc-700/50 text-zinc-400">Pluggable</span><h4 class="text-sm font-bold text-zinc-200">7 Provider Interfaces</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed"><strong>AttestationProvider</strong> (agent attestation), <strong>PolicyProvider</strong> (authz policy — plug in OPA/Cedar), <strong>HITLProvider</strong> (webhook delivery with HMAC + retry), <strong>KeyProvider</strong> (signing key storage), <strong>EventEmitter</strong> (audit), <strong>ClaimEnricher</strong> (custom claims), <strong>HumanAuthProvider</strong> (login). All configurable via <code class="text-cy text-[10px]">AUTHGENT_*_PROVIDER</code> env vars with dotted import paths.</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-zinc-700/50 text-zinc-400">Security</span><h4 class="text-sm font-bold text-zinc-200">5 Middleware Layers</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed"><strong>Input sanitization</strong> (null byte rejection before parser), <strong>Rate limiting</strong> (sliding window, per-path, RFC 9457 429 responses), <strong>Request ID</strong> (ULID + W3C traceparent), <strong>CORS</strong> (configurable origins, always allows .well-known), <strong>Error handler</strong> (RFC 9457 Problem Details for non-OAuth, RFC 6749 for token endpoints, never leaks stack traces).</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-zinc-700/50 text-zinc-400">Crypto</span><h4 class="text-sm font-bold text-zinc-200">Keys Encrypted at Rest</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">Signing keys stored as AES-256-GCM ciphertext (<code class="text-cy text-[10px]">nonce_hex:ciphertext_hex</code>). Key Encryption Key (KEK) derived from master secret via HKDF-SHA256 (RFC 5869). Separate subkeys for DPoP nonces, CSRF tokens, sessions, and KEK — all from a single <code class="text-cy text-[10px]">AUTHGENT_SECRET_KEY</code>.</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-zinc-700/50 text-zinc-400">Errors</span><h4 class="text-sm font-bold text-zinc-200">14 Typed Error Classes</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed"><code class="text-zinc-400 text-[10px]">InvalidGrant</code> (400), <code class="text-zinc-400 text-[10px]">InvalidClient</code> (401), <code class="text-zinc-400 text-[10px]">InsufficientScope</code> (403), <code class="text-zinc-400 text-[10px]">ScopeEscalation</code> (403), <code class="text-zinc-400 text-[10px]">DelegationDepthExceeded</code> (403), <code class="text-zinc-400 text-[10px]">MayActViolation</code> (403), <code class="text-zinc-400 text-[10px]">TokenRevoked</code> (401), <code class="text-zinc-400 text-[10px]">StepUpRequired</code> (403), <code class="text-zinc-400 text-[10px]">InvalidDPoPProof</code> (401), <code class="text-zinc-400 text-[10px]">UseDPoPNonce</code> (401), and more. All return RFC 9457 Problem Details.</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-zinc-700/50 text-zinc-400">Cleanup</span><h4 class="text-sm font-bold text-zinc-200">7 Background Tasks</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">Automatic cleanup of: token blocklist (1h), authorization codes (15m), device codes (15m), refresh tokens (1h), step-up requests (1m), audit logs (90-day retention, daily), delegation receipts (30-day retention, daily). Zero-maintenance — the server manages its own state lifecycle.</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-zinc-700/50 text-zinc-400">Config</span><h4 class="text-sm font-bold text-zinc-200">40+ Settings</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">Pydantic Settings with <code class="text-cy text-[10px]">AUTHGENT_*</code> env prefix. Token TTLs (access, refresh, exchange, auth code), registration policy (open/token/admin), consent mode (ui/headless/auto_approve), DPoP policy (strict/audit/permissive), trusted OIDC issuers, webhook config, resource match mode, and more.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SDKs ── -->
+  <div class="mb-5">
+    <div class="dd-section-title"><i data-lucide="code-2" class="w-4 h-4 text-cy"></i> SDKs &amp; Integrations</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-cy/10 text-cy">Python</span><h4 class="text-sm font-bold text-zinc-200">Python SDK</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed"><code class="text-cy text-[10px]">pip install authgent</code> — <code class="text-zinc-400 text-[10px]">verify_token()</code>, <code class="text-zinc-400 text-[10px]">verify_delegation_chain()</code>, <code class="text-zinc-400 text-[10px]">DPoPClient</code>, <code class="text-zinc-400 text-[10px]">JWKSFetcher</code>, <code class="text-zinc-400 text-[10px]">AgentAuthClient</code>. Middleware for <strong>FastAPI</strong> and <strong>Flask</strong>. Adapters for <strong>MCP servers</strong>, <strong>LangChain</strong>, and RFC 9728 Protected Resource Metadata.</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-am/10 text-am">TypeScript</span><h4 class="text-sm font-bold text-zinc-200">TypeScript SDK</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed"><code class="text-am text-[10px]">npm install authgent</code> — mirrors Python SDK. Uses <code class="text-zinc-400 text-[10px]">jose</code> for JWT (works Node + edge + browser). ESM-first with CJS compat, tree-shakeable. Middleware for <strong>Express</strong> and <strong>Hono</strong>. MCP adapter + scope challenge handler. 1 runtime dependency.</p>
+      </div>
+      <div class="fcard">
+        <div class="flex items-center gap-2 mb-2"><span class="ftag bg-em/10 text-em">MCP</span><h4 class="text-sm font-bold text-zinc-200">Scope Challenge Handler</h4></div>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">Auto-detects <code class="text-rd text-[10px]">403 insufficient_scope</code> from protected MCP endpoints. Automatically initiates HITL step-up, polls for human approval, and retries the original request with the elevated token. Zero-code scope escalation handling for MCP tools.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RFC Table ── -->
+  <div class="mb-4">
+    <div class="dd-section-title"><i data-lucide="book-open" class="w-4 h-4 text-zinc-400"></i> Standards Compliance — 15 RFCs</div>
+    <div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+      <table class="w-full text-[11px]">
+        <thead><tr class="border-b border-zinc-800 bg-zinc-900"><th class="text-left px-4 py-2 font-bold text-zinc-500">Standard</th><th class="text-left px-4 py-2 font-bold text-zinc-500">Name</th><th class="text-left px-4 py-2 font-bold text-zinc-500 hidden md:table-cell">What It Does</th></tr></thead>
+        <tbody class="text-zinc-400">
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">OAuth 2.1</td><td class="px-4 py-1.5">Core Framework</td><td class="px-4 py-1.5 hidden md:table-cell">Mandatory PKCE, no implicit grant</td></tr>
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">RFC 7591</td><td class="px-4 py-1.5">Dynamic Client Registration</td><td class="px-4 py-1.5 hidden md:table-cell">POST /register</td></tr>
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">RFC 7636</td><td class="px-4 py-1.5">PKCE (S256)</td><td class="px-4 py-1.5 hidden md:table-cell">Proof Key for Code Exchange</td></tr>
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">RFC 7662</td><td class="px-4 py-1.5">Token Introspection</td><td class="px-4 py-1.5 hidden md:table-cell">POST /introspect — active/inactive + claims</td></tr>
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">RFC 7009</td><td class="px-4 py-1.5">Token Revocation</td><td class="px-4 py-1.5 hidden md:table-cell">POST /revoke with ownership enforcement</td></tr>
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">RFC 8628</td><td class="px-4 py-1.5">Device Authorization</td><td class="px-4 py-1.5 hidden md:table-cell">Input-constrained agent flow</td></tr>
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">RFC 8693</td><td class="px-4 py-1.5">Token Exchange</td><td class="px-4 py-1.5 hidden md:table-cell">Delegation with nested act claims</td></tr>
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">RFC 8707</td><td class="px-4 py-1.5">Resource Indicators</td><td class="px-4 py-1.5 hidden md:table-cell">Audience binding with exact/origin matching</td></tr>
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">RFC 9449</td><td class="px-4 py-1.5">DPoP</td><td class="px-4 py-1.5 hidden md:table-cell">Sender-constrained tokens</td></tr>
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">RFC 9457</td><td class="px-4 py-1.5">Problem Details</td><td class="px-4 py-1.5 hidden md:table-cell">Structured error responses</td></tr>
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">RFC 8414</td><td class="px-4 py-1.5">Server Metadata</td><td class="px-4 py-1.5 hidden md:table-cell">OAuth discovery endpoint</td></tr>
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">RFC 9728</td><td class="px-4 py-1.5">Protected Resource Metadata</td><td class="px-4 py-1.5 hidden md:table-cell">Resource server discovery</td></tr>
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">RFC 5869</td><td class="px-4 py-1.5">HKDF</td><td class="px-4 py-1.5 hidden md:table-cell">Key derivation for subkeys</td></tr>
+          <tr class="border-b border-zinc-800/50"><td class="px-4 py-1.5 font-mono text-cy">RFC 7638</td><td class="px-4 py-1.5">JWK Thumbprint</td><td class="px-4 py-1.5 hidden md:table-cell">DPoP token binding identifier</td></tr>
+          <tr><td class="px-4 py-1.5 font-mono text-cy">MCP Auth</td><td class="px-4 py-1.5">MCP Authorization</td><td class="px-4 py-1.5 hidden md:table-cell">MCP server auth flow + SDK adapters</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</section>
+
+<!-- ─── FOOTER ─── -->
+<footer class="border-t border-zinc-800/50 py-3 text-center">
+  <div class="flex justify-center gap-5 mb-1">
+    <a href="https://github.com/authgent/authgent" class="text-zinc-600 hover:text-zinc-300 transition-colors text-xs font-medium flex items-center gap-1"><i data-lucide="github" class="w-3.5 h-3.5"></i> GitHub</a>
+    <a href="https://pypi.org/project/authgent-server/" class="text-zinc-600 hover:text-zinc-300 transition-colors text-xs font-medium flex items-center gap-1"><i data-lucide="package" class="w-3.5 h-3.5"></i> PyPI</a>
+    <a href="https://www.npmjs.com/package/authgent" class="text-zinc-600 hover:text-zinc-300 transition-colors text-xs font-medium flex items-center gap-1"><i data-lucide="hexagon" class="w-3.5 h-3.5"></i> npm</a>
+  </div>
+  <p class="text-zinc-700 text-[10px] font-mono">pip install authgent-server && authgent-server run</p>
 </footer>
 
 <script>
-const $=id=>document.getElementById(id);
-(()=>{const i=$('serverUrl');if(!i.value){const o=location.origin;i.value=(!o||o==='null'||location.protocol==='file:')?'http://localhost:8000':o}})();
-const base=()=>$('serverUrl').value.replace(/\/+$/,'');
-const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-const S={orch:null,searchClient:null,dbClient:null,orchToken:null,searchToken:null,dbToken:null};
-let autoPlaying=false;
+/* ──────────── State ──────────── */
+const $ = id => document.getElementById(id);
+const S = { orch: null, searchClient: null, dbClient: null, orchToken: null, searchToken: null, dbToken: null };
+let nextStep = 1, autoPlaying = false, stepping = false;
+const stepResults = {};
+let viewingStep = null;
+
+const STEP_NAMES = {
+  1: 'Register Agents', 2: 'Authenticate', 3: 'Delegate → Search',
+  4: 'Delegate → DB', 5: 'Scope Attack', 6: 'Human Approval', 7: 'Kill Switch'
+};
+
+/* ──────────── Init ──────────── */
+(() => {
+  const i = $('serverUrl');
+  if (!i.value) {
+    const o = location.origin;
+    const isLocal = !o || o === 'null' || location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    i.value = isLocal ? 'http://localhost:8000' : o;
+  }
+})();
+const base = () => $('serverUrl').value.replace(/\/+$/, '');
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 lucide.createIcons();
+showOpeningStory();
 
-async function checkServer(){
-  const dot=$('serverStatus');
-  try{const r=await fetch(base()+'/health',{signal:AbortSignal.timeout(2000)});dot.className=r.ok?'w-2 h-2 rounded-full bg-emr shadow-[0_0_8px_#34d399] transition-all':'w-2 h-2 rounded-full bg-rose2 shadow-[0_0_8px_#f87171] transition-all'}
-  catch{dot.className='w-2 h-2 rounded-full bg-rose2 shadow-[0_0_8px_#f87171] transition-all'}
+/* ──────────── Health ──────────── */
+async function checkServer() {
+  const dot = $('healthDot');
+  try {
+    const r = await fetch(base() + '/health', { signal: AbortSignal.timeout(2000) });
+    dot.className = r.ok
+      ? 'w-2 h-2 rounded-full bg-em transition-all shadow-[0_0_6px_#10b981]'
+      : 'w-2 h-2 rounded-full bg-rd transition-all shadow-[0_0_6px_#ef4444]';
+  } catch {
+    dot.className = 'w-2 h-2 rounded-full bg-rd transition-all shadow-[0_0_6px_#ef4444]';
+  }
 }
-checkServer();setInterval(checkServer,10000);
+checkServer();
+setInterval(checkServer, 10000);
 
-async function api(method,path,body,isForm=false){
-  const url=base()+path,opts={method};
-  if(body&&isForm){opts.body=new URLSearchParams(body);opts.headers={'Content-Type':'application/x-www-form-urlencoded'}}
-  else if(body){opts.body=JSON.stringify(body);opts.headers={'Content-Type':'application/json'}}
-  const resp=await fetch(url,opts);const data=await resp.json();return{status:resp.status,data,url,method};
+/* ──────────── API ──────────── */
+async function api(method, path, body, isForm = false) {
+  const url = base() + path, opts = { method };
+  if (body && isForm) {
+    opts.body = new URLSearchParams(body);
+    opts.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+  } else if (body) {
+    opts.body = JSON.stringify(body);
+    opts.headers = { 'Content-Type': 'application/json' };
+  }
+  const resp = await fetch(url, opts);
+  const data = await resp.json();
+  return { status: resp.status, data, url, method };
 }
 
-function decodeJwt(t){try{return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))}catch{return null}}
-function decodeJwtHeader(t){try{return JSON.parse(atob(t.split('.')[0].replace(/-/g,'+').replace(/_/g,'/')))}catch{return null}}
+function decodeJwt(t) { try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); } catch { return null; } }
+function decodeJwtHeader(t) { try { return JSON.parse(atob(t.split('.')[0].replace(/-/g,'+').replace(/_/g,'/'))); } catch { return null; } }
 
-/* ── Phase management ── */
-const phaseSteps={1:[1,2,3,4],2:[5],3:[6,7]};
-const stepToPhase={1:1,2:1,3:1,4:1,5:2,6:3,7:3};
-let currentPhase=1;
+/* ──────────── Pipeline UI ──────────── */
+const CONN_ORDER = {
+  1: ['c12'],
+  2: ['c23'],
+  3: ['c34'],
+  4: ['c4f'],
+  5: ['cf5'],
+  6: ['cf6'],
+  7: ['c67']
+};
+const STEP_PHASE = { 1:'happy', 2:'happy', 3:'happy', 4:'happy', 5:'attack', 6:'control', 7:'control' };
+const UNLOCK_MAP = { 1:2, 2:3, 3:4, 4:5, 5:6, 6:7, 7:null };
 
-function selectPhase(p){
-  if(p<1||p>3)return;
-  const card=$('phase-'+p);
-  if(!card.classList.contains('p-active')&&!card.classList.contains('p-done'))return;
-  for(let i=1;i<=3;i++){$('phase-'+i).classList.remove('p-selected');$('phase-detail-'+i).classList.remove('visible')}
-  card.classList.add('p-selected');$('phase-detail-'+p).classList.add('visible');currentPhase=p;
+function setNodeState(n, state) {
+  const el = $('n' + n);
+  if (!el) return;
+  el.className = 'pnode ' + state;
+  if (viewingStep === n) el.classList.add('viewing');
 }
-function setPhaseState(p,state){
-  const card=$('phase-'+p);card.classList.remove('p-active','p-done','p-error');
-  if(state)card.classList.add('p-'+state);
+
+function setConnState(id, state) {
+  const el = $(id);
+  if (!el) return;
+  el.className = 'conn ' + state;
+  const marker = state === 'done' ? 'url(#ah-done)' : state === 'active' ? 'url(#ah-active)' : state === 'blocked' || state === 'revoked' ? 'url(#ah-blocked)' : 'url(#ah)';
+  el.setAttribute('marker-end', marker);
 }
-function setSubStep(n,state){
-  const el=$('step-'+n),num=$('num-'+n);if(!el)return;
-  el.className='sub-step'+(state?' ss-'+state:'');
-  if(state==='running')num.className='shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-accent text-white';
-  else if(state==='done')num.className='shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-emr text-white';
-  else if(state==='blocked'||state==='error')num.className='shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-rose2 text-white';
-  else num.className='shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold bg-surface-3 border border-border text-gray-500';
-  /* sync pipe-node visual */
-  const pipe=$('pipe-'+n);if(!pipe)return;
-  pipe.className='pipe-node';
-  if(state==='running')pipe.classList.add('pactive');
-  else if(state==='done')pipe.classList.add('pdone');
-  else if(state==='blocked')pipe.classList.add('pblocked');
-  else if(state==='error')pipe.classList.add('perror');
+
+function lightConnsBefore(n) {
+  if (n >= 2) setConnState('c12', 'done');
+  if (n >= 3) setConnState('c23', 'done');
+  if (n >= 4) setConnState('c34', 'done');
+  if (n >= 5) { setConnState('c4f', 'done'); $('fork').className = 'fork-diamond lit'; }
+}
+
+function activateNext(n) {
+  const nxt = UNLOCK_MAP[n];
+  if (!nxt) { nextStep = 8; return; }
+  nextStep = nxt;
+  setNodeState(nxt, 'next');
+
+  if (nxt === 5) {
+    setNodeState(5, 'next');
+    $('fork').className = 'fork-diamond lit';
+    setConnState('cf5', 'lit');
+    $('lbl-attack').classList.add('visible');
+  }
+  if (nxt === 6) {
+    setNodeState(6, 'next');
+    setConnState('cf6', 'lit');
+    $('lbl-control').classList.add('visible');
+  }
+  if (nxt === 7) {
+    setNodeState(7, 'next');
+    setConnState('c67', 'lit');
+  }
+}
+
+function setScopeState(scopes) {
+  const map = { read: 'sc-read', write: 'sc-write', search: 'sc-search', 'db:read': 'sc-dbread' };
+  Object.entries(map).forEach(([s, id]) => {
+    const el = $(id);
+    if (!el) return;
+    const isOn = scopes.includes(s);
+    el.classList.toggle('on', isOn);
+    el.classList.toggle('off', !isOn && scopes.length > 0);
+    if (scopes.length === 0) { el.classList.remove('on', 'off'); }
+  });
+}
+
+/* ──────────── Opening Story ──────────── */
+function showOpeningStory() {
+  $('detail-title').textContent = 'The Problem';
+  $('detail-title').className = 'text-xs font-semibold text-zinc-400';
+  $('detail-status').textContent = '';
+
+  $('detail-left').innerHTML = `
+    <div class="text-[9px] font-bold uppercase tracking-widest text-zinc-600 mb-3 flex items-center gap-2"><i data-lucide="alert-triangle" class="w-3 h-3 text-am"></i> Today's Reality</div>
+
+    <div class="text-[15px] font-bold text-zinc-200 leading-snug mb-3">Your AI assistant just booked a $4,000 flight, deleted a production table, and emailed your boss — all in 3 seconds.</div>
+
+    <p class="text-[13px] text-zinc-400 leading-relaxed mb-4">AI agents are powerful. They delegate to other agents, who delegate further. But right now, there's <strong class="text-zinc-200">no standard way</strong> to control what each agent can do, track who authorized what, or kill the chain when something goes wrong.</p>
+
+    <div class="space-y-2.5 mb-4">
+      <div class="flex gap-3 items-start">
+        <div class="w-5 h-5 rounded-full bg-rd/15 flex items-center justify-center shrink-0 mt-0.5"><i data-lucide="shield-off" class="w-3 h-3 text-rd"></i></div>
+        <div><div class="text-xs font-bold text-zinc-300">No scope enforcement</div><div class="text-[11px] text-zinc-500">Agent A gives Agent B an API key. B can do <em>everything</em> A can — there's no way to say "only search, don't write."</div></div>
+      </div>
+      <div class="flex gap-3 items-start">
+        <div class="w-5 h-5 rounded-full bg-rd/15 flex items-center justify-center shrink-0 mt-0.5"><i data-lucide="scan-eye" class="w-3 h-3 text-rd"></i></div>
+        <div><div class="text-xs font-bold text-zinc-300">No audit trail</div><div class="text-[11px] text-zinc-500">When something breaks, you can't trace <em>which</em> agent did it or <em>who</em> authorized the chain.</div></div>
+      </div>
+      <div class="flex gap-3 items-start">
+        <div class="w-5 h-5 rounded-full bg-rd/15 flex items-center justify-center shrink-0 mt-0.5"><i data-lucide="power-off" class="w-3 h-3 text-rd"></i></div>
+        <div><div class="text-xs font-bold text-zinc-300">No kill switch</div><div class="text-[11px] text-zinc-500">A compromised agent keeps running. Revoking one key doesn't stop downstream agents that already have their own.</div></div>
+      </div>
+      <div class="flex gap-3 items-start">
+        <div class="w-5 h-5 rounded-full bg-rd/15 flex items-center justify-center shrink-0 mt-0.5"><i data-lucide="user-x" class="w-3 h-3 text-rd"></i></div>
+        <div><div class="text-xs font-bold text-zinc-300">No human-in-the-loop</div><div class="text-[11px] text-zinc-500">Agents make irreversible decisions autonomously. There's no gate for "ask a human before doing this."</div></div>
+      </div>
+    </div>
+
+    <div class="flex gap-3 p-3 bg-zinc-800/40 rounded-lg border-l-[3px] border-em anim-in">
+      <i data-lucide="lightbulb" class="w-4 h-4 text-em shrink-0 mt-0.5"></i>
+      <p class="text-xs text-zinc-400 leading-relaxed"><strong class="text-em">authgent</strong> is an open-source OAuth 2.1 identity provider built for AI agents. It solves all four problems above. <strong class="text-zinc-300">Press Next</strong> to watch it work, live.</p>
+    </div>
+  `;
+
+  $('detail-right').innerHTML = `
+    <div class="text-[9px] font-bold uppercase tracking-widest text-zinc-600 mb-3 flex items-center gap-2"><i data-lucide="zap" class="w-3 h-3 text-em"></i> What You're About to See</div>
+
+    <p class="text-[11px] text-zinc-500 leading-relaxed mb-3">This demo runs <strong class="text-zinc-300">real API calls</strong> against a live authgent server. Every JWT, delegation chain, and error you see is generated in real time.</p>
+
+    <div class="space-y-2">
+      <div class="flex items-center gap-2.5 p-2 rounded-lg bg-em/5 border border-em/10">
+        <span class="text-[11px] font-bold text-em w-4 text-center">1–4</span>
+        <div><div class="text-[11px] font-bold text-zinc-300">Delegation chain</div><div class="text-[10px] text-zinc-500">Orchestrator → Search → DB, scope narrows at each hop</div></div>
+      </div>
+      <div class="flex items-center gap-2.5 p-2 rounded-lg bg-rd/5 border border-rd/10">
+        <span class="text-[11px] font-bold text-rd w-4 text-center">5</span>
+        <div><div class="text-[11px] font-bold text-zinc-300">Attack blocked</div><div class="text-[10px] text-zinc-500">An agent tries to escalate — server rejects instantly</div></div>
+      </div>
+      <div class="flex items-center gap-2.5 p-2 rounded-lg bg-am/5 border border-am/10">
+        <span class="text-[11px] font-bold text-am w-4 text-center">6</span>
+        <div><div class="text-[11px] font-bold text-zinc-300">Human gate</div><div class="text-[10px] text-zinc-500">Agent can't proceed until a person approves</div></div>
+      </div>
+      <div class="flex items-center gap-2.5 p-2 rounded-lg bg-rd/5 border border-rd/10">
+        <span class="text-[11px] font-bold text-rd w-4 text-center">7</span>
+        <div><div class="text-[11px] font-bold text-zinc-300">Kill switch</div><div class="text-[10px] text-zinc-500">Revoke root token → entire chain dies immediately</div></div>
+      </div>
+    </div>
+
+    <div class="mt-4 pt-3 border-t border-zinc-800">
+      <div class="text-[10px] text-zinc-600 mb-2">Built on open standards:</div>
+      <div class="flex flex-wrap gap-1">
+        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500">OAuth 2.1</span>
+        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500">RFC 8693</span>
+        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500">RFC 9449</span>
+        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500">RFC 9457</span>
+        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500">MCP Auth</span>
+      </div>
+    </div>
+  `;
+
   lucide.createIcons();
 }
-function openBody(n){$('body-'+n).classList.add('open')}
-function closeBody(n){$('body-'+n).classList.remove('open')}
-function setBtn(n,html,dis=false){const b=$('btn-'+n);b.innerHTML=html;b.disabled=dis}
-/* No-ops for step runner compat */
-function setPipeArrow(){}function setPipeNode(){}function setForkPath(){}function setStep(){}
 
-function unlockNext(cur){
-  setSubStep(cur,'done');setBtn(cur,'Done',true);
-  /* animate pipe-arrow after this step */
-  const arr=$('parr-'+cur);if(arr)arr.className='pipe-arrow adone';
-  const p=stepToPhase[cur],stps=phaseSteps[p],idx=stps.indexOf(cur);
-  if(idx<stps.length-1){
-    /* more steps in this phase — nothing else to do */
-  } else {
-    setPhaseState(p,'done');
-    $('phase-btn-'+p).innerHTML='<i data-lucide="check" class="w-3.5 h-3.5"></i> Done';$('phase-btn-'+p).disabled=true;
-    if(p<3){setPhaseState(p+1,'active');if(!autoPlaying)selectPhase(p+1)}
-    lucide.createIcons();
+/* ──────────── Rendering: Left (Agent View) ──────────── */
+function leftLabel() {
+  return '<div class="text-[9px] font-bold uppercase tracking-widest text-zinc-600 mb-3 flex items-center gap-2"><i data-lucide="bot" class="w-3 h-3"></i> What\'s Happening</div>';
+}
+function rightLabel() {
+  return '<div class="text-[9px] font-bold uppercase tracking-widest text-zinc-600 mb-3 flex items-center gap-2"><i data-lucide="terminal" class="w-3 h-3"></i> Under the Hood</div>';
+}
+
+function banner(type, title, sub) {
+  const colors = { ok: 'em', err: 'rd', warn: 'am' };
+  const icons = { ok: 'check-circle', err: 'shield-x', warn: 'alert-triangle' };
+  const c = colors[type], ic = icons[type];
+  return `<div class="flex items-center gap-3 p-3 rounded-lg bg-${c}/8 border border-${c}/20 mb-3 anim-in"><i data-lucide="${ic}" class="w-5 h-5 text-${c} shrink-0"></i><div><div class="text-sm font-semibold text-${c}">${title}</div><div class="text-xs text-zinc-500 mt-0.5">${sub}</div></div></div>`;
+}
+
+function narrative(icon, text) {
+  return `<div class="flex gap-3 items-start mb-3 anim-in"><i data-lucide="${icon}" class="w-4 h-4 text-zinc-400 shrink-0 mt-0.5"></i><p class="text-[13px] text-zinc-300 leading-relaxed">${text}</p></div>`;
+}
+
+function agentCards(agents) {
+  return '<div class="flex flex-wrap gap-2 my-3 anim-in">' + agents.map(a =>
+    `<div class="agent-card" style="border-color:${a.color}30;background:${a.color}06">
+      <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${a.color}"></div>
+      <div><div class="text-xs font-bold" style="color:${a.color}">${esc(a.name)}</div>
+      <div class="text-[10px] font-mono text-zinc-500">${esc(a.scopes)}</div></div>
+    </div>`
+  ).join('') + '</div>';
+}
+
+function chainViz(actors) {
+  return '<div class="flex items-center gap-2 flex-wrap my-3 anim-in">' + actors.map((a, i) =>
+    (i > 0 ? '<div class="chain-line"></div>' : '') +
+    `<div class="chain-arrow" style="border-color:${a.color || '#3f3f46'}50">
+      <div class="w-2 h-2 rounded-full" style="background:${a.color || '#10b981'}"></div>
+      <span class="text-[11px] font-bold text-zinc-200 ml-1">${esc(a.name)}</span>
+      <span class="text-[9px] font-mono text-zinc-500 ml-1.5">${esc(a.scope)}</span>
+    </div>`
+  ).join('') + '</div>';
+}
+
+function scopeChange(from, to) {
+  const dropped = from.filter(s => !to.includes(s));
+  return '<div class="flex items-center gap-2 my-2 flex-wrap anim-in">' +
+    '<span class="text-[9px] font-bold uppercase text-zinc-600 mr-1">Scopes:</span>' +
+    from.map(s => {
+      const off = dropped.includes(s);
+      return `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded ${off ? 'text-zinc-600 line-through bg-zinc-800/50' : 'text-em bg-em/10 font-bold'}">${s}</span>`;
+    }).join(' ') + '</div>';
+}
+
+function insight(text) {
+  return `<div class="flex gap-3 p-3 bg-zinc-800/40 rounded-lg border-l-[3px] border-em mt-3 anim-in"><i data-lucide="lightbulb" class="w-4 h-4 text-em shrink-0 mt-0.5"></i><p class="text-xs text-zinc-500 leading-relaxed">${text}</p></div>`;
+}
+
+/* ──────────── Rendering: Right (Under the Hood) ──────────── */
+function renderHttp(req, res) {
+  const ok = res.status < 400;
+  const sc = ok ? 'text-em bg-em/10' : 'text-rd bg-rd/10';
+  const mc = ok ? 'text-em' : 'text-rd';
+  return `<div class="cblock anim-in"><div class="cblock-head"><span class="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 ${mc}">${req.method}</span><span class="font-mono text-[10px] text-zinc-500 truncate">${esc(req.url || '')}</span><span class="ml-auto font-mono text-[10px] font-bold px-2 py-0.5 rounded ${sc}">${res.status}</span></div><div class="cblock-body">${esc(JSON.stringify(res.data, null, 2))}</div></div>`;
+}
+
+function renderJwt(token, label) {
+  const h = decodeJwtHeader(token), p = decodeJwt(token);
+  if (!p) return '<div class="bg-rd/10 border border-rd/25 rounded-lg p-3 text-rd text-sm">Failed to decode JWT</div>';
+  let pHtml = '';
+  for (const [k, v] of Object.entries(p)) {
+    if (k === 'act') continue;
+    const val = typeof v === 'string' ? `"${esc(v)}"` : esc(JSON.stringify(v));
+    const cls = typeof v === 'number' ? 'text-am' : typeof v === 'string' ? 'text-em' : 'text-zinc-400';
+    const hl = k === 'scope' ? ' font-bold text-cy' : '';
+    pHtml += `<div class="font-mono text-[11px] leading-relaxed"><span class="text-cy">"${k}"</span>: <span class="${cls}${hl}">${val}</span></div>`;
+  }
+  let actHtml = '';
+  if (p.act) {
+    actHtml = `<div class="mt-2 pt-2 border-t border-zinc-800"><div class="text-[10px] uppercase tracking-wider text-cy font-bold mb-1 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-cy shadow-[0_0_4px_#06b6d4]"></span> act claim</div><pre class="font-mono text-[10px] text-zinc-500 leading-relaxed">${esc(JSON.stringify(p.act, null, 2))}</pre></div>`;
+  }
+  return `<div class="bg-zinc-800/40 border border-zinc-700/40 rounded-lg p-3 mt-2 anim-in"><div class="text-[10px] uppercase tracking-wider text-zinc-600 mb-2 flex items-center gap-2">JWT Payload <span class="text-[9px] px-1.5 py-0.5 rounded bg-cy/10 text-cy font-bold">${label}</span></div>${pHtml}${actHtml}</div>`;
+}
+
+function subhead(text) {
+  return `<div class="text-[10px] uppercase tracking-wider text-zinc-600 font-bold mt-3 mb-1">${text}</div>`;
+}
+
+/* ──────────── Show Detail (split panel) ──────────── */
+function showDetail(stepNum, title, statusText, statusColor, leftHtml, rightHtml) {
+  stepResults[stepNum] = { title, statusText, statusColor, leftHtml, rightHtml };
+  renderStep(stepNum);
+}
+
+function renderStep(n) {
+  const r = stepResults[n];
+  if (!r) return;
+  viewingStep = n;
+  $('detail-title').textContent = `Step ${n}: ${r.title}`;
+  $('detail-title').className = 'text-xs font-semibold text-zinc-300';
+  $('detail-status').textContent = r.statusText;
+  $('detail-status').className = `text-[10px] font-bold uppercase tracking-wider text-${r.statusColor}`;
+  $('detail-left').innerHTML = leftLabel() + r.leftHtml;
+  $('detail-right').innerHTML = rightLabel() + r.rightHtml;
+  updateStepNav();
+  highlightViewingNode();
+  lucide.createIcons();
+  $('detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function highlightViewingNode() {
+  for (let i = 1; i <= 7; i++) {
+    const el = $('n' + i);
+    if (el) el.classList.toggle('viewing', i === viewingStep);
   }
 }
 
-function setNode(id,state,meta){
-  const el=$(id),icon=$(id+'-icon'),metaEl=$(id+'-meta');
-  if(meta&&metaEl)metaEl.textContent=meta;if(!el)return;
-  el.style.opacity='';el.className=el.className.replace(/border-\S+/g,'border-border');
-  if(icon)icon.className=icon.className.replace(/bg-\S+/g,'bg-surface-3').replace(/border-\S+/g,'border-border');
-  if(state==='idle')el.style.opacity='.3';
-  else if(state==='registered')el.style.opacity='.6';
-  else if(state==='active'){el.style.opacity='1';el.className=el.className.replace('border-border','border-accent');if(icon){icon.className=icon.className.replace('bg-surface-3','bg-accent').replace('border-border','border-accent');icon.querySelectorAll('i').forEach(i=>i.className=i.className.replace('text-gray-500','text-white'))}}
-  else if(state==='done'){el.style.opacity='1';el.className=el.className.replace('border-border','border-emr/40');if(icon){icon.className=icon.className.replace('bg-surface-3','bg-emr/15').replace('border-border','border-emr/40');icon.querySelectorAll('i').forEach(i=>i.className=i.className.replace('text-gray-500','text-emr'))}}
-  else if(state==='revoked'){el.style.opacity='.5';el.className=el.className.replace('border-border','border-rose2/40 border-dashed');if(icon){icon.className=icon.className.replace('bg-surface-3','bg-rose2/10').replace('border-border','border-rose2/40');icon.querySelectorAll('i').forEach(i=>i.className=i.className.replace('text-gray-500','text-rose2').replace('text-emr','text-rose2').replace('text-white','text-rose2'))}}
-}
-function setEdge(id,state){
-  const el=$(id),tag=$(id+'-tag');if(!el)return;
-  el.className='topo-line'+(state?' '+state:'');
-  if(tag){if(state==='active'||state==='done')tag.style.opacity='1';else tag.style.opacity='0'}
-}
-function setScopeBars(scopes){
-  const map={'read':'bar-read','write':'bar-write','search':'bar-search','db:read':'bar-dbread'};
-  Object.entries(map).forEach(([s,id])=>{const el=$(id);if(el)el.style.width=scopes.includes(s)?'100%':'0'});
+function updateStepNav() {
+  const nav = $('stepNav');
+  let html = '';
+  for (let i = 1; i <= 7; i++) {
+    const has = !!stepResults[i];
+    const active = viewingStep === i;
+    const cls = active ? 'step-pill viewing' : has ? 'step-pill has' : 'step-pill';
+    html += `<button onclick="viewStep(${i})" class="${cls}" ${has ? '' : 'disabled'} title="${STEP_NAMES[i]}">${i}</button>`;
+  }
+  nav.innerHTML = html;
 }
 
-function renderHttp(req,res){
-  const sc=res.status<400?'text-emr bg-emr/10':'text-rose2 bg-rose2/10';
-  return`<div class="code-block anim-in"><div class="code-head"><span class="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-accent/15 text-accent-2">${req.method}</span><span class="font-mono text-[11px] text-gray-400 truncate">${esc(req.url||'')}</span><span class="ml-auto font-mono text-[11px] font-bold px-2 py-0.5 rounded ${sc}">${res.status}</span></div><div class="code-body">${esc(JSON.stringify(res.data,null,2))}</div></div>`;
+function viewStep(n) {
+  if (!stepResults[n]) return;
+  switchTab('demo');
+  renderStep(n);
 }
-function renderJwt(token,label){
-  const h=decodeJwtHeader(token),p=decodeJwt(token);
-  if(!p)return'<div class="bg-rose2/10 border border-rose2/25 rounded-xl p-3 text-rose2 text-sm">Failed to decode JWT</div>';
-  let hHtml='',pHtml='';
-  for(const[k,v]of Object.entries(h)){hHtml+=`<div class="font-mono text-[11px] leading-relaxed"><span class="text-cyn">"${k}"</span>: <span class="text-emr">"${esc(String(v))}"</span></div>`}
-  for(const[k,v]of Object.entries(p)){
-    if(k==='act')continue;const val=typeof v==='string'?`"${esc(v)}"`:esc(JSON.stringify(v));
-    const cls=typeof v==='number'?'text-amb':typeof v==='string'?'text-emr':'text-gray-300';
-    const hl=k==='scope'?' font-semibold text-accent-2':'';
-    pHtml+=`<div class="font-mono text-[11px] leading-relaxed"><span class="text-cyn">"${k}"</span>: <span class="${cls}${hl}">${val}</span></div>`
-  }
-  let actHtml='';
-  if(p.act){
-    const chain=[];let a=p.act;while(a&&typeof a==='object'){chain.push(a.sub||'?');a=a.act}
-    const visual=chain.map(s=>`<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-surface-3 border border-border rounded font-mono text-[11px]">${esc(s.length>16?s.slice(0,16)+'...':s)}</span>`).join('<span class="text-accent-2 mx-1">&rarr;</span>');
-    actHtml=`<div class="mt-3 bg-gradient-to-r from-accent/5 to-cyn/5 border border-accent/20 rounded-xl p-4 anim-in"><div class="text-[10px] uppercase tracking-wider text-accent-2 font-semibold mb-2 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-accent shadow-[0_0_8px_rgba(124,92,252,.5)]"></span> Delegation Chain (act claim)</div><pre class="font-mono text-[11px] text-gray-400 leading-relaxed mb-2">${esc(JSON.stringify(p.act,null,2))}</pre><div class="flex items-center gap-1 flex-wrap">${visual}</div></div>`;
-  }
-  return`<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 anim-in"><div class="bg-bg-2 border border-border rounded-xl p-3"><div class="text-[10px] uppercase tracking-wider text-gray-500 mb-2">Header</div>${hHtml}</div><div class="bg-bg-2 border border-border rounded-xl p-3"><div class="text-[10px] uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-2">Payload <span class="text-[9px] px-1.5 py-0.5 rounded bg-accent/15 text-accent-2">${label}</span></div>${pHtml}</div></div>${actHtml}`;
-}
-function successBanner(title,sub){return`<div class="flex items-center gap-3 p-3 rounded-xl bg-emr/8 border border-emr/25 mb-3 anim-in"><i data-lucide="check-circle" class="w-5 h-5 text-emr shrink-0"></i><div><div class="text-sm font-semibold text-emr">${title}</div><div class="text-xs text-gray-400 mt-0.5">${sub}</div></div></div>`}
-function blockedBanner(title,sub){return`<div class="flex items-center gap-3 p-3 rounded-xl bg-rose2/8 border border-rose2/25 mb-3 anim-in"><i data-lucide="shield-x" class="w-5 h-5 text-rose2 shrink-0"></i><div><div class="text-sm font-semibold text-rose2">${title}</div><div class="text-xs text-gray-400 mt-0.5">${sub}</div></div></div>`}
-function insight(text){return`<div class="flex gap-3 p-3 bg-surface-2 rounded-xl border-l-[3px] border-accent mt-3 anim-in"><i data-lucide="lightbulb" class="w-4 h-4 text-accent-2 shrink-0 mt-0.5"></i><p class="text-xs text-gray-400 leading-relaxed">${text}</p></div>`}
-function subhead(text){return`<div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mt-4 mb-2">${text}</div>`}
 
-const steps={
-  1:async()=>{
-    const r1=await api('POST','/agents',{name:'demo-orchestrator',allowed_scopes:['read','write','search','db:read']});S.orch=r1.data;
-    const r2=await api('POST','/register',{client_name:'demo-search-agent',grant_types:['client_credentials','urn:ietf:params:oauth:grant-type:token-exchange'],scope:'search db:read'});S.searchClient=r2.data;
-    const r3=await api('POST','/register',{client_name:'demo-db-agent',grant_types:['client_credentials','urn:ietf:params:oauth:grant-type:token-exchange'],scope:'db:read'});S.dbClient=r3.data;
-    setNode('cn-orch','registered',S.orch.client_id);setNode('cn-search','registered',S.searchClient.client_id);setNode('cn-db','registered',S.dbClient.client_id);
-    $('inner-1').innerHTML=successBanner('3 agents registered','Each with different allowed scopes — scope ceiling enforcement starts here')+renderHttp({method:'POST',url:base()+'/agents'},{status:r1.status,data:{orchestrator:S.orch.client_id,search:S.searchClient.client_id,db:S.dbClient.client_id}})+insight('Every agent gets a <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">client_id</code> + <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">client_secret</code>. The <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">allowed_scopes</code> set the maximum permissions — agents can never exceed these, even via delegation.');
-    openBody(1);lucide.createIcons();
+/* ──────────── Step Logic (split into left/right) ──────────── */
+const steps = {
+  1: async () => {
+    const r1 = await api('POST', '/agents', { name: 'demo-orchestrator', allowed_scopes: ['read', 'write', 'search', 'db:read'] });
+    S.orch = r1.data;
+    const r2 = await api('POST', '/register', { client_name: 'demo-search-agent', grant_types: ['client_credentials', 'urn:ietf:params:oauth:grant-type:token-exchange'], scope: 'search db:read' });
+    S.searchClient = r2.data;
+    const r3 = await api('POST', '/register', { client_name: 'demo-db-agent', grant_types: ['client_credentials', 'urn:ietf:params:oauth:grant-type:token-exchange'], scope: 'db:read' });
+    S.dbClient = r3.data;
+
+    const left =
+      banner('ok', '3 agents registered', 'Each with different scope ceilings — enforcement starts here.')
+      + narrative('users', 'Three AI agents join the system. Each declares what it\'s <strong>allowed</strong> to do — these scopes are the maximum, a hard ceiling that can never be exceeded.')
+      + agentCards([
+        { name: 'Orchestrator', scopes: 'read write search db:read', color: '#10b981' },
+        { name: 'Search Agent', scopes: 'search db:read', color: '#06b6d4' },
+        { name: 'DB Agent', scopes: 'db:read', color: '#f59e0b' },
+      ])
+      + insight('Each agent gets a <code class="text-cy font-mono text-[11px]">client_id</code> + <code class="text-cy font-mono text-[11px]">client_secret</code>. The <code class="text-cy font-mono text-[11px]">allowed_scopes</code> set the ceiling — agents can never exceed these, even via delegation.');
+
+    const right =
+      subhead('Register orchestrator agent')
+      + renderHttp({ method: 'POST', url: base() + '/agents' }, { status: r1.status, data: { client_id: S.orch.client_id, name: 'demo-orchestrator', allowed_scopes: S.orch.allowed_scopes } })
+      + subhead('Register search agent (dynamic)')
+      + renderHttp({ method: 'POST', url: base() + '/register' }, { status: r2.status, data: { client_id: S.searchClient.client_id, client_name: 'demo-search-agent', scope: 'search db:read' } })
+      + subhead('Register DB agent (dynamic)')
+      + renderHttp({ method: 'POST', url: base() + '/register' }, { status: r3.status, data: { client_id: S.dbClient.client_id, client_name: 'demo-db-agent', scope: 'db:read' } });
+
+    showDetail(1, 'Register 3 AI Agents', 'REGISTERED', 'em', left, right);
   },
-  2:async()=>{
-    const r=await api('POST','/token',{grant_type:'client_credentials',client_id:S.orch.client_id,client_secret:S.orch.client_secret,scope:'read write search db:read'},true);S.orchToken=r.data.access_token;
-    setNode('cn-orch','active','authenticated');setScopeBars(['read','write','search','db:read']);
-    $('inner-2').innerHTML=successBanner('Token issued — full scope','Orchestrator has read, write, search, db:read — the widest token in the chain')+renderHttp({method:'POST',url:base()+'/token'},{status:r.status,data:{access_token:r.data.access_token.slice(0,50)+'...',token_type:r.data.token_type,expires_in:r.data.expires_in,scope:r.data.scope}})+renderJwt(S.orchToken,'Root Token')+insight('No <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">act</code> claim yet — this is the <strong>root</strong> of the chain.');
-    openBody(2);lucide.createIcons();
+
+  2: async () => {
+    const r = await api('POST', '/token', { grant_type: 'client_credentials', client_id: S.orch.client_id, client_secret: S.orch.client_secret, scope: 'read write search db:read' }, true);
+    S.orchToken = r.data.access_token;
+    setScopeState(['read', 'write', 'search', 'db:read']);
+
+    const left =
+      banner('ok', 'JWT issued — full scope', 'The orchestrator now holds the widest token in the chain.')
+      + narrative('key-round', 'The orchestrator presents its credentials and receives a <strong>signed JWT</strong> with all four scopes. This is the <strong>root token</strong> — the starting point of any delegation chain.')
+      + scopeChange(['read', 'write', 'search', 'db:read'], ['read', 'write', 'search', 'db:read'])
+      + insight('No <code class="text-cy font-mono text-[11px]">act</code> claim yet — this is the <strong>root</strong> of the delegation chain. Every downstream token will trace back here.');
+
+    const right =
+      subhead('client_credentials grant')
+      + renderHttp({ method: 'POST', url: base() + '/token' }, { status: r.status, data: { access_token: r.data.access_token.slice(0, 50) + '...', token_type: r.data.token_type, expires_in: r.data.expires_in, scope: r.data.scope } })
+      + renderJwt(S.orchToken, 'Root Token');
+
+    showDetail(2, 'Authenticate Orchestrator', 'FULL SCOPE', 'em', left, right);
   },
-  3:async()=>{
-    const r=await api('POST','/token',{grant_type:'urn:ietf:params:oauth:grant-type:token-exchange',subject_token:S.orchToken,subject_token_type:'urn:ietf:params:oauth:token-type:access_token',client_id:S.searchClient.client_id,client_secret:S.searchClient.client_secret,audience:'https://search.example.com',scope:'search db:read'},true);S.searchToken=r.data.access_token;
-    setNode('cn-orch','done','delegated');setNode('cn-search','active','has token');setEdge('ce-1','done');setScopeBars(['search','db:read']);
-    $('inner-3').innerHTML=successBanner('Token exchanged — scope narrowed','read, write dropped. Only search + db:read remain.')+renderHttp({method:'POST',url:base()+'/token'},{status:r.status,data:{access_token:r.data.access_token.slice(0,50)+'...',scope:r.data.scope}})+renderJwt(S.searchToken,'Delegated Token')+insight('The <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">act</code> claim now appears — it records who delegated. Scope can only <strong>shrink</strong>, never grow.');
-    openBody(3);lucide.createIcons();
+
+  3: async () => {
+    const r = await api('POST', '/token', { grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange', subject_token: S.orchToken, subject_token_type: 'urn:ietf:params:oauth:token-type:access_token', client_id: S.searchClient.client_id, client_secret: S.searchClient.client_secret, audience: 'https://search.example.com', scope: 'search db:read' }, true);
+    S.searchToken = r.data.access_token;
+    setScopeState(['search', 'db:read']);
+
+    const left =
+      banner('ok', 'Token exchanged — scope narrowed', '<code class="text-zinc-400 font-mono text-[11px]">read</code> and <code class="text-zinc-400 font-mono text-[11px]">write</code> dropped. Only search + db:read remain.')
+      + narrative('arrow-right-left', 'The orchestrator <strong>hands off</strong> work to the search agent. Via token exchange, a new token is minted — but with <strong>fewer scopes</strong>. The search agent can only search and read the database, nothing more.')
+      + chainViz([
+        { name: 'Orchestrator', scope: '4 scopes', color: '#10b981' },
+        { name: 'Search Agent', scope: '2 scopes', color: '#06b6d4' },
+      ])
+      + scopeChange(['read', 'write', 'search', 'db:read'], ['search', 'db:read'])
+      + insight('The <code class="text-cy font-mono text-[11px]">act</code> claim now appears in the JWT — it records who delegated to whom. Scope can only <strong>shrink</strong>, never grow.');
+
+    const right =
+      subhead('Token exchange (RFC 8693)')
+      + renderHttp({ method: 'POST', url: base() + '/token' }, { status: r.status, data: { access_token: r.data.access_token.slice(0, 50) + '...', scope: r.data.scope, issued_token_type: r.data.issued_token_type } })
+      + renderJwt(S.searchToken, 'Delegated Token');
+
+    showDetail(3, 'Delegate → Search Agent', 'SCOPE NARROWED', 'cy', left, right);
   },
-  4:async()=>{
-    const r=await api('POST','/token',{grant_type:'urn:ietf:params:oauth:grant-type:token-exchange',subject_token:S.searchToken,subject_token_type:'urn:ietf:params:oauth:token-type:access_token',client_id:S.dbClient.client_id,client_secret:S.dbClient.client_secret,audience:'https://db.example.com',scope:'db:read'},true);S.dbToken=r.data.access_token;
-    setNode('cn-search','done','delegated');setNode('cn-db','active','has token');setEdge('ce-2','done');setScopeBars(['db:read']);
-    $('inner-4').innerHTML=successBanner('Nested delegation — 2 hops deep','db:read only. The act claim is now nested: search → orchestrator.')+renderHttp({method:'POST',url:base()+'/token'},{status:r.status,data:{access_token:r.data.access_token.slice(0,50)+'...',scope:r.data.scope}})+renderJwt(S.dbToken,'2-Hop Delegated Token')+insight('The <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">act</code> claim is now <strong>nested</strong>: <code class="text-accent-2 bg-accent/10 px-1 py-0.5 rounded text-[11px] font-mono">act.sub</code> = search, <code class="text-accent-2 bg-accent/10 px-1 py-0.5 rounded text-[11px] font-mono">act.act.sub</code> = orchestrator.');
-    openBody(4);lucide.createIcons();
+
+  4: async () => {
+    const r = await api('POST', '/token', { grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange', subject_token: S.searchToken, subject_token_type: 'urn:ietf:params:oauth:token-type:access_token', client_id: S.dbClient.client_id, client_secret: S.dbClient.client_secret, audience: 'https://db.example.com', scope: 'db:read' }, true);
+    S.dbToken = r.data.access_token;
+    setScopeState(['db:read']);
+
+    const left =
+      banner('ok', 'Nested delegation — 2 hops deep', 'Only db:read remains. The chain now has full provenance.')
+      + narrative('git-branch', 'The search agent needs data, so it delegates <strong>further</strong> to the DB agent. Each hop narrows scope. The JWT now contains a <strong>nested act claim</strong> — a full audit trail of who delegated to whom.')
+      + chainViz([
+        { name: 'Orchestrator', scope: '4 scopes', color: '#10b981' },
+        { name: 'Search', scope: '2 scopes', color: '#06b6d4' },
+        { name: 'DB Agent', scope: 'db:read', color: '#f59e0b' },
+      ])
+      + scopeChange(['search', 'db:read'], ['db:read'])
+      + insight('The <code class="text-cy font-mono text-[11px]">act</code> claim is <strong>nested</strong>: <code class="text-cy font-mono text-[11px]">act.sub</code> = search, <code class="text-cy font-mono text-[11px]">act.act.sub</code> = orchestrator. Full provenance at every hop.');
+
+    const right =
+      subhead('Second token exchange')
+      + renderHttp({ method: 'POST', url: base() + '/token' }, { status: r.status, data: { access_token: r.data.access_token.slice(0, 50) + '...', scope: r.data.scope } })
+      + renderJwt(S.dbToken, '2-Hop Delegated Token');
+
+    showDetail(4, 'Delegate → DB Agent (2-hop)', 'NESTED CHAIN', 'cy', left, right);
   },
-  5:async()=>{
-    const r=await api('POST','/token',{grant_type:'urn:ietf:params:oauth:grant-type:token-exchange',subject_token:S.searchToken,subject_token_type:'urn:ietf:params:oauth:token-type:access_token',client_id:S.dbClient.client_id,client_secret:S.dbClient.client_secret,audience:'https://db.example.com',scope:'db:read write'},true);
-    const blocked=r.status>=400;
-    $('step-5').classList.add('shake-it');setTimeout(()=>$('step-5').classList.remove('shake-it'),600);
-    $('inner-5').innerHTML=(blocked?blockedBanner('BLOCKED — Scope escalation rejected','Search token has "search db:read". Requesting "write" is impossible — authgent enforces scope ceiling.'):successBanner('Unexpected: allowed','This should have been blocked.'))+renderHttp({method:'POST',url:base()+'/token'},{status:r.status,data:r.data})+insight('This is the core security guarantee: agents can <strong>never</strong> escalate beyond their parent\'s scope. Blocks <strong>confused deputy</strong> and <strong>privilege escalation</strong> attacks.');
-    openBody(5);lucide.createIcons();
-    if(blocked){
-      setBtn(5,'Blocked',true);
-      return'skip-unlock';
+
+  5: async () => {
+    const r = await api('POST', '/token', { grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange', subject_token: S.searchToken, subject_token_type: 'urn:ietf:params:oauth:token-type:access_token', client_id: S.dbClient.client_id, client_secret: S.dbClient.client_secret, audience: 'https://db.example.com', scope: 'db:read write' }, true);
+    const blocked = r.status >= 400;
+    if (blocked) {
+      $('n5').classList.add('shake-it');
+      setTimeout(() => $('n5').classList.remove('shake-it'), 600);
     }
+
+    const left = blocked
+      ? banner('err', 'BLOCKED — Scope escalation rejected', 'The search agent tried to request "write" — a scope it never had.')
+        + narrative('shield-alert', 'The search agent goes <strong>rogue</strong>. It tries to request <code class="text-rd font-mono text-[11px]">write</code> access during delegation — a scope its parent token doesn\'t have. The server immediately rejects the attempt.')
+        + `<div class="my-3 p-3 rounded-lg bg-rd/5 border border-rd/15 anim-in">
+            <div class="flex items-center gap-2 mb-2"><i data-lucide="shield-x" class="w-4 h-4 text-rd"></i><span class="text-xs font-bold text-rd">Escalation Attempt</span></div>
+            <div class="flex items-center gap-2 flex-wrap text-[11px]">
+              <span class="font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">search</span>
+              <span class="font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">db:read</span>
+              <span class="text-zinc-600 mx-1">+</span>
+              <span class="font-mono px-1.5 py-0.5 rounded bg-rd/15 text-rd font-bold line-through">write</span>
+              <span class="text-rd text-xs font-bold ml-2">← REJECTED</span>
+            </div>
+          </div>`
+        + insight('This is the core security guarantee: agents can <strong>never</strong> escalate beyond their parent\'s scope. Blocks <strong>confused deputy</strong> and <strong>privilege escalation</strong> attacks.')
+      : banner('warn', 'Unexpected: request was allowed', 'This should have been blocked.')
+        + narrative('alert-triangle', 'Something unexpected happened — the escalation was not blocked.');
+
+    const right =
+      subhead('Escalation attempt')
+      + renderHttp({ method: 'POST', url: base() + '/token' }, { status: r.status, data: r.data });
+
+    showDetail(5, 'Scope Escalation Attack', blocked ? 'BLOCKED' : 'UNEXPECTED', blocked ? 'rd' : 'am', left, right);
+    return blocked ? 'blocked' : 'done';
   },
-  6:async()=>{
-    const agentId=S.orch.id||S.orch.client_id;
-    const create=await api('POST','/stepup',{agent_id:agentId,action:'delete_all_records',scope:'db:delete',resource:'https://db.example.com/production',delegation_chain:{sub:agentId,act:{sub:'search-agent'}},metadata:{reason:'User requested full data wipe',risk:'high'}});
-    const reqId=create.data.id;
-    const poll1=await api('GET',`/stepup/${reqId}`);
-    const approve=await api('POST',`/stepup/${reqId}/approve`,{approved_by:'alice@company.com'});
-    const poll2=await api('GET',`/stepup/${reqId}`);
-    $('inner-6').innerHTML=successBanner('Human approved a dangerous action','Agent requested db:delete on production. A human reviewer approved before the agent could proceed.')+subhead('1. Agent requests step-up')+renderHttp({method:'POST',url:base()+'/stepup'},{status:create.status,data:create.data})+subhead('2. Agent polls — pending')+renderHttp({method:'GET',url:base()+'/stepup/'+reqId},{status:poll1.status,data:{id:poll1.data.id,status:poll1.data.status,action:poll1.data.action,scope:poll1.data.scope}})+subhead('3. Human reviewer approves')+renderHttp({method:'POST',url:base()+'/stepup/'+reqId+'/approve'},{status:approve.status,data:{id:approve.data.id,status:approve.data.status,approved_by:approve.data.approved_by,approved_at:approve.data.approved_at}})+subhead('4. Agent polls again — approved')+renderHttp({method:'GET',url:base()+'/stepup/'+reqId},{status:poll2.status,data:poll2.data})+insight('The agent <strong>cannot proceed</strong> until a human approves. The approval is recorded with <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded text-[11px] font-mono">approved_by</code> and timestamp for audit.');
-    openBody(6);lucide.createIcons();
+
+  6: async () => {
+    const agentId = S.orch.id || S.orch.client_id;
+    const create = await api('POST', '/stepup', { agent_id: agentId, action: 'delete_all_records', scope: 'db:delete', resource: 'https://db.example.com/production', delegation_chain: { sub: agentId, act: { sub: 'search-agent' } }, metadata: { reason: 'User requested full data wipe', risk: 'high' } });
+    const reqId = create.data.id;
+    const poll1 = await api('GET', `/stepup/${reqId}`);
+    const approve = await api('POST', `/stepup/${reqId}/approve`, { approved_by: 'alice@company.com' });
+    const poll2 = await api('GET', `/stepup/${reqId}`);
+
+    const left =
+      banner('ok', 'Human approved a dangerous action', 'A real person reviewed and approved before the agent could proceed.')
+      + narrative('hand', 'The agent wants to <strong>delete all production records</strong> — a high-risk action. Instead of executing immediately, it raises a <strong>step-up request</strong>. A human reviewer sees the request, evaluates the risk, and approves.')
+      + `<div class="my-3 space-y-1.5 anim-in">
+          <div class="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700/40">
+            <div class="w-6 h-6 rounded-full bg-am/15 flex items-center justify-center"><i data-lucide="bot" class="w-3 h-3 text-am"></i></div>
+            <div><div class="text-[11px] font-bold text-am">Agent requests step-up</div><div class="text-[10px] text-zinc-500">action: delete_all_records · scope: db:delete</div></div>
+          </div>
+          <div class="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700/40">
+            <div class="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center"><i data-lucide="clock" class="w-3 h-3 text-zinc-400"></i></div>
+            <div><div class="text-[11px] font-bold text-zinc-400">Agent polls — waiting</div><div class="text-[10px] text-zinc-500">status: pending</div></div>
+          </div>
+          <div class="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-800/60 border border-zinc-700/40">
+            <div class="w-6 h-6 rounded-full bg-em/15 flex items-center justify-center"><i data-lucide="user-check" class="w-3 h-3 text-em"></i></div>
+            <div><div class="text-[11px] font-bold text-em">alice@company.com approves</div><div class="text-[10px] text-zinc-500">status: approved · recorded in audit</div></div>
+          </div>
+        </div>`
+      + insight('The agent <strong>cannot proceed</strong> until a human approves. The approval is recorded with <code class="text-cy font-mono text-[11px]">approved_by</code> and timestamp for full audit trail.');
+
+    const right =
+      subhead('1. Create step-up request')
+      + renderHttp({ method: 'POST', url: base() + '/stepup' }, { status: create.status, data: create.data })
+      + subhead('2. Agent polls (pending)')
+      + renderHttp({ method: 'GET', url: base() + '/stepup/' + reqId }, { status: poll1.status, data: { id: poll1.data.id, status: poll1.data.status, action: poll1.data.action, scope: poll1.data.scope } })
+      + subhead('3. Human approves')
+      + renderHttp({ method: 'POST', url: base() + '/stepup/' + reqId + '/approve' }, { status: approve.status, data: { id: approve.data.id, status: approve.data.status, approved_by: approve.data.approved_by } })
+      + subhead('4. Agent polls (approved)')
+      + renderHttp({ method: 'GET', url: base() + '/stepup/' + reqId }, { status: poll2.status, data: { id: poll2.data.id, status: poll2.data.status, approved_by: poll2.data.approved_by } });
+
+    showDetail(6, 'Human-in-the-Loop Approval', 'APPROVED', 'am', left, right);
   },
-  7:async()=>{
-    await api('POST','/revoke',{token:S.orchToken,client_id:S.orch.client_id},true);
-    const intro=await api('POST','/introspect',{token:S.orchToken},true);
-    const exch=await api('POST','/token',{grant_type:'urn:ietf:params:oauth:grant-type:token-exchange',subject_token:S.orchToken,subject_token_type:'urn:ietf:params:oauth:token-type:access_token',client_id:S.searchClient.client_id,client_secret:S.searchClient.client_secret,audience:'https://search.example.com',scope:'search'},true);
-    setNode('cn-orch','revoked','REVOKED');setNode('cn-search','revoked','chain killed');setNode('cn-db','revoked','chain killed');
-    setEdge('ce-1','revoked');setEdge('ce-2','revoked');setScopeBars([]);
-    $('inner-7').innerHTML=blockedBanner('Root token revoked — entire chain killed','Introspection returns active=false. New exchanges using revoked token are rejected.')+subhead('Revoke root token')+renderHttp({method:'POST',url:base()+'/revoke'},{status:200,data:{result:'revoked'}})+subhead('Introspect — dead')+renderHttp({method:'POST',url:base()+'/introspect'},{status:intro.status,data:intro.data})+subhead('Re-exchange attempt — rejected')+renderHttp({method:'POST',url:base()+'/token'},{status:exch.status,data:exch.data})+insight('In a real incident: security team revokes the compromised token. <strong>All downstream delegations</strong> immediately fail. Kill-switch for agent supply chains.');
-    openBody(7);lucide.createIcons();
+
+  7: async () => {
+    await api('POST', '/revoke', { token: S.orchToken, client_id: S.orch.client_id }, true);
+    const intro = await api('POST', '/introspect', { token: S.orchToken }, true);
+    const exch = await api('POST', '/token', { grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange', subject_token: S.orchToken, subject_token_type: 'urn:ietf:params:oauth:token-type:access_token', client_id: S.searchClient.client_id, client_secret: S.searchClient.client_secret, audience: 'https://search.example.com', scope: 'search' }, true);
+
+    for (let i = 1; i <= 4; i++) setNodeState(i, 'revoked');
+    setNodeState(5, $('n5').classList.contains('blocked') ? 'blocked' : 'revoked');
+    setNodeState(6, 'revoked');
+    ['c12', 'c23', 'c34', 'c4f', 'cf5', 'cf6', 'c67'].forEach(id => setConnState(id, 'revoked'));
+    setScopeState([]);
+
+    const left =
+      banner('err', 'Root token revoked — chain killed', 'One revocation destroys all downstream delegations instantly.')
+      + narrative('power-off', 'A security team member revokes the <strong>root token</strong>. Immediately, <strong>every token in the chain</strong> becomes invalid. The search agent\'s token, the DB agent\'s token — all dead. No agent can act.')
+      + `<div class="my-3 anim-in">
+          <div class="flex items-center gap-2 flex-wrap">
+            <div class="chain-arrow" style="border-color:#ef444440"><div class="w-2 h-2 rounded-full bg-rd"></div><span class="text-[11px] font-bold text-rd line-through ml-1">Orchestrator</span></div>
+            <div class="chain-line" style="background:#ef4444"></div>
+            <div class="chain-arrow" style="border-color:#ef444440"><div class="w-2 h-2 rounded-full bg-rd"></div><span class="text-[11px] font-bold text-rd line-through ml-1">Search</span></div>
+            <div class="chain-line" style="background:#ef4444"></div>
+            <div class="chain-arrow" style="border-color:#ef444440"><div class="w-2 h-2 rounded-full bg-rd"></div><span class="text-[11px] font-bold text-rd line-through ml-1">DB Agent</span></div>
+          </div>
+          <div class="text-[10px] text-rd font-bold mt-2 flex items-center gap-1.5"><i data-lucide="ban" class="w-3 h-3"></i> All tokens invalidated</div>
+        </div>`
+      + insight('In a real incident: security team revokes the compromised token. <strong>All downstream delegations</strong> immediately fail. Kill-switch for agent supply chains.');
+
+    const right =
+      subhead('Revoke root token')
+      + renderHttp({ method: 'POST', url: base() + '/revoke' }, { status: 200, data: { result: 'revoked' } })
+      + subhead('Introspect — dead')
+      + renderHttp({ method: 'POST', url: base() + '/introspect' }, { status: intro.status, data: intro.data })
+      + subhead('Re-exchange attempt — rejected')
+      + renderHttp({ method: 'POST', url: base() + '/token' }, { status: exch.status, data: exch.data });
+
+    showDetail(7, 'Kill Switch — Revoke Entire Chain', 'CHAIN KILLED', 'rd', left, right);
   }
 };
 
-async function runStep(n){
-  setSubStep(n,'running');
-  setBtn(n,'<span class="spinner"></span>Running...',true);
-  try{
-    const result=await steps[n]();
-    if(result==='skip-unlock'){
-      setSubStep(n,'blocked');
-      const p=stepToPhase[n];
-      setPhaseState(p,'done');
-      $('phase-btn-'+p).innerHTML='<i data-lucide="shield-x" class="w-3.5 h-3.5"></i> Blocked';$('phase-btn-'+p).disabled=true;
-      if(p<3){setPhaseState(p+1,'active');if(!autoPlaying)selectPhase(p+1)}
-      lucide.createIcons();
+/* ──────────── Run Step ──────────── */
+async function runStep(n) {
+  stepping = true;
+  setNodeState(n, 'running');
+  lightConnsBefore(n);
+  if (CONN_ORDER[n]) CONN_ORDER[n].forEach(c => setConnState(c, 'active'));
+  updateProgDots();
+
+  const btn = $('nextBtn'), lbl = $('nextLabel');
+  lbl.textContent = STEP_NAMES[n] + '...';
+  btn.disabled = true;
+
+  viewingStep = n;
+  $('detail-title').textContent = STEP_NAMES[n] + '...';
+  $('detail-title').className = 'text-xs font-semibold text-zinc-400 italic';
+  $('detail-status').textContent = 'RUNNING';
+  $('detail-status').className = 'text-[10px] font-bold uppercase tracking-wider text-cy';
+  $('detail-left').innerHTML = leftLabel() + '<div class="flex items-center justify-center py-8"><span class="spinner"></span><span class="text-xs text-zinc-500 ml-2">Agents are interacting...</span></div>';
+  $('detail-right').innerHTML = rightLabel() + '<div class="flex items-center justify-center py-8"><span class="spinner"></span><span class="text-xs text-zinc-500 ml-2">Executing API calls...</span></div>';
+  updateStepNav();
+  highlightViewingNode();
+
+  try {
+    const result = await steps[n]();
+    if (result === 'blocked') {
+      setNodeState(n, 'blocked');
+      if (CONN_ORDER[n]) CONN_ORDER[n].forEach(c => setConnState(c, 'blocked'));
     } else {
-      unlockNext(n);
+      setNodeState(n, 'done');
+      if (CONN_ORDER[n]) CONN_ORDER[n].forEach(c => setConnState(c, 'done'));
     }
-  } catch(e){
-    $('inner-'+n).innerHTML=`<div class="bg-rose2/10 border border-rose2/25 rounded-xl p-4 text-sm anim-in"><div class="flex items-center gap-2 text-rose2 font-semibold mb-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Connection Error</div><p class="text-gray-400 text-xs">${esc(e.message)}</p><p class="text-gray-500 text-xs mt-2">Is authgent-server running at <code class="text-cyn bg-surface-3 px-1 py-0.5 rounded font-mono">${esc(base())}</code>?</p></div>`;
-    openBody(n);setSubStep(n,'error');setBtn(n,'Retry',false);lucide.createIcons();
+    activateNext(n);
+  } catch (e) {
+    setNodeState(n, 'blocked');
+    const errLeft = banner('err', 'Connection Error', 'Could not reach authgent-server.')
+      + narrative('wifi-off', `The server at <code class="text-cy font-mono">${esc(base())}</code> did not respond. Is it running?`);
+    const errRight = `<div class="cblock"><div class="cblock-head"><span class="font-mono text-[10px] text-rd">ERROR</span></div><div class="cblock-body text-rd">${esc(e.message)}</div></div>`;
+    showDetail(n, 'Connection Error', 'ERROR', 'rd', errLeft, errRight);
+    nextStep = n;
+    setNodeState(n, 'next');
+  }
+  stepping = false;
+  updateNextBtn();
+  updateProgDots();
+  updateStepNav();
+}
+
+function clickNode(n) {
+  if (n === nextStep && !stepping && !autoPlaying) {
+    runStep(n);
+  } else if (stepResults[n]) {
+    switchTab('demo');
+    renderStep(n);
   }
 }
 
-async function runPhase(p){
-  selectPhase(p);setPhaseState(p,'active');
-  const stps=phaseSteps[p];
-  for(const n of stps){
+/* ──────────── Auto Play ──────────── */
+async function autoPlay() {
+  if (autoPlaying) return;
+  autoPlaying = true;
+  switchTab('demo');
+  $('autoBtn').innerHTML = '<span class="spinner"></span>';
+  $('autoBtn').disabled = true;
+  $('nextBtn').disabled = true;
+  resetAll();
+  $('nextBtn').disabled = true;
+  await new Promise(r => setTimeout(r, 500));
+  for (let n = 1; n <= 7; n++) {
     await runStep(n);
-    $('step-'+n).scrollIntoView({behavior:'smooth',block:'nearest'});
-    if(n!==stps[stps.length-1])await new Promise(r=>setTimeout(r,1200));
+    if (n < 7) await new Promise(r => setTimeout(r, n === 4 ? 2200 : 1200));
   }
-}
-
-async function autoPlay(){
-  if(autoPlaying)return;autoPlaying=true;
-  $('autoPlayBtn').innerHTML='<span class="spinner"></span> Playing...';$('autoPlayBtn').disabled=true;
-  resetAll();await new Promise(r=>setTimeout(r,600));
-  for(let p=1;p<=3;p++){
-    await runPhase(p);
-    if(p<3)await new Promise(r=>setTimeout(r,2200));
-  }
-  autoPlaying=false;
-  $('autoPlayBtn').innerHTML='<i data-lucide="play" class="w-4 h-4"></i> Watch Again';$('autoPlayBtn').disabled=false;
+  autoPlaying = false;
+  $('autoBtn').innerHTML = '<i data-lucide="play" class="w-3 h-3"></i><span class="hidden sm:inline"> Auto</span>';
+  $('autoBtn').disabled = false;
+  updateNextBtn();
   lucide.createIcons();
 }
 
-function resetAll(){
-  const labels=['','Register','Authenticate','Delegate','Delegate','Attack','Request Approval','Revoke'];
-  for(let i=1;i<=7;i++){setSubStep(i,'');closeBody(i);$('inner-'+i).innerHTML='';setBtn(i,labels[i],false)}
-  /* reset pipe-arrows */
-  [1,2,3,6].forEach(n=>{const a=$('parr-'+n);if(a)a.className='pipe-arrow'});
-  /* reset first pipe-node in each phase to active */
-  [1,5,6].forEach(n=>{const p=$('pipe-'+n);if(p){p.className='pipe-node pactive'}});
-  for(let p=1;p<=3;p++){
-    setPhaseState(p,p===1?'active':'');
-    $('phase-btn-'+p).disabled=false;
-    $('phase-btn-'+p).innerHTML='<i data-lucide="play" class="w-3 h-3"></i> Run';
+/* ──────────── Next Step ──────────── */
+function stepNext() {
+  if (stepping || autoPlaying || nextStep > 7) return;
+  switchTab('demo');
+  clickNode(nextStep);
+}
+
+function updateNextBtn() {
+  const btn = $('nextBtn'), lbl = $('nextLabel');
+  if (nextStep > 7) {
+    lbl.textContent = 'Done — click nodes to review';
+    btn.className = 'next-btn finished';
+    btn.disabled = true;
+  } else {
+    lbl.textContent = (nextStep === 1 ? 'Start: ' : 'Next: ') + STEP_NAMES[nextStep];
+    btn.className = 'next-btn';
+    btn.disabled = false;
   }
-  setNode('cn-orch','idle','Plans & delegates');setNode('cn-search','idle','Finds data');setNode('cn-db','idle','Accesses database');
-  setEdge('ce-1','');setEdge('ce-2','');setScopeBars([]);
-  Object.keys(S).forEach(k=>S[k]=null);currentPhase=1;selectPhase(1);lucide.createIcons();
+}
+
+function updateProgDots() {
+  for (let i = 1; i <= 7; i++) {
+    const d = $('pd' + i);
+    if (!d) continue;
+    const node = $('n' + i);
+    if (!node) continue;
+    const cl = node.className;
+    if (cl.includes('done')) d.className = 'prog-dot done';
+    else if (cl.includes('running')) d.className = 'prog-dot active';
+    else if (cl.includes('blocked')) d.className = 'prog-dot blocked';
+    else if (cl.includes('revoked')) d.className = 'prog-dot blocked';
+    else d.className = 'prog-dot';
+  }
+}
+
+/* ──────────── Tabs ──────────── */
+function switchTab(tab) {
+  const isDemo = tab === 'demo';
+  $('panel-demo').classList.toggle('hidden', !isDemo);
+  $('panel-deep').classList.toggle('hidden', isDemo);
+  $('tab-demo').classList.toggle('active', isDemo);
+  $('tab-deep').classList.toggle('active', !isDemo);
+  if (!isDemo) lucide.createIcons();
+}
+
+/* ──────────── Deep Dive: live calls ──────────── */
+async function ddFetch(path, resId) {
+  const el = $(resId);
+  el.classList.remove('hidden');
+  el.innerHTML = '<div class="dd-result"><span class="spinner"></span> Fetching...</div>';
+  try {
+    const r = await fetch(base() + path, { signal: AbortSignal.timeout(5000) });
+    const d = await r.json();
+    el.innerHTML = `<div class="dd-result">${esc(JSON.stringify(d, null, 2))}</div>`;
+  } catch (e) {
+    el.innerHTML = `<div class="dd-result text-rd">Error: ${esc(e.message)}\nIs authgent-server running at ${esc(base())}?</div>`;
+  }
+}
+
+async function ddTestDepth() {
+  const el = $('dd-res-depth');
+  el.classList.remove('hidden');
+  el.innerHTML = '<div class="dd-result"><span class="spinner"></span> Creating agents and testing depth limit...</div>';
+  try {
+    const a1 = await api('POST', '/register', { client_name: 'depth-agent-1', grant_types: ['client_credentials', 'urn:ietf:params:oauth:grant-type:token-exchange'], scope: 'read' });
+    const a2 = await api('POST', '/register', { client_name: 'depth-agent-2', grant_types: ['client_credentials', 'urn:ietf:params:oauth:grant-type:token-exchange'], scope: 'read' });
+    const a3 = await api('POST', '/register', { client_name: 'depth-agent-3', grant_types: ['client_credentials', 'urn:ietf:params:oauth:grant-type:token-exchange'], scope: 'read' });
+    const a4 = await api('POST', '/register', { client_name: 'depth-agent-4', grant_types: ['client_credentials', 'urn:ietf:params:oauth:grant-type:token-exchange'], scope: 'read' });
+    const a5 = await api('POST', '/register', { client_name: 'depth-agent-5', grant_types: ['client_credentials', 'urn:ietf:params:oauth:grant-type:token-exchange'], scope: 'read' });
+    const a6 = await api('POST', '/register', { client_name: 'depth-agent-6', grant_types: ['client_credentials', 'urn:ietf:params:oauth:grant-type:token-exchange'], scope: 'read' });
+
+    const t0 = await api('POST', '/token', { grant_type: 'client_credentials', client_id: a1.data.client_id, client_secret: a1.data.client_secret, scope: 'read' }, true);
+    let token = t0.data.access_token;
+    const agents = [a2, a3, a4, a5, a6];
+    const results = [{hop: 0, status: t0.status, scope: t0.data.scope, note: 'Root token'}];
+    for (let i = 0; i < agents.length; i++) {
+      const r = await api('POST', '/token', { grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange', subject_token: token, subject_token_type: 'urn:ietf:params:oauth:token-type:access_token', client_id: agents[i].data.client_id, client_secret: agents[i].data.client_secret, audience: 'https://api.example.com', scope: 'read' }, true);
+      results.push({ hop: i + 1, status: r.status, error: r.data.error, detail: r.data.error_description || r.data.detail, scope: r.data.scope });
+      if (r.status >= 400) break;
+      token = r.data.access_token;
+    }
+    el.innerHTML = `<div class="dd-result">${esc(JSON.stringify(results, null, 2))}</div>`;
+  } catch (e) {
+    el.innerHTML = `<div class="dd-result text-rd">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+async function ddTestCheck() {
+  const el = $('dd-res-check');
+  el.classList.remove('hidden');
+  if (!S.orchToken || !S.searchClient) {
+    el.innerHTML = '<div class="dd-result text-am">Run the Live Demo first (steps 1-3) to generate tokens for this test.</div>';
+    return;
+  }
+  el.innerHTML = '<div class="dd-result"><span class="spinner"></span> Running pre-flight check...</div>';
+  try {
+    const r = await api('POST', '/token/check', { grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange', subject_token: S.orchToken, subject_token_type: 'urn:ietf:params:oauth:token-type:access_token', client_id: S.searchClient.client_id, client_secret: S.searchClient.client_secret, audience: 'https://search.example.com', scope: 'search' }, true);
+    el.innerHTML = `<div class="dd-result">${esc(JSON.stringify(r.data, null, 2))}</div>`;
+  } catch (e) {
+    el.innerHTML = `<div class="dd-result text-rd">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+async function ddTestInspect() {
+  const el = $('dd-res-inspect');
+  el.classList.remove('hidden');
+  const token = S.dbToken || S.searchToken || S.orchToken;
+  if (!token) {
+    el.innerHTML = '<div class="dd-result text-am">Run the Live Demo first to generate tokens for inspection.</div>';
+    return;
+  }
+  el.innerHTML = '<div class="dd-result"><span class="spinner"></span> Inspecting token...</div>';
+  try {
+    const r = await fetch(base() + '/tokens/inspect?token=' + encodeURIComponent(token), { signal: AbortSignal.timeout(5000) });
+    const d = await r.json();
+    el.innerHTML = `<div class="dd-result">${esc(JSON.stringify(d, null, 2))}</div>`;
+  } catch (e) {
+    el.innerHTML = `<div class="dd-result text-rd">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+/* ──────────── Reset ──────────── */
+function resetAll() {
+  for (let n = 1; n <= 7; n++) {
+    const el = $('n' + n);
+    el.className = 'pnode';
+  }
+  setNodeState(1, 'next');
+  nextStep = 1;
+  viewingStep = null;
+  Object.keys(stepResults).forEach(k => delete stepResults[k]);
+
+  ['c12', 'c23', 'c34', 'c4f', 'cf5', 'cf6', 'c67'].forEach(id => {
+    setConnState(id, '');
+    $(id).className = 'conn';
+  });
+
+  $('fork').className = 'fork-diamond';
+  $('lbl-attack').classList.remove('visible');
+  $('lbl-control').classList.remove('visible');
+
+  setScopeState([]);
+  Object.keys(S).forEach(k => S[k] = null);
+
+  showOpeningStory();
+
+  updateNextBtn();
+  updateProgDots();
+  updateStepNav();
 }
 </script>
 </body>
