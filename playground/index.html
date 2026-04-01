@@ -523,9 +523,14 @@ const STEP_NAMES = {
 (() => {
   const i = $('serverUrl');
   if (!i.value) {
-    const o = location.origin;
-    const isLocal = !o || o === 'null' || location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    i.value = isLocal ? 'http://localhost:8000' : o;
+    const h = location.hostname;
+    if (h.endsWith('.github.io')) {
+      i.value = 'https://authgent-demo.dhruvagnihotri.com';
+    } else if (!h || h === 'localhost' || h === '127.0.0.1' || location.protocol === 'file:') {
+      i.value = 'http://localhost:8000';
+    } else {
+      i.value = location.origin;
+    }
   }
 })();
 const base = () => $('serverUrl').value.replace(/\/+$/, '');
