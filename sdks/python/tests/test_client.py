@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import pytest
 
 from authgent.client import AgentAuthClient, TokenResult
+from authgent.errors import ServerError
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
@@ -37,6 +38,7 @@ class FakeHttpxClient:
     def __init__(self, response: FakeResponse):
         self._response = response
         self.calls: list[tuple[str, str, dict]] = []  # (method, url, kwargs)
+        self.is_closed = False
 
     async def post(self, url, **kwargs):
         self.calls.append(("POST", url, kwargs))
@@ -46,6 +48,9 @@ class FakeHttpxClient:
         self.calls.append(("GET", url, kwargs))
         return self._response
 
+    async def aclose(self):
+        self.is_closed = True
+
     async def __aenter__(self):
         return self
 
@@ -53,15 +58,14 @@ class FakeHttpxClient:
         pass
 
 
-def _patch_client(monkeypatch, status: int, body: dict) -> FakeHttpxClient:
-    """Monkeypatch httpx.AsyncClient to return a FakeHttpxClient."""
+def _patch_client(monkeypatch, status: int, body: dict) -> tuple[FakeHttpxClient, AgentAuthClient]:
+    """Create an AgentAuthClient with a fake HTTP backend injected."""
     resp = FakeResponse(status_code=status, text=json.dumps(body), _json=body)
     fake = FakeHttpxClient(resp)
-
-    import httpx
-
-    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: fake)
-    return fake
+    client = AgentAuthClient("http://localhost:8000")
+    client._http = fake  # inject fake directly
+    client._external_client = True  # prevent aclose from clearing it
+    return fake, client
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -91,8 +95,7 @@ def test_decode_jwt_claims_invalid():
 @pytest.mark.asyncio
 async def test_request_stepup_sends_correct_payload(monkeypatch):
     """request_stepup() must send agent_id, action, scope to POST /stepup."""
-    client = AgentAuthClient("http://localhost:8000")
-    fake = _patch_client(monkeypatch, 202, {
+    fake, client = _patch_client(monkeypatch, 202, {
         "id": "req_abc",
         "agent_id": "agent-1",
         "action": "delete",
@@ -130,8 +133,7 @@ async def test_request_stepup_sends_correct_payload(monkeypatch):
 @pytest.mark.asyncio
 async def test_request_stepup_minimal_payload(monkeypatch):
     """request_stepup() with only required fields should not include optionals."""
-    client = AgentAuthClient("http://localhost:8000")
-    fake = _patch_client(monkeypatch, 202, {"id": "r1", "status": "pending"})
+    fake, client = _patch_client(monkeypatch, 202, {"id": "r1", "status": "pending"})
 
     await client.request_stepup(agent_id="a1", action="act", scope="s1")
 
@@ -149,9 +151,8 @@ async def test_request_stepup_minimal_payload(monkeypatch):
 @pytest.mark.asyncio
 async def test_request_stepup_for_token_extracts_client_id(monkeypatch):
     """request_stepup_for_token() should extract client_id from JWT and use as agent_id."""
-    client = AgentAuthClient("http://localhost:8000")
     token = _fake_jwt({"sub": "client:agnt_xyz", "client_id": "agnt_xyz"})
-    fake = _patch_client(monkeypatch, 202, {"id": "r2", "status": "pending"})
+    fake, client = _patch_client(monkeypatch, 202, {"id": "r2", "status": "pending"})
 
     await client.request_stepup_for_token(token=token, action="escalate", scope="admin")
 
@@ -164,9 +165,8 @@ async def test_request_stepup_for_token_extracts_client_id(monkeypatch):
 @pytest.mark.asyncio
 async def test_request_stepup_for_token_fallback_to_sub(monkeypatch):
     """When client_id is missing, should fall back to sub claim."""
-    client = AgentAuthClient("http://localhost:8000")
     token = _fake_jwt({"sub": "client:fallback_id"})
-    fake = _patch_client(monkeypatch, 202, {"id": "r3", "status": "pending"})
+    fake, client = _patch_client(monkeypatch, 202, {"id": "r3", "status": "pending"})
 
     await client.request_stepup_for_token(token=token, action="act", scope="read")
 
@@ -181,8 +181,7 @@ async def test_request_stepup_for_token_fallback_to_sub(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_check_stepup(monkeypatch):
-    client = AgentAuthClient("http://localhost:8000")
-    fake = _patch_client(monkeypatch, 200, {"id": "r1", "status": "approved"})
+    fake, client = _patch_client(monkeypatch, 200, {"id": "r1", "status": "approved"})
 
     result = await client.check_stepup("r1")
     assert result["status"] == "approved"
@@ -199,8 +198,7 @@ async def test_check_stepup(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_check_exchange(monkeypatch):
-    client = AgentAuthClient("http://localhost:8000")
-    fake = _patch_client(monkeypatch, 200, {
+    fake, client = _patch_client(monkeypatch, 200, {
         "allowed": True,
         "effective_scopes": ["read"],
         "delegation_depth": 0,
@@ -226,8 +224,7 @@ async def test_check_exchange(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_check_exchange_denied(monkeypatch):
-    client = AgentAuthClient("http://localhost:8000")
-    _patch_client(monkeypatch, 200, {
+    _, client = _patch_client(monkeypatch, 200, {
         "allowed": False,
         "effective_scopes": [],
         "delegation_depth": 0,
@@ -254,8 +251,7 @@ async def test_check_exchange_denied(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_introspect_token(monkeypatch):
-    client = AgentAuthClient("http://localhost:8000")
-    _patch_client(monkeypatch, 200, {"active": True, "sub": "client:agnt_1", "scope": "read"})
+    _, client = _patch_client(monkeypatch, 200, {"active": True, "sub": "client:agnt_1", "scope": "read"})
 
     result = await client.introspect_token("access_token_here", client_id="c1")
     assert result["active"] is True
@@ -269,8 +265,7 @@ async def test_introspect_token(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_refresh_token(monkeypatch):
-    client = AgentAuthClient("http://localhost:8000")
-    _patch_client(monkeypatch, 200, {
+    _, client = _patch_client(monkeypatch, 200, {
         "access_token": "new_token",
         "token_type": "Bearer",
         "expires_in": 3600,
@@ -282,3 +277,117 @@ async def test_refresh_token(monkeypatch):
     assert isinstance(result, TokenResult)
     assert result.access_token == "new_token"
     assert result.refresh_token == "new_rt"
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# revoke_token
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_revoke_token(monkeypatch):
+    fake, client = _patch_client(monkeypatch, 200, {})
+
+    await client.revoke_token("tok_abc", client_id="c1", client_secret="s1")
+
+    assert len(fake.calls) == 1
+    method, url, kwargs = fake.calls[0]
+    assert method == "POST"
+    assert "/revoke" in url
+    sent = kwargs["data"]
+    assert sent["token"] == "tok_abc"
+    assert sent["client_id"] == "c1"
+    assert sent["client_secret"] == "s1"
+
+
+@pytest.mark.asyncio
+async def test_revoke_token_accepts_204(monkeypatch):
+    fake, client = _patch_client(monkeypatch, 204, {})
+    await client.revoke_token("tok", client_id="c1", client_secret="s1")
+    assert len(fake.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_revoke_token_error(monkeypatch):
+    _, client = _patch_client(monkeypatch, 401, {"error": "unauthorized"})
+    with pytest.raises(ServerError):
+        await client.revoke_token("tok", client_id="c1", client_secret="s1")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# register_agent
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_register_agent(monkeypatch):
+    fake, client = _patch_client(monkeypatch, 201, {
+        "id": "agnt_1",
+        "client_id": "cid_1",
+        "client_secret": "sec_1",
+        "name": "test-agent",
+    })
+
+    result = await client.register_agent("test-agent", scopes=["read", "write"])
+
+    assert result.id == "agnt_1"
+    assert result.client_id == "cid_1"
+    assert result.client_secret == "sec_1"
+    assert result.name == "test-agent"
+
+    sent = fake.calls[0][2]["json"]
+    assert sent["name"] == "test-agent"
+    assert sent["allowed_scopes"] == ["read", "write"]
+
+
+@pytest.mark.asyncio
+async def test_register_agent_error(monkeypatch):
+    _, client = _patch_client(monkeypatch, 409, {"error": "already exists"})
+    with pytest.raises(ServerError):
+        await client.register_agent("dup-agent")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# get_token
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_get_token(monkeypatch):
+    fake, client = _patch_client(monkeypatch, 200, {
+        "access_token": "eyJ...",
+        "token_type": "Bearer",
+        "expires_in": 3600,
+        "scope": "read",
+    })
+
+    result = await client.get_token(client_id="c1", client_secret="s1", scope="read")
+    assert isinstance(result, TokenResult)
+    assert result.access_token == "eyJ..."
+    assert result.token_type == "Bearer"
+    assert result.scope == "read"
+
+    sent = fake.calls[0][2]["data"]
+    assert sent["grant_type"] == "client_credentials"
+    assert sent["client_id"] == "c1"
+
+
+@pytest.mark.asyncio
+async def test_get_token_error(monkeypatch):
+    _, client = _patch_client(monkeypatch, 400, {"error": "invalid_client"})
+    with pytest.raises(ServerError):
+        await client.get_token(client_id="bad", client_secret="bad")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# async context manager
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_context_manager():
+    """AgentAuthClient can be used as an async context manager."""
+    async with AgentAuthClient("http://localhost:8000") as client:
+        assert client._base == "http://localhost:8000"
+    # After exiting, internally-created client should be closed
+    assert client._http is None

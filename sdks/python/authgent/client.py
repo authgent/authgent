@@ -30,11 +30,43 @@ class AgentResult:
 
 
 class AgentAuthClient:
-    """Client for the authgent-server API."""
+    """Client for the authgent-server API.
 
-    def __init__(self, server_url: str, timeout: float = 30.0):
+    Uses a persistent httpx.AsyncClient for connection pooling.
+    Call ``await client.aclose()`` when done, or use as an async context manager::
+
+        async with AgentAuthClient("http://localhost:8000") as auth:
+            token = await auth.get_token(...)
+    """
+
+    def __init__(
+        self,
+        server_url: str,
+        timeout: float = 30.0,
+        http_client: httpx.AsyncClient | None = None,
+    ):
         self._base = server_url.rstrip("/")
         self._timeout = timeout
+        self._external_client = http_client is not None
+        self._http: httpx.AsyncClient | None = http_client
+
+    def _get_http(self) -> httpx.AsyncClient:
+        """Return the shared HTTP client, creating one lazily if needed."""
+        if self._http is None or self._http.is_closed:
+            self._http = httpx.AsyncClient(timeout=self._timeout)
+        return self._http
+
+    async def aclose(self) -> None:
+        """Close the underlying HTTP client (no-op if externally provided)."""
+        if self._http and not self._external_client:
+            await self._http.aclose()
+            self._http = None
+
+    async def __aenter__(self) -> "AgentAuthClient":
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        await self.aclose()
 
     async def register_agent(
         self,
@@ -52,11 +84,10 @@ class AgentAuthClient:
         if capabilities:
             payload["capabilities"] = capabilities
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(f"{self._base}/agents", json=payload)
-            if resp.status_code != 201:
-                raise ServerError(f"Agent registration failed: {resp.text}")
-            data = resp.json()
+        resp = await self._get_http().post(f"{self._base}/agents", json=payload)
+        if resp.status_code != 201:
+            raise ServerError(f"Agent registration failed: {resp.text}")
+        data = resp.json()
 
         return AgentResult(
             id=data["id"],
@@ -83,15 +114,14 @@ class AgentAuthClient:
         if resource:
             data["resource"] = resource
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base}/token",
-                data=data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            if resp.status_code != 200:
-                raise ServerError(f"Token request failed: {resp.text}")
-            result = resp.json()
+        resp = await self._get_http().post(
+            f"{self._base}/token",
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        if resp.status_code != 200:
+            raise ServerError(f"Token request failed: {resp.text}")
+        result = resp.json()
 
         return TokenResult(
             access_token=result["access_token"],
@@ -123,15 +153,14 @@ class AgentAuthClient:
         if client_secret:
             data["client_secret"] = client_secret
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base}/token",
-                data=data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            if resp.status_code != 200:
-                raise ServerError(f"Token exchange failed: {resp.text}")
-            result = resp.json()
+        resp = await self._get_http().post(
+            f"{self._base}/token",
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        if resp.status_code != 200:
+            raise ServerError(f"Token exchange failed: {resp.text}")
+        result = resp.json()
 
         return TokenResult(
             access_token=result["access_token"],
@@ -154,15 +183,14 @@ class AgentAuthClient:
             "client_secret": client_secret,
         }
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base}/token",
-                data=data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            if resp.status_code != 200:
-                raise ServerError(f"Token refresh failed: {resp.text}")
-            result = resp.json()
+        resp = await self._get_http().post(
+            f"{self._base}/token",
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        if resp.status_code != 200:
+            raise ServerError(f"Token refresh failed: {resp.text}")
+        result = resp.json()
 
         return TokenResult(
             access_token=result["access_token"],
@@ -185,15 +213,14 @@ class AgentAuthClient:
         if client_secret:
             data["client_secret"] = client_secret
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base}/introspect",
-                data=data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            if resp.status_code != 200:
-                raise ServerError(f"Token introspection failed: {resp.text}")
-            return resp.json()
+        resp = await self._get_http().post(
+            f"{self._base}/introspect",
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        if resp.status_code != 200:
+            raise ServerError(f"Token introspection failed: {resp.text}")
+        return resp.json()
 
     async def request_stepup(
         self,
@@ -229,14 +256,13 @@ class AgentAuthClient:
         if metadata:
             payload["metadata"] = metadata
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base}/stepup",
-                json=payload,
-            )
-            if resp.status_code not in (200, 201, 202):
-                raise ServerError(f"Step-up request failed: {resp.text}")
-            return resp.json()
+        resp = await self._get_http().post(
+            f"{self._base}/stepup",
+            json=payload,
+        )
+        if resp.status_code not in (200, 201, 202):
+            raise ServerError(f"Step-up request failed: {resp.text}")
+        return resp.json()
 
     async def request_stepup_for_token(
         self,
@@ -262,11 +288,10 @@ class AgentAuthClient:
 
     async def check_stepup(self, request_id: str) -> dict:
         """Check the status of a step-up request. Returns {'status': 'pending'|'approved'|'denied'}."""
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.get(f"{self._base}/stepup/{request_id}")
-            if resp.status_code != 200:
-                raise ServerError(f"Step-up status check failed: {resp.text}")
-            return resp.json()
+        resp = await self._get_http().get(f"{self._base}/stepup/{request_id}")
+        if resp.status_code != 200:
+            raise ServerError(f"Step-up status check failed: {resp.text}")
+        return resp.json()
 
     async def check_exchange(
         self,
@@ -285,14 +310,13 @@ class AgentAuthClient:
             "client_id": client_id,
             "scope": scope,
         }
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base}/token/check",
-                json=payload,
-            )
-            if resp.status_code != 200:
-                raise ServerError(f"Token check failed: {resp.text}")
-            return resp.json()
+        resp = await self._get_http().post(
+            f"{self._base}/token/check",
+            json=payload,
+        )
+        if resp.status_code != 200:
+            raise ServerError(f"Token check failed: {resp.text}")
+        return resp.json()
 
     @staticmethod
     def _decode_jwt_claims(token: str) -> dict:
@@ -326,11 +350,10 @@ class AgentAuthClient:
             "client_secret": client_secret,
         }
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base}/revoke",
-                data=data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            if resp.status_code not in (200, 204):
-                raise ServerError(f"Token revocation failed: {resp.text}")
+        resp = await self._get_http().post(
+            f"{self._base}/revoke",
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        if resp.status_code not in (200, 204):
+            raise ServerError(f"Token revocation failed: {resp.text}")

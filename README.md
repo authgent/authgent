@@ -581,6 +581,8 @@ See [`server/.env.example`](server/.env.example) for the complete list.
 | [RFC 9728](https://tools.ietf.org/html/rfc9728) | Protected Resource Metadata |
 | [MCP Auth Spec](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization) | MCP authorization flow |
 | [Google A2A](https://google.github.io/A2A/) | Agent-to-Agent protocol alignment |
+| [draft-klrc-aiagent-auth-00](https://datatracker.ietf.org/doc/draft-klrc-aiagent-auth/) | IETF AI Agent Auth model (WIMSE + OAuth 2.0 delegation) |
+| [OIDC-A 1.0](https://arxiv.org/html/2509.25974v1) | OpenID Connect for Agents — agent attestation alignment |
 
 </details>
 
