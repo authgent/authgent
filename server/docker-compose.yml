@@ -1,3 +1,8 @@
+# Development / quick-start compose file.
+# For production, override secrets via a .env file or Docker secrets:
+#   AUTHGENT_SECRET_KEY=<random-64-char-hex>
+#   POSTGRES_PASSWORD=<strong-random-password>
+#   AUTHGENT_REGISTRATION_POLICY=token
 services:
   authgent:
     build: .
@@ -5,10 +10,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      AUTHGENT_DATABASE_URL: postgresql+asyncpg://authgent:authgent@db:5432/authgent
+      AUTHGENT_DATABASE_URL: postgresql+asyncpg://authgent:${POSTGRES_PASSWORD:-authgent}@db:5432/authgent
       AUTHGENT_SECRET_KEY: ${AUTHGENT_SECRET_KEY:-change-me-in-production}
       AUTHGENT_CORS_ORIGINS: '[]'
-      AUTHGENT_REGISTRATION_POLICY: open
+      AUTHGENT_REGISTRATION_POLICY: ${AUTHGENT_REGISTRATION_POLICY:-open}
       AUTHGENT_CONSENT_MODE: auto_approve
     depends_on:
       db:
@@ -20,7 +25,7 @@ services:
     environment:
       POSTGRES_DB: authgent
       POSTGRES_USER: authgent
-      POSTGRES_PASSWORD: authgent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-authgent}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

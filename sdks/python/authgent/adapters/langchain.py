@@ -139,14 +139,16 @@ class AuthgentToolWrapper:
         return headers
 
     def wrap(self, tool: Any) -> Any:
-        """Wrap a LangChain tool to auto-inject auth metadata.
+        """Wrap a LangChain tool to auto-inject auth metadata.  **[Experimental]**
 
         Returns a new tool that adds `authgent_headers` to the tool's
         kwargs before invocation. The wrapped tool's function should
         accept **kwargs and use `authgent_headers` for HTTP calls.
 
-        NOTE: This is a skeleton — full integration depends on the
-        LangChain tool interface version (BaseTool, StructuredTool, etc).
+        .. warning::
+            Experimental — tested with ``langchain-core >=0.3``. The exact
+            tool interface varies across LangChain versions; please open an
+            issue if you encounter incompatibilities.
         """
         # Lazy import to avoid hard dependency on langchain
         try:
@@ -180,6 +182,7 @@ class AuthgentToolWrapper:
             await self._client.revoke_token(
                 self._cached.token.access_token,
                 client_id=self._client_id,
+                client_secret=self._client_secret,
             )
             self._cached = None
 

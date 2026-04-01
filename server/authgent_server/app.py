@@ -254,7 +254,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(
         RateLimitMiddleware,
         rate=settings.token_rate_limit,
-        paths=["/token"],
+        paths=["/token", "/register", "/agents"],
     )
 
     # Routes
