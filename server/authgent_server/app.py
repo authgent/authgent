@@ -137,19 +137,111 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # type: ignore[
     logger.info("server_stopped")
 
 
+def _build_openapi_security_schemes(settings: Settings) -> dict:
+    """Build OpenAPI securitySchemes so foreign agents can discover auth requirements.
+
+    Any LLM or agent hitting /openapi.json will see the OAuth2 flows,
+    token URLs, and available scopes — enabling fully automated auth bootstrapping.
+    """
+    base = settings.server_url.rstrip("/")
+    return {
+        "OAuth2ClientCredentials": {
+            "type": "oauth2",
+            "description": (
+                "Machine-to-machine auth for agents. "
+                "Register via POST /register (RFC 7591) to get client_id + client_secret, "
+                "then request a token here."
+            ),
+            "flows": {
+                "clientCredentials": {
+                    "tokenUrl": f"{base}/token",
+                    "scopes": {},
+                }
+            },
+        },
+        "OAuth2AuthorizationCode": {
+            "type": "oauth2",
+            "description": (
+                "Authorization code + PKCE flow for human-initiated agent chains. "
+                "Discover server metadata at /.well-known/oauth-authorization-server"
+            ),
+            "flows": {
+                "authorizationCode": {
+                    "authorizationUrl": f"{base}/authorize",
+                    "tokenUrl": f"{base}/token",
+                    "scopes": {},
+                }
+            },
+        },
+        "BearerToken": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": (
+                "JWT access token obtained via OAuth2 flows above or token exchange (RFC 8693). "
+                "Include as: Authorization: Bearer <token>"
+            ),
+        },
+        "DPoP": {
+            "type": "http",
+            "scheme": "dpop",
+            "description": (
+                "DPoP sender-constrained token (RFC 9449). "
+                "Include DPoP proof header alongside Authorization: DPoP <token>"
+            ),
+        },
+    }
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     """App factory — creates and configures the FastAPI application."""
     if settings is None:
         settings = get_settings()
 
+    security_schemes = _build_openapi_security_schemes(settings)
+
     app = FastAPI(
         title="authgent",
-        description="The open-source identity provider for AI agents",
+        description=(
+            "OAuth 2.1 Authorization Server for AI agents. "
+            "Supports dynamic client registration (RFC 7591), token exchange (RFC 8693), "
+            "DPoP (RFC 9449), and delegation chain tracking. "
+            "Start by fetching /.well-known/oauth-authorization-server for server metadata."
+        ),
         version="0.1.0",
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",
+        swagger_ui_init_oauth={
+            "clientId": "",
+            "scopes": "",
+            "usePkceWithAuthorizationCodeGrant": True,
+        },
     )
+
+    # Inject securitySchemes into the OpenAPI spec so foreign agents
+    # can parse /openapi.json and discover how to authenticate.
+    def custom_openapi() -> dict:
+        if app.openapi_schema:
+            return app.openapi_schema
+        from fastapi.openapi.utils import get_openapi
+
+        schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+        # Inject security schemes
+        schema.setdefault("components", {})["securitySchemes"] = security_schemes
+        # Apply BearerToken as default security for all endpoints
+        schema["security"] = [{"BearerToken": []}, {"DPoP": []}]
+        # Add server URL for discoverability
+        schema["servers"] = [{"url": settings.server_url, "description": "authgent server"}]
+        app.openapi_schema = schema
+        return schema
+
+    app.openapi = custom_openapi  # type: ignore[method-assign]
 
     # Error handlers
     app.add_exception_handler(AuthgentError, authgent_error_handler)  # type: ignore[arg-type]

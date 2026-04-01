@@ -114,7 +114,8 @@ authgent-server/
 │   │   ├── agents.py             # CRUD /agents
 │   │   ├── device.py             # POST /device, GET /device/status
 │   │   ├── stepup.py             # POST /stepup, GET /stepup/{id}
-│   │   ├── wellknown.py          # /.well-known/* (4 endpoints)
+│   │   ├── wellknown.py          # /.well-known/* (5 endpoints: oauth-authorization-server,
+│   │   │                         #   oauth-protected-resource, openid-configuration, jwks.json)
 │   │   ├── introspect.py         # POST /introspect (RFC 7662)
 │   │   ├── audit.py              # GET /audit (query audit logs with filtering)
 │   │   ├── token_inspect.py      # GET /tokens/inspect (decode JWT, delegation chain)
@@ -135,7 +136,7 @@ authgent-server/
 │   ├── models/                   # SQLAlchemy ORM models
 │   │   ├── __init__.py
 │   │   ├── base.py               # DeclarativeBase + ULID mixin + timestamps
-│   │   ├── oauth_client.py
+│   │   ├── oauth_client.py       # + jwks_uri, jwks, client_uri, contacts (RFC 7591)
 │   │   ├── agent.py
 │   │   ├── authorization_code.py
 │   │   ├── refresh_token.py
@@ -158,7 +159,8 @@ authgent-server/
 │   │   └── events.py             # DatabaseEventEmitter + OTelEventEmitter
 │   │
 │   ├── middleware/
-│   │   ├── error_handler.py      # RFC 9457 Problem Details JSON
+│   │   ├── error_handler.py      # RFC 9457 Problem Details JSON + RFC 6750 WWW-Authenticate
+│   │   │                         # with discovery URIs (realm, authorization_uri, resource_metadata)
 │   │   ├── request_id.py         # X-Request-ID + traceparent propagation
 │   │   ├── cors.py               # CORS from AUTHGENT_CORS_ORIGINS
 │   │   │                         # Note: /.well-known/* (including JWKS) always
@@ -168,7 +170,8 @@ authgent-server/
 │   │
 │   ├── schemas/                  # Pydantic request/response models
 │   │   ├── token.py              # TokenRequest, TokenResponse
-│   │   ├── client.py             # RegisterRequest, RegisterResponse
+│   │   ├── client.py             # RegisterRequest, RegisterResponse (RFC 7591 — includes
+│   │   │                         #   jwks_uri, jwks, client_uri, contacts + mutual exclusion)
 │   │   ├── agent.py              # AgentCreate, AgentUpdate, AgentResponse
 │   │   └── common.py             # ErrorResponse (RFC 9457), pagination
 │   │
@@ -189,7 +192,8 @@ authgent-server/
 │   ├── test_delegation.py
 │   ├── test_dpop.py
 │   ├── test_security.py          # Forgery, escalation, replay attacks
-│   └── test_wellknown.py
+│   ├── test_wellknown.py
+│   └── test_agent_discovery.py   # Foreign agent auto-discovery integration tests (29 tests)
 │
 ├── pyproject.toml
 ├── Dockerfile
@@ -706,7 +710,64 @@ Chat UI (Auth0 JWT)       authgent-server              External IdP
 - §4.7 handles **programmatic API** — frontend already has the id_token, no browser redirect needed
 - Both share the JWKS validation logic but serve different integration patterns
 
-### 4.8 Device Authorization Grant (RFC 8628)
+### 4.8 Foreign Agent Auto-Discovery (RFC 6750 + RFC 8414 + RFC 7591)
+
+A foreign agent with zero prior configuration bootstraps itself using standard HTTP discovery:
+
+```
+Foreign Agent            Resource Server (SDK)         authgent-server
+  │                           │                              │
+  │  1. GET /tools/search     │                              │
+  │ ─────────────────────────►│                              │
+  │                           │                              │
+  │  401 Unauthorized         │                              │
+  │  WWW-Authenticate: Bearer │                              │
+  │    realm="authgent",      │                              │
+  │    authorization_uri=     │                              │
+  │      ".../token",         │                              │
+  │    resource_metadata=     │                              │
+  │      ".../.well-known/    │                              │
+  │      oauth-protected-     │                              │
+  │      resource"            │                              │
+  │◄─────────────────────────│                              │
+  │                           │                              │
+  │  2. GET /.well-known/oauth-protected-resource            │
+  │ ─────────────────────────────────────────────────────────►│
+  │  { authorization_servers: ["http://localhost:8000"] }     │
+  │◄─────────────────────────────────────────────────────────│
+  │                           │                              │
+  │  3. GET /.well-known/oauth-authorization-server          │
+  │ ─────────────────────────────────────────────────────────►│
+  │  { token_endpoint, registration_endpoint,                │
+  │    grant_types_supported, ... }                          │
+  │◄─────────────────────────────────────────────────────────│
+  │                           │                              │
+  │  4. POST /register (RFC 7591 — dynamic client reg)       │
+  │  { client_name, scope, client_uri, contacts,             │
+  │    jwks_uri (optional) }                                 │
+  │ ─────────────────────────────────────────────────────────►│
+  │  { client_id, client_secret }                            │
+  │◄─────────────────────────────────────────────────────────│
+  │                           │                              │
+  │  5. POST /token (client_credentials)                     │
+  │ ─────────────────────────────────────────────────────────►│
+  │  { access_token, token_type, expires_in }                │
+  │◄─────────────────────────────────────────────────────────│
+  │                           │                              │
+  │  6. GET /tools/search     │                              │
+  │  Authorization: Bearer eyJ│...                           │
+  │ ─────────────────────────►│                              │
+  │  200 OK                   │                              │
+  │◄─────────────────────────│                              │
+```
+
+**Key implementation points:**
+- **Step 1:** SDK middleware (`fastapi.py`, `flask.py`) and server `error_handler.py` emit `WWW-Authenticate` with `resource_metadata` URI (RFC 9728 §5.1).
+- **Step 3:** Server also exposes `/openapi.json` with `securitySchemes` so LLMs can parse auth requirements programmatically.
+- **Step 4:** `RegisterRequest` supports RFC 7591 fields: `jwks_uri`, `jwks` (inline, mutually exclusive per §2), `client_uri`, `contacts`. Validators enforce HTTPS for `jwks_uri` (localhost excepted) and `keys` array structure for `jwks`.
+- **No SDK required** — the entire flow is discoverable from a single 401 response.
+
+### 4.9 Device Authorization Grant (RFC 8628)
 
 ```
 CLI Agent          authgent-server           Human (Browser)

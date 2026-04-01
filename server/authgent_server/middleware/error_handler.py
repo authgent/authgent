@@ -8,7 +8,8 @@ import structlog
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from authgent_server.errors import AuthgentError, UseDPoPNonce
+from authgent_server.config import get_settings
+from authgent_server.errors import AuthgentError, InsufficientScope, UseDPoPNonce
 
 logger = structlog.get_logger()
 
@@ -17,8 +18,15 @@ _OAUTH_ERROR_PATHS = {"/token", "/revoke", "/register"}
 
 
 def _build_response_headers(exc: AuthgentError) -> dict[str, str]:
-    """Build RFC-required response headers based on error type."""
+    """Build RFC-required response headers based on error type.
+
+    RFC 6750 §3 requires WWW-Authenticate on 401 responses.
+    We include realm, authorization_uri, and resource_metadata so foreign
+    agents can auto-discover the authorization server without prior config.
+    """
     headers: dict[str, str] = {}
+    settings = get_settings()
+    base = settings.server_url.rstrip("/")
 
     # DPoP-Nonce header is REQUIRED when returning use_dpop_nonce error (RFC 9449 §8)
     if isinstance(exc, UseDPoPNonce):
@@ -27,10 +35,25 @@ def _build_response_headers(exc: AuthgentError) -> dict[str, str]:
     # WWW-Authenticate header for 401 responses (RFC 6750 §3)
     if exc.status_code == 401:
         scheme = "DPoP" if isinstance(exc, UseDPoPNonce) else "Bearer"
-        auth_value = f'{scheme} error="{exc.error_code}"'
+        parts = [
+            f'{scheme} realm="authgent"',
+            f'authorization_uri="{base}/token"',
+            f'resource_metadata="{base}/.well-known/oauth-protected-resource"',
+            f'error="{exc.error_code}"',
+        ]
         if exc.detail:
-            auth_value += f', error_description="{exc.detail}"'
-        headers["WWW-Authenticate"] = auth_value
+            parts.append(f'error_description="{exc.detail}"')
+        headers["WWW-Authenticate"] = ", ".join(parts)
+
+    # WWW-Authenticate header for 403 insufficient_scope (RFC 6750 §3.1)
+    if exc.status_code == 403 and isinstance(exc, InsufficientScope):
+        parts = [
+            'Bearer realm="authgent"',
+            f'error="{exc.error_code}"',
+        ]
+        if exc.detail:
+            parts.append(f'error_description="{exc.detail}"')
+        headers["WWW-Authenticate"] = ", ".join(parts)
 
     return headers
 

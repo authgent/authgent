@@ -36,9 +36,12 @@ class AgentAuthMiddleware:
         AgentAuthMiddleware(app, issuer="http://localhost:8000")
     """
 
+    _class_issuer: str | None = None
+
     def __init__(self, app: Any, issuer: str, audience: str | None = None):
         self._issuer = issuer
         self._audience = audience
+        AgentAuthMiddleware._class_issuer = issuer
         app.before_request(self._before_request)
 
     def _before_request(self) -> None:
@@ -67,6 +70,21 @@ class AgentAuthMiddleware:
             pass
 
 
+def _www_authenticate_header(
+    error: str = "invalid_token", scope: str | None = None
+) -> str:
+    """Build RFC 6750 §3 WWW-Authenticate value with discovery URIs."""
+    base = (AgentAuthMiddleware._class_issuer or "").rstrip("/")
+    parts = ['Bearer realm="authgent"']
+    if base:
+        parts.append(f'authorization_uri="{base}/token"')
+        parts.append(f'resource_metadata="{base}/.well-known/oauth-protected-resource"')
+    if scope:
+        parts.append(f'scope="{scope}"')
+    parts.append(f'error="{error}"')
+    return ", ".join(parts)
+
+
 def get_agent_identity() -> AgentIdentity:
     """Get the verified AgentIdentity from Flask's g context."""
     from flask import g
@@ -85,19 +103,28 @@ def require_agent_auth(scopes: list[str] | None = None) -> Callable:
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            from flask import abort, g
+            from flask import g
 
             identity = getattr(g, "authgent_identity", None)
             if identity is None:
-                abort(401, description="Authentication required")
+                from flask import make_response
+
+                resp = make_response({"error": "Authentication required"}, 401)
+                resp.headers["WWW-Authenticate"] = _www_authenticate_header()
+                return resp
 
             if scopes:
                 missing = [s for s in scopes if s not in identity.scopes]
                 if missing:
-                    abort(
-                        403,
-                        description=f"Insufficient scope. Missing: {', '.join(missing)}",
+                    from flask import make_response
+
+                    resp = make_response(
+                        {"error": f"Insufficient scope. Missing: {', '.join(missing)}"}, 403
                     )
+                    resp.headers["WWW-Authenticate"] = _www_authenticate_header(
+                        error="insufficient_scope", scope=" ".join(scopes)
+                    )
+                    return resp
 
             return func(*args, **kwargs)
 

@@ -21,10 +21,14 @@ class AgentAuthMiddleware:
         app.add_middleware(AgentAuthMiddleware, issuer="http://localhost:8000")
     """
 
+    # Class-level issuer so decorators/dependencies can access it
+    _class_issuer: str | None = None
+
     def __init__(self, app: Any, issuer: str, audience: str | None = None):
         self.app = app
         self._issuer = issuer
         self._audience = audience
+        AgentAuthMiddleware._class_issuer = issuer
 
     async def __call__(self, scope: dict, receive: Callable, send: Callable) -> None:
         if scope["type"] != "http":
@@ -77,6 +81,25 @@ class AgentAuthMiddleware:
         await self.app(scope, receive, send)
 
 
+def _www_authenticate_header(
+    issuer: str | None = None, error: str = "invalid_token", scope: str | None = None
+) -> str:
+    """Build RFC 6750 §3 WWW-Authenticate value with discovery URIs.
+
+    Includes authorization_uri and resource_metadata so foreign agents
+    can auto-discover the authorization server without prior configuration.
+    """
+    base = (issuer or AgentAuthMiddleware._class_issuer or "").rstrip("/")
+    parts = ['Bearer realm="authgent"']
+    if base:
+        parts.append(f'authorization_uri="{base}/token"')
+        parts.append(f'resource_metadata="{base}/.well-known/oauth-protected-resource"')
+    if scope:
+        parts.append(f'scope="{scope}"')
+    parts.append(f'error="{error}"')
+    return ", ".join(parts)
+
+
 def get_agent_identity(request: Request) -> AgentIdentity:
     """FastAPI dependency — extract verified AgentIdentity from request.
 
@@ -87,7 +110,11 @@ def get_agent_identity(request: Request) -> AgentIdentity:
     """
     identity = getattr(request.state, _IDENTITY_KEY, None)
     if identity is None:
-        raise HTTPException(status_code=401, detail="No valid agent identity")
+        raise HTTPException(
+            status_code=401,
+            detail="No valid agent identity",
+            headers={"WWW-Authenticate": _www_authenticate_header()},
+        )
     return identity
 
 
@@ -120,7 +147,7 @@ def require_agent_auth(scopes: list[str] | None = None) -> Callable:
                 raise HTTPException(
                     status_code=401,
                     detail="Authentication required",
-                    headers={"WWW-Authenticate": "Bearer"},
+                    headers={"WWW-Authenticate": _www_authenticate_header()},
                 )
 
             if scopes:
@@ -130,7 +157,10 @@ def require_agent_auth(scopes: list[str] | None = None) -> Callable:
                         status_code=403,
                         detail=f"Insufficient scope. Missing: {', '.join(missing)}",
                         headers={
-                            "WWW-Authenticate": f'Bearer scope="{" ".join(scopes)}" error="insufficient_scope"'
+                            "WWW-Authenticate": _www_authenticate_header(
+                                error="insufficient_scope",
+                                scope=" ".join(scopes),
+                            )
                         },
                     )
 
