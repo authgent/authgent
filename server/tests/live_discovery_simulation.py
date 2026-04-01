@@ -108,8 +108,7 @@ step(
 )
 step(
     "Supports token_exchange",
-    "urn:ietf:params:oauth:grant-type:token-exchange"
-    in meta.get("grant_types_supported", []),
+    "urn:ietf:params:oauth:grant-type:token-exchange" in meta.get("grant_types_supported", []),
 )
 step("Requires S256 PKCE", "S256" in meta.get("code_challenge_methods_supported", []))
 step(
@@ -126,7 +125,7 @@ r = client.get(meta["jwks_uri"])
 step("JWKS returns 200", r.status_code == 200, f"got {r.status_code}")
 jwks = r.json()
 step("Has keys array", "keys" in jwks)
-step("At least 1 key", len(jwks.get("keys", [])) > 0, f'{len(jwks.get("keys", []))} keys')
+step("At least 1 key", len(jwks.get("keys", [])) > 0, f"{len(jwks.get('keys', []))} keys")
 if jwks.get("keys"):
     k = jwks["keys"][0]
     step("Key has kty", "kty" in k)

@@ -106,9 +106,7 @@ class TestForeignAgentDiscoveryFlow:
         # ── Step 3: Fetch authorization server metadata (RFC 8414) ──
         auth_server_url = prm["authorization_servers"][0]
         auth_server_path = urlparse(auth_server_url).path or ""
-        meta_resp = test_client.get(
-            f"{auth_server_path}/.well-known/oauth-authorization-server"
-        )
+        meta_resp = test_client.get(f"{auth_server_path}/.well-known/oauth-authorization-server")
         assert meta_resp.status_code == 200
         meta = meta_resp.json()
 
@@ -208,9 +206,7 @@ class TestForeignAgentDiscoveryFlow:
         assert "access_token" in exchanged
 
         # Verify delegation chain
-        intro = test_client.post(
-            "/introspect", data={"token": exchanged["access_token"]}
-        ).json()
+        intro = test_client.post("/introspect", data={"token": exchanged["access_token"]}).json()
         assert intro["active"] is True
         assert intro["scope"] == "read"
         assert intro["act"] is not None
@@ -564,9 +560,7 @@ class TestServerMetadataCompleteness:
 class TestDiscoveryToDelegationPipeline:
     """Full pipeline: discover → register 2 agents → token → exchange → introspect."""
 
-    def test_two_foreign_agents_discover_register_delegate(
-        self, test_client: TestClient
-    ) -> None:
+    def test_two_foreign_agents_discover_register_delegate(self, test_client: TestClient) -> None:
         """Two foreign agents independently discover the server,
         register, get tokens, and perform a delegation exchange."""
 
