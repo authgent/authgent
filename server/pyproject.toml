@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "authgent-server"
-version = "0.2.1"
+version = "0.2.2"
 description = "Open-source reference implementation of the IETF agent-identity stack — OAuth 2.1 + identity-chaining + transaction-tokens + DPoP + MCP"
 readme = "README.md"
 license = "Apache-2.0"
