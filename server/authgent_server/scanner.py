@@ -29,6 +29,17 @@ import httpx
 
 Severity = Literal["info", "warning", "error", "critical"]
 
+# Whether a finding affects the letter grade.
+#
+# - ``spec_required``: a NORMATIVE requirement of the MCP 2025-11-25 /
+#   2026-07-28 authorization spec, OAuth 2.1, or a cited RFC. These
+#   findings drive the A-F grade.
+# - ``advisory``: a best-practice (e.g. DPoP-by-default) that improves
+#   posture but is not a 2026-spec requirement. Surfaced in the report
+#   but does NOT affect the letter grade. This is what stops a legacy
+#   IdP from grading D before it ships MCP support.
+Tier = Literal["spec_required", "advisory"]
+
 
 @dataclass
 class Finding:
@@ -38,6 +49,7 @@ class Finding:
     detail: str
     spec_link: str
     remediation: str
+    tier: Tier = "spec_required"
     extra: dict[str, object] = field(default_factory=dict)
 
 
@@ -185,6 +197,7 @@ async def check_iss_in_authorize(client: httpx.AsyncClient, as_meta: dict) -> li
             Finding(
                 check_id="MCP-ISS-001",
                 severity="warning",
+                tier="advisory",  # Mandatory only in MCP 2026-07-28; pre-spec IdPs get a pass.
                 title="iss parameter on /authorize not advertised",
                 detail=(
                     "AS metadata lacks `authorization_response_iss_parameter_supported=true`. "
@@ -198,6 +211,86 @@ async def check_iss_in_authorize(client: httpx.AsyncClient, as_meta: dict) -> li
                 ),
             )
         )
+    return findings
+
+
+async def check_pkce_drift(client: httpx.AsyncClient, as_meta: dict) -> list[Finding]:
+    """MCP-PKCE-002: probe for advertise-vs-enforce drift.
+
+    OAuth 2.1 forbids ``code_challenge_method=plain``. A server that
+    advertises ``S256`` only in metadata but still accepts ``plain`` at
+    the authorize endpoint is the Obsidian Jan 2026 disclosure pattern.
+
+    We send a minimal GET to ``/authorize`` with ``code_challenge_method=plain``
+    and look at what the server complains about. If it rejects ``plain``
+    explicitly (mentions the method or returns ``invalid_request`` with
+    a method-related error), the server enforces the spec — clean. If it
+    returns 200/302 (i.e. accepts ``plain`` for an unregistered client)
+    or rejects only on ``client_id`` while ignoring the method, that's
+    drift signal worth surfacing.
+
+    This is a heuristic; we never complete the flow. False positives
+    are possible — operators should re-test with ``authgent-server lint
+    --probe`` to confirm.
+    """
+    authorize_endpoint = as_meta.get("authorization_endpoint")
+    methods = as_meta.get("code_challenge_methods_supported", []) or []
+    if not authorize_endpoint or "plain" in methods:
+        # If the AS already advertises plain, MCP-PKCE-001 fires; no
+        # need to probe.
+        return []
+    findings: list[Finding] = []
+    # Use a deliberately invalid-looking client_id so the response can't
+    # accidentally redirect us anywhere meaningful.
+    probe_url = (
+        f"{authorize_endpoint}?response_type=code&client_id=authgent-lint-probe"
+        "&redirect_uri=https%3A%2F%2Fauthgent.dev%2Flint-probe"
+        "&code_challenge=plain-probe&code_challenge_method=plain&state=lintprobe"
+    )
+    try:
+        resp = await client.get(probe_url, follow_redirects=False, timeout=5.0)
+    except httpx.HTTPError:
+        return []
+    body_text = ""
+    try:
+        body_text = resp.text[:2000]
+    except Exception:
+        pass
+    body_lower = body_text.lower()
+    # Strong signal: server mentions the method by name in its complaint.
+    method_called_out = (
+        "code_challenge_method" in body_lower
+        or "challenge method" in body_lower
+        or "pkce" in body_lower
+        or "s256" in body_lower
+    )
+    if method_called_out:
+        return []  # server is correctly rejecting plain
+    # Server complained but only about the client_id / redirect_uri,
+    # not the method. That's drift signal.
+    if resp.status_code in (302, 303):
+        location = resp.headers.get("location", "")
+        if "error=invalid_request" not in location:
+            findings.append(
+                Finding(
+                    check_id="MCP-PKCE-002",
+                    severity="error",
+                    tier="spec_required",
+                    title="PKCE method not validated at /authorize",
+                    detail=(
+                        f"GET /authorize with code_challenge_method=plain returned "
+                        f"HTTP {resp.status_code} without naming the method in the "
+                        "error response. OAuth 2.1 forbids 'plain'; an AS that "
+                        "advertises only 'S256' but doesn't reject 'plain' at the "
+                        "endpoint matches the Obsidian Jan 2026 disclosure pattern."
+                    ),
+                    spec_link="https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1",
+                    remediation=(
+                        "Validate code_challenge_method at /authorize and reject "
+                        "any value other than S256 with error=invalid_request."
+                    ),
+                )
+            )
     return findings
 
 
@@ -292,6 +385,7 @@ def check_refresh_for_public_clients(as_meta: dict) -> list[Finding]:
             Finding(
                 check_id="MCP-REFRESH-001",
                 severity="warning",
+                tier="advisory",  # DPoP is best-practice, not currently MCP-mandatory.
                 title="Refresh tokens without DPoP support",
                 detail=(
                     "AS supports refresh_token but does not advertise DPoP "
@@ -328,6 +422,7 @@ async def check_passthrough(client: httpx.AsyncClient, base_url: str) -> list[Fi
             Finding(
                 check_id="MCP-PASSTHROUGH-001",
                 severity="info",
+                tier="advisory",  # Heuristic; legitimate operators may host a landing.
                 title="Root URL responds 200 without authentication",
                 detail=(
                     f"GET {base_url} returned 200 unauthenticated. Verify that "
@@ -428,6 +523,7 @@ async def scan(base_url: str, *, http_client: httpx.AsyncClient | None = None) -
             return findings
 
         findings.extend(check_pkce(as_meta))
+        findings.extend(await check_pkce_drift(client, as_meta))
         findings.extend(await check_iss_in_authorize(client, as_meta))
         findings.extend(check_audience_binding(as_meta))
         findings.extend(check_dcr_redirect_validation(as_meta))
