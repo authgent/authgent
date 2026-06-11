@@ -10,6 +10,7 @@ from authgent_server.endpoints.health import router as health_router
 from authgent_server.endpoints.introspect import router as introspect_router
 from authgent_server.endpoints.register import router as register_router
 from authgent_server.endpoints.revoke import router as revoke_router
+from authgent_server.endpoints.scan import router as scan_router
 from authgent_server.endpoints.stepup import router as stepup_router
 from authgent_server.endpoints.token import router as token_router
 from authgent_server.endpoints.token_check import router as token_check_router
@@ -30,3 +31,4 @@ api_router.include_router(audit_router)
 api_router.include_router(token_inspect_router)
 api_router.include_router(wellknown_router)
 api_router.include_router(health_router)
+api_router.include_router(scan_router)

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "authgent"
-version = "0.2.2"
+version = "0.2.4"
 description = "Python SDK for authgent — IETF agent-identity stack: identity-chaining, transaction-tokens, RFC 8693 delegation, DPoP, MCP"
 readme = "README.md"
 license = "Apache-2.0"

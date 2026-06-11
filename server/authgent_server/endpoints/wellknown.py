@@ -73,6 +73,8 @@ async def oauth_server_metadata(
         "scopes_supported": scopes,
         "resource_indicators_supported": True,
         "dpop_signing_alg_values_supported": ["ES256"],
+        # RFC 9207 / MCP SEP-2468 — we emit iss= on every /authorize redirect.
+        "authorization_response_iss_parameter_supported": True,
         "service_documentation": "https://authgent.dev/docs",
     }
 
