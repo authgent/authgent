@@ -1,19 +1,41 @@
 /**
- * authgent SDK — token verification, delegation chains, DPoP for AI agents.
+ * authgent SDK — IETF agent-identity reference client.
+ *
+ * Implements client helpers for:
+ *
+ * - **draft-ietf-oauth-identity-chaining-14** (cross-domain delegation):
+ *   {@link AgentAuthClient.startIdentityChain},
+ *   {@link AgentAuthClient.consumeIdentityChain}.
+ * - **draft-ietf-oauth-transaction-tokens-08** (intra-domain transaction
+ *   context propagation): {@link AgentAuthClient.issueTransactionToken}.
+ * - **RFC 8693 Token Exchange** with nested `act` chains:
+ *   {@link AgentAuthClient.exchangeToken}.
+ * - **RFC 9449 DPoP**: {@link DPoPClient}, {@link verifyDPoPProof}.
+ * - Token validation against authgent's JWKS: {@link verifyToken},
+ *   {@link verifyDelegationChain}.
+ *
+ * See https://github.com/authgent/authgent and
+ * https://github.com/authgent/authgent/blob/main/STANDARDS.md.
  *
  * @example
  * ```ts
- * import { verifyToken, verifyDelegationChain, AgentAuthClient } from "authgent";
+ * import { AgentAuthClient } from "authgent";
  *
- * // Verify a token
- * const identity = await verifyToken({ token: "eyJ...", issuer: "http://localhost:8000" });
+ * // Cross-domain identity chaining (draft-ietf-oauth-identity-chaining-14)
+ * const grant = await aClient.startIdentityChain({
+ *   subjectToken, targetAuthorizationServer: "https://as.b.example/token",
+ *   clientId, clientSecret,
+ * });
+ * const access = await bClient.consumeIdentityChain({
+ *   assertion: grant.accessToken, clientId, clientSecret,
+ * });
  *
- * // Validate delegation chain
- * verifyDelegationChain(identity.delegationChain, { maxDepth: 3 });
- *
- * // Get tokens via client
- * const client = new AgentAuthClient("http://localhost:8000");
- * const token = await client.getToken({ clientId: "...", clientSecret: "..." });
+ * // Transaction Tokens (draft-ietf-oauth-transaction-tokens-08)
+ * const txn = await tts.issueTransactionToken({
+ *   subjectToken, trustDomain: "https://trust-domain.example/",
+ *   scope: "trade.stocks", clientId, clientSecret,
+ *   requestDetails: { action: "BUY", ticker: "MSFT" },
+ * });
  * ```
  */
 

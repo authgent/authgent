@@ -5,6 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-06-10
+
+### Added — IETF reference implementation + MCP-spec hardening
+
+- **`draft-ietf-oauth-identity-chaining-14`** (IESG: Approved-announcement
+  to be sent / Revised I-D Needed): cross-domain delegation. New
+  `requested_token_type=urn:ietf:params:oauth:token-type:jwt` in
+  token-exchange mints a short-lived audience-bound JWT authorization
+  grant (§2.3). New `urn:ietf:params:oauth:grant-type:jwt-bearer`
+  consumes the grant and issues a Domain-B access token (§2.4 + RFC 7523).
+  Single-use replay protection via `token_blocklist` (§5.5); refresh
+  tokens omitted (§5.4); pluggable claims transcription (§2.5) with
+  `preserve_sub` (default) and `minimize` policies. Metadata advertises
+  `identity_chaining_requested_token_types_supported` (§3).
+- **`draft-ietf-oauth-transaction-tokens-08`** (in WG Last Call):
+  Transaction Token Service. `requested_token_type=...:txn_token` mints
+  `typ: txntoken+jwt` JWTs with `txn`, `tctx`, `rctx`, `req_wl` claims
+  (§3). Scope-subset enforcement (§7.2). Short-lived TTL (§7). No refresh
+  tokens (§11).
+- **MCP 2026-07-28 spec compliance**:
+  - **SEP-2468 / RFC 9207** — `iss=` parameter on every `/authorize`
+    redirect (success and `error=access_denied`).
+  - **SEP-2351 / RFC 8414 §3.1** — path-suffixed metadata at
+    `/.well-known/oauth-authorization-server/{path}` and
+    `/.well-known/oauth-protected-resource/{path}` with rewritten
+    `issuer` / `resource`.
+  - **SEP-2350 / RFC 6750 §3.1** — `WWW-Authenticate` on
+    `insufficient_scope` carries `scope="..."` with the missing scopes
+    so MCP clients can do client-side scope accumulation.
+  - **RFC 7591** — DCR accepts and persists `software_id`,
+    `software_version`, `software_statement` (alembic migration `002`).
+- **`authgent-server lint <mcp-url>`** — MCP-OAuth conformance scanner
+  with 10 checks mapped to known CVE-class issues (Obsidian Jan 2026
+  disclosure, RFC 8707 confused-deputy, PKCE plain, RFC 9207 iss, RFC
+  8693, RFC 9449, RFC 9728, DCR mirror). Three output formats: human,
+  JSON, GitHub Actions workflow-command annotations. Wrappable via the
+  in-repo composite Action at `.github/actions/mcp-lint`.
+- **MCP example rewrite** using the official `mcp` Python SDK with both
+  HTTP (`mcp_server.py`) and stdio (`stdio_server.py`) transports.
+- New env vars: `AUTHGENT_TRUSTED_CHAINING_TARGETS`,
+  `AUTHGENT_TRUSTED_CHAINING_ISSUERS`, `AUTHGENT_CHAINING_GRANT_TTL`,
+  `AUTHGENT_CHAINING_CLAIMS_POLICY`, `AUTHGENT_TXN_TOKEN_TRUST_DOMAIN`,
+  `AUTHGENT_TXN_TOKEN_TTL`.
+- SDK helpers: Python `start_identity_chain` / `consume_identity_chain`
+  / `issue_transaction_token`. TypeScript `startIdentityChain` /
+  `consumeIdentityChain` / `issueTransactionToken`.
+- New docs: `STANDARDS.md` (per-section spec → file:line map),
+  `docs/identity-chaining.md`, `docs/transaction-tokens.md`,
+  `docs/mcp-quickstart.md` (Claude Desktop / Cursor / Claude Code /
+  Continue / VS Code MCP / ChatGPT configs), `docs/compatibility-matrix.md`,
+  `docs/compare/{auth0,keycloak,ory-hydra}.md`, `CITATION.cff`,
+  `OUTREACH.md`, `drafts/draft-agnihotri-oauth-agent-action-transparency-00.md`.
+- 48 new tests (`test_identity_chaining.py`, `test_transaction_tokens.py`,
+  `test_scanner.py`, plus regression tests for the four MCP SEPs)
+  bringing the suite to 420.
+
+### Security
+
+- `server/.env.production` removed from git tracking; all `*.env.production`
+  patterns added to `.gitignore`.
+
 ## [0.1.0] - 2026-03-26
 
 ### Added

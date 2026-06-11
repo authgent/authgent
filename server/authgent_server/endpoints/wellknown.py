@@ -50,6 +50,19 @@ async def oauth_server_metadata(
             "refresh_token",
             "urn:ietf:params:oauth:grant-type:token-exchange",
             "urn:ietf:params:oauth:grant-type:device_code",
+            "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        ],
+        # draft-ietf-oauth-identity-chaining-14 §3
+        "identity_chaining_requested_token_types_supported": [
+            "urn:ietf:params:oauth:token-type:jwt",
+        ],
+        # draft-ietf-oauth-transaction-tokens-08 — supported requested_token_type
+        # values for token-exchange (informational; spec does not standardise this
+        # metadata field, but advertising aids discovery).
+        "token_exchange_requested_token_types_supported": [
+            "urn:ietf:params:oauth:token-type:jwt",
+            "urn:ietf:params:oauth:token-type:txn_token",
+            "urn:ietf:params:oauth:token-type:access_token",
         ],
         "token_endpoint_auth_methods_supported": [
             "client_secret_post",
@@ -105,3 +118,54 @@ async def protected_resource_metadata(
         "scopes_supported": scopes,
         "bearer_methods_supported": ["header"],
     }
+
+
+# MCP SEP-2351: RFC 8414 §3.1 explicitly defines the well-known URI suffix
+# pattern. When authgent is reverse-proxied at a path prefix (a common MCP
+# multi-tenant pattern, e.g. https://gateway.example/tenant-a/), clients
+# discover metadata at /.well-known/oauth-authorization-server/<path>. The
+# returned `issuer` claim MUST reflect the path-prefixed URL.
+
+
+def _path_prefixed_base(settings: Settings, suffix: str) -> str:
+    """Return the canonical issuer URL for a path-suffixed deployment.
+
+    The suffix is the path portion AFTER the well-known segment. For
+    /.well-known/oauth-authorization-server/tenant-a, suffix is `tenant-a`.
+    """
+    base = settings.server_url.rstrip("/")
+    suffix = suffix.strip("/")
+    return f"{base}/{suffix}" if suffix else base
+
+
+@router.get("/.well-known/oauth-authorization-server/{suffix:path}")
+async def oauth_server_metadata_suffixed(
+    suffix: str,
+    settings: Settings = Depends(get_settings),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """MCP SEP-2351 / RFC 8414 §3.1 — path-suffixed AS metadata.
+
+    The `issuer` claim is rewritten to the path-prefixed URL so that
+    issuer comparison succeeds at the calling MCP client.
+    """
+    meta = await oauth_server_metadata(settings, db)
+    issuer = _path_prefixed_base(settings, suffix)
+    meta["issuer"] = issuer
+    # All endpoint URLs in the metadata stay rooted at the real server,
+    # since the actual OAuth endpoints are not path-prefixed in authgent.
+    # MCP clients only require issuer to match their resource binding.
+    return meta
+
+
+@router.get("/.well-known/oauth-protected-resource/{suffix:path}")
+async def protected_resource_metadata_suffixed(
+    suffix: str,
+    settings: Settings = Depends(get_settings),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """MCP SEP-2351 / RFC 9728 — path-suffixed PRM."""
+    meta = await protected_resource_metadata(settings, db)
+    resource = _path_prefixed_base(settings, suffix)
+    meta["resource"] = resource
+    return meta

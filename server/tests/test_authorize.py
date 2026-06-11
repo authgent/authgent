@@ -54,6 +54,8 @@ def test_authorize_auto_approve_and_token_exchange(test_client: TestClient) -> N
     location = resp.headers["location"]
     assert "code=" in location
     assert "state=xyz" in location
+    # RFC 9207 / MCP SEP-2468: iss MUST be present and URL-encoded.
+    assert "iss=http%3A%2F%2Flocalhost%3A8000" in location
 
     # Extract code from redirect
     from urllib.parse import parse_qs, urlparse
@@ -108,3 +110,33 @@ def test_authorize_wrong_response_type(test_client: TestClient) -> None:
         },
     )
     assert resp.status_code == 400
+
+
+def test_authorize_iss_param_rfc9207(test_client: TestClient) -> None:
+    """RFC 9207 / MCP SEP-2468: /authorize redirect MUST include the iss
+    parameter so the client can verify the response originated from the
+    expected authorization server."""
+    from urllib.parse import parse_qs, urlparse
+
+    creds = _register_auth_code_client(test_client)
+    _, challenge = _generate_pkce()
+
+    resp = test_client.get(
+        "/authorize",
+        params={
+            "response_type": "code",
+            "client_id": creds["client_id"],
+            "redirect_uri": "http://localhost:3000/callback",
+            "scope": "read",
+            "state": "abc123",
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+    parsed = urlparse(resp.headers["location"])
+    qs = parse_qs(parsed.query)
+    # iss MUST be present, URL-decoded equal to server_url, and not blank.
+    assert "iss" in qs, f"iss missing from {resp.headers['location']}"
+    assert qs["iss"][0] == "http://localhost:8000"

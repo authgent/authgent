@@ -134,6 +134,100 @@ export class AgentAuthClient {
     return this.parseTokenResult(resp);
   }
 
+  /**
+   * Mint a JWT authorization grant for cross-domain delegation
+   * (draft-ietf-oauth-identity-chaining-14 §2.3, Domain A side).
+   *
+   * The returned `accessToken` is a short-lived JWT bound to
+   * `targetAuthorizationServer`; pass it to `consumeIdentityChain` on
+   * the Domain B AS to obtain a Domain-B access token.
+   */
+  async startIdentityChain(options: {
+    subjectToken: string;
+    targetAuthorizationServer: string;
+    clientId: string;
+    clientSecret: string;
+    scopes?: string[];
+  }): Promise<TokenResult> {
+    const body = new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+      subject_token: options.subjectToken,
+      subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
+      requested_token_type: "urn:ietf:params:oauth:token-type:jwt",
+      audience: options.targetAuthorizationServer,
+      client_id: options.clientId,
+      client_secret: options.clientSecret,
+    });
+    if (options.scopes) body.set("scope", options.scopes.join(" "));
+
+    const resp = await this.fetchForm("POST", "/token", body);
+    return this.parseTokenResult(resp);
+  }
+
+  /**
+   * Mint a Transaction Token per
+   * draft-ietf-oauth-transaction-tokens-08.
+   *
+   * The returned `accessToken` is a short-lived JWT bound to `trustDomain`
+   * carrying a unique `txn` id, immutable `tctx` (from `requestDetails`),
+   * and `rctx` (from `requestContext`). Token type is `N_A`; refresh
+   * tokens are never issued for this grant.
+   */
+  async issueTransactionToken(options: {
+    subjectToken: string;
+    trustDomain: string;
+    scope: string;
+    clientId: string;
+    clientSecret: string;
+    requestDetails?: Record<string, unknown>;
+    requestContext?: Record<string, unknown>;
+  }): Promise<TokenResult> {
+    const body = new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+      subject_token: options.subjectToken,
+      subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
+      requested_token_type: "urn:ietf:params:oauth:token-type:txn_token",
+      audience: options.trustDomain,
+      scope: options.scope,
+      client_id: options.clientId,
+      client_secret: options.clientSecret,
+    });
+    if (options.requestDetails)
+      body.set("request_details", JSON.stringify(options.requestDetails));
+    if (options.requestContext)
+      body.set("request_context", JSON.stringify(options.requestContext));
+
+    const resp = await this.fetchForm("POST", "/token", body);
+    return this.parseTokenResult(resp);
+  }
+
+  /**
+   * Redeem a JWT authorization grant for a Domain B access token
+   * (draft-ietf-oauth-identity-chaining-14 §2.4 + RFC 7523).
+   *
+   * The grant is single-use; the server enforces replay rejection on
+   * the assertion's jti.
+   */
+  async consumeIdentityChain(options: {
+    assertion: string;
+    clientId: string;
+    clientSecret: string;
+    resource?: string;
+    scopes?: string[];
+  }): Promise<TokenResult> {
+    const body = new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: options.assertion,
+      client_id: options.clientId,
+      client_secret: options.clientSecret,
+    });
+    if (options.resource) body.set("resource", options.resource);
+    if (options.scopes) body.set("scope", options.scopes.join(" "));
+
+    const resp = await this.fetchForm("POST", "/token", body);
+    return this.parseTokenResult(resp);
+  }
+
   /** Refresh an access token. */
   async refreshToken(options: {
     refreshToken: string;

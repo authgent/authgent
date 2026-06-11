@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -99,6 +100,12 @@ async def token_endpoint(
 
     ip_address = request.client.host if request.client else None
 
+    # draft-ietf-oauth-transaction-tokens-08 §3 — request_context and
+    # request_details are JSON objects; clients may send them as JSON strings
+    # in form bodies.
+    request_context = _parse_json_form(form.get("request_context"))
+    request_details = _parse_json_form(form.get("request_details"))
+
     return await token_service.issue_token(
         db=db,
         grant_type=str(grant_type),
@@ -112,9 +119,26 @@ async def token_endpoint(
         refresh_token_value=str(form.get("refresh_token", "")),
         subject_token=str(form.get("subject_token", "")),
         subject_token_type=str(form.get("subject_token_type", "")) or None,
+        requested_token_type=str(form.get("requested_token_type", "")) or None,
+        assertion=str(form.get("assertion", "")) or None,
+        request_context=request_context,
+        request_details=request_details,
         audience=str(form.get("audience", "")),
         device_code=str(form.get("device_code", "")),
         dpop_jkt=dpop_jkt,
         ip_address=ip_address,
         oauth_client=client,
     )
+
+
+def _parse_json_form(value: object) -> dict[str, object] | None:
+    """Decode a JSON object passed as a form field. Returns None for empty/invalid."""
+    if not value:
+        return None
+    try:
+        parsed = json.loads(str(value))
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    return parsed

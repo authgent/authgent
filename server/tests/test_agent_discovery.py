@@ -515,6 +515,7 @@ class TestServerMetadataCompleteness:
             "refresh_token",
             "urn:ietf:params:oauth:grant-type:token-exchange",
             "urn:ietf:params:oauth:grant-type:device_code",
+            "urn:ietf:params:oauth:grant-type:jwt-bearer",
         }
         assert set(meta["grant_types_supported"]) == expected_grants
 

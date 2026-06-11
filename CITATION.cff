@@ -1,0 +1,40 @@
+cff-version: 1.2.0
+title: "authgent: open-source reference implementation of the IETF agent-identity stack"
+message: "If you reference authgent in research, an IETF Implementation Status section, or a published article, please cite it using these metadata."
+type: software
+authors:
+  - family-names: Agnihotri
+    given-names: Dhruv
+license: Apache-2.0
+repository-code: "https://github.com/authgent/authgent"
+url: "https://github.com/authgent/authgent"
+abstract: >
+  authgent is a self-hosted OAuth 2.1 authorization server for AI agents.
+  It is the open-source reference implementation of
+  draft-ietf-oauth-identity-chaining-14 (cross-domain delegation) and
+  draft-ietf-oauth-transaction-tokens-08 (intra-domain transaction
+  context propagation), in addition to RFC 8693 nested-act delegation
+  chains, RFC 9449 DPoP, RFC 9728 Protected Resource Metadata, RFC 7591
+  Dynamic Client Registration, and the MCP 2026-07-28 authorization
+  spec. Apache 2.0.
+keywords:
+  - oauth
+  - oauth2.1
+  - identity-chaining
+  - transaction-tokens
+  - rfc-8693
+  - rfc-9449
+  - dpop
+  - mcp
+  - model-context-protocol
+  - agent-authentication
+  - delegation
+  - ietf
+preferred-citation:
+  type: software
+  title: "authgent — IETF agent-identity reference implementation"
+  authors:
+    - family-names: Agnihotri
+      given-names: Dhruv
+  year: 2026
+  url: "https://github.com/authgent/authgent"

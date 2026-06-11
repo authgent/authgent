@@ -56,3 +56,37 @@ async def test_missing_token_param_returns_400(test_client):
     assert resp.status_code == 400
     body = resp.json()
     assert body["error"] == "invalid_request"
+
+
+@pytest.mark.asyncio
+async def test_insufficient_scope_www_authenticate_carries_scope_sep2350(test_client):
+    """MCP SEP-2350 + RFC 6750 §3.1: when emitting insufficient_scope, the
+    WWW-Authenticate header MUST include `scope="..."` listing the scopes
+    needed for the current operation, so clients can accumulate them on the
+    next request."""
+    # Register a client with limited scope, then request a scope it can't have.
+    reg = test_client.post(
+        "/register",
+        json={
+            "client_name": "scope-test",
+            "grant_types": ["client_credentials"],
+            "scope": "read",
+        },
+    )
+    assert reg.status_code == 201
+    creds = reg.json()
+
+    resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+            "scope": "admin:write",
+        },
+    )
+    assert resp.status_code == 403
+    auth_header = resp.headers.get("WWW-Authenticate", "")
+    assert "insufficient_scope" in auth_header
+    # The exact scope the client needs to step up to.
+    assert 'scope="admin:write"' in auth_header

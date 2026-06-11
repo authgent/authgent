@@ -169,6 +169,140 @@ class AgentAuthClient:
             scope=result.get("scope"),
         )
 
+    async def start_identity_chain(
+        self,
+        subject_token: str,
+        target_authorization_server: str,
+        client_id: str,
+        client_secret: str,
+        scopes: list[str] | None = None,
+    ) -> TokenResult:
+        """Mint a JWT authorization grant for cross-domain delegation.
+
+        Implements the Domain A side of draft-ietf-oauth-identity-chaining-14
+        §2.3. The returned access_token is a short-lived JWT bound to
+        ``target_authorization_server`` that the caller hands to a Domain B
+        AS via :meth:`consume_identity_chain`.
+        """
+        data: dict = {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "subject_token": subject_token,
+            "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+            "requested_token_type": "urn:ietf:params:oauth:token-type:jwt",
+            "audience": target_authorization_server,
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if scopes:
+            data["scope"] = " ".join(scopes)
+
+        resp = await self._get_http().post(
+            f"{self._base}/token",
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        if resp.status_code != 200:
+            raise ServerError(f"start_identity_chain failed: {resp.text}")
+        result = resp.json()
+
+        return TokenResult(
+            access_token=result["access_token"],
+            token_type=result["token_type"],
+            expires_in=result["expires_in"],
+            scope=result.get("scope"),
+        )
+
+    async def issue_transaction_token(
+        self,
+        subject_token: str,
+        trust_domain: str,
+        scope: str,
+        client_id: str,
+        client_secret: str,
+        request_details: dict | None = None,
+        request_context: dict | None = None,
+    ) -> TokenResult:
+        """Mint a Transaction Token per draft-ietf-oauth-transaction-tokens-08.
+
+        The returned ``access_token`` is a short-lived JWT bound to
+        ``trust_domain`` carrying a unique ``txn`` id, ``tctx`` (immutable
+        transaction context, from ``request_details``), and ``rctx``
+        (requester context). Token type is ``N_A``; refresh tokens are
+        never issued for this grant.
+        """
+        import json as _json
+
+        data: dict = {
+            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+            "subject_token": subject_token,
+            "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+            "requested_token_type": "urn:ietf:params:oauth:token-type:txn_token",
+            "audience": trust_domain,
+            "scope": scope,
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if request_details:
+            data["request_details"] = _json.dumps(request_details)
+        if request_context:
+            data["request_context"] = _json.dumps(request_context)
+
+        resp = await self._get_http().post(
+            f"{self._base}/token",
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        if resp.status_code != 200:
+            raise ServerError(f"issue_transaction_token failed: {resp.text}")
+        result = resp.json()
+        return TokenResult(
+            access_token=result["access_token"],
+            token_type=result["token_type"],
+            expires_in=result["expires_in"],
+            scope=result.get("scope"),
+        )
+
+    async def consume_identity_chain(
+        self,
+        assertion: str,
+        client_id: str,
+        client_secret: str,
+        resource: str | None = None,
+        scopes: list[str] | None = None,
+    ) -> TokenResult:
+        """Redeem a JWT authorization grant for a Domain B access token.
+
+        Implements the Domain B side of draft-ietf-oauth-identity-chaining-14
+        §2.4 + RFC 7523. The grant is single-use; this server enforces replay
+        rejection on the assertion's jti.
+        """
+        data: dict = {
+            "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            "assertion": assertion,
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        if resource:
+            data["resource"] = resource
+        if scopes:
+            data["scope"] = " ".join(scopes)
+
+        resp = await self._get_http().post(
+            f"{self._base}/token",
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        if resp.status_code != 200:
+            raise ServerError(f"consume_identity_chain failed: {resp.text}")
+        result = resp.json()
+
+        return TokenResult(
+            access_token=result["access_token"],
+            token_type=result["token_type"],
+            expires_in=result["expires_in"],
+            scope=result.get("scope"),
+        )
+
     async def refresh_token(
         self,
         refresh_token_value: str,

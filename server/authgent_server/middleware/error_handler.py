@@ -45,7 +45,9 @@ def _build_response_headers(exc: AuthgentError) -> dict[str, str]:
             parts.append(f'error_description="{exc.detail}"')
         headers["WWW-Authenticate"] = ", ".join(parts)
 
-    # WWW-Authenticate header for 403 insufficient_scope (RFC 6750 §3.1)
+    # WWW-Authenticate header for 403 insufficient_scope (RFC 6750 §3.1 +
+    # MCP SEP-2350): emit `scope="..."` so clients can perform client-side
+    # scope accumulation when retrying the request.
     if exc.status_code == 403 and isinstance(exc, InsufficientScope):
         parts = [
             'Bearer realm="authgent"',
@@ -53,6 +55,8 @@ def _build_response_headers(exc: AuthgentError) -> dict[str, str]:
         ]
         if exc.detail:
             parts.append(f'error_description="{exc.detail}"')
+        if exc.required_scopes:
+            parts.append(f'scope="{" ".join(exc.required_scopes)}"')
         headers["WWW-Authenticate"] = ", ".join(parts)
 
     return headers

@@ -1132,5 +1132,35 @@ def quickstart() -> None:
     )
 
 
+@app.command()
+def lint(
+    url: str = typer.Argument(
+        ..., help="MCP server base URL to audit, e.g. https://mcp.example.com"
+    ),
+    fmt: str = typer.Option(
+        "human",
+        "--format",
+        "-f",
+        help="Output format: human | json | github (workflow-command annotations).",
+    ),
+) -> None:
+    """MCP-OAuth conformance scanner.
+
+    Audits a remote MCP server's authorization posture against RFC 7591,
+    RFC 7636, RFC 8414, RFC 8707, RFC 9207, RFC 9449, RFC 9728, and the
+    MCP 2025-11-25 / 2026-07-28 spec. Exits non-zero when any error- or
+    critical-severity finding is detected, so it can be wired into CI.
+
+    Examples:
+        authgent-server lint https://mcp.example.com
+        authgent-server lint https://mcp.example.com -f json
+        authgent-server lint https://mcp.example.com -f github > findings.txt
+    """
+    from authgent_server.scanner import main_cli
+
+    rc = main_cli(url, fmt=fmt)
+    raise typer.Exit(code=rc)
+
+
 if __name__ == "__main__":
     app()

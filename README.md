@@ -2,10 +2,17 @@
 
 # authgent
 
-### The OAuth 2.1 server that knows who delegated what to whom.
+### Run your own OAuth 2.1 server for AI agents — open-source alternative to Auth0, Okta, and Keycloak for the agent era.
 
-Self-hosted auth for AI agents — login, delegation chains, scope enforcement, and kill switch.<br>
-`pip install`, 60 seconds, works standalone or alongside Auth0/Okta.
+Reference implementation of [`draft-ietf-oauth-identity-chaining-14`][icn]
+(in IESG approval) and [`draft-ietf-oauth-transaction-tokens-08`][txntok]
+(in OAuth WG Last Call). Tested against Claude Desktop, Cursor, Claude
+Code, Continue, VS Code MCP, and ChatGPT Custom MCP.
+Apache 2.0, 420 tests, 3 published packages, ships an MCP-OAuth scanner.
+
+[icn]: https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/
+[rfc8693]: https://datatracker.ietf.org/doc/html/rfc8693
+[rfc9449]: https://datatracker.ietf.org/doc/html/rfc9449
 
 [![CI](https://github.com/authgent/authgent/actions/workflows/ci.yml/badge.svg)](https://github.com/authgent/authgent/actions/workflows/ci.yml)
 [![PyPI - Server](https://img.shields.io/pypi/v/authgent-server?label=authgent-server&color=blue)](https://pypi.org/project/authgent-server/)
@@ -21,9 +28,20 @@ Self-hosted auth for AI agents — login, delegation chains, scope enforcement, 
 pip install authgent-server && authgent-server run
 ```
 
-[Live Playground](https://authgent.github.io/authgent/) · [Quick Start](#quick-start) · [When to use authgent](#when-to-use-authgent) · [SDKs](#sdks) · [Architecture](ARCHITECTURE.md)
+[Live Playground](https://authgent.github.io/authgent/) · [MCP Quickstart](docs/mcp-quickstart.md) · [Compatibility Matrix](docs/compatibility-matrix.md) · [vs Auth0](docs/compare/auth0.md) · [vs Keycloak](docs/compare/keycloak.md) · [vs Ory Hydra](docs/compare/ory-hydra.md) · [Standards Report](STANDARDS.md) · [Architecture](ARCHITECTURE.md)
 
 </div>
+
+---
+
+## Who is this for
+
+| Persona | What you get | Where to start |
+|---|---|---|
+| **MCP-server developer** — *"I need OAuth on my MCP server in 60 seconds, working with Claude Desktop / Cursor / Continue."* | A real `mcp` SDK example with stdio + HTTP transports, and copy-pastable client configs for every major MCP client. | [MCP Quickstart](docs/mcp-quickstart.md) |
+| **Enterprise agent platform** — *"I need delegation receipts, DPoP, and an audit chain that proves which agent did what on whose behalf."* | RFC 8693 nested-`act` chains, signed delegation receipts, RFC 9449 DPoP by default, and the cross-domain identity-chaining flow. | [Architecture](ARCHITECTURE.md) |
+| **IETF / spec implementer** — *"I'm working on identity-chaining, transaction-tokens, AIMS — I want a free reference impl to test against."* | A clean Apache-2.0 implementation of both WG-track drafts with a section-by-section conformance map. | [Standards Report](STANDARDS.md) |
+| **Security engineer auditing MCP servers** — *"I need to lint our MCP servers' OAuth posture in CI."* | An MCP-OAuth scanner (`authgent-server lint <url>`) with a GitHub Action wrapper. | [MCP-Lint Action](.github/actions/mcp-lint/README.md) |
 
 ---
 
@@ -66,6 +84,38 @@ curl -X POST http://localhost:8000/token \
 ```
 
 Or use authgent standalone — it handles the full auth lifecycle without any external IdP.
+
+## Specifications implemented
+
+| Spec | What authgent ships |
+|---|---|
+| OAuth 2.1 (draft) + RFC 6749 | Authorization Code + PKCE (S256), Client Credentials, Refresh, Device Auth |
+| [draft-ietf-oauth-identity-chaining-14][icn] | Cross-domain JWT authorization grant (Domain A) and `jwt-bearer` consumer (Domain B), §2.3 + §2.4 + §5 |
+| [draft-ietf-oauth-transaction-tokens-08][txntok] | Transaction Token Service — short-lived TT-tokens with `txn`/`tctx`/`rctx` claims, §3 + §7 |
+| [RFC 8693][rfc8693] | Token Exchange with nested `act` claims (intra-domain agent delegation) |
+| [RFC 7523][rfc7523] | JWT Profile for OAuth 2.0 Client Authentication and Authorization Grants |
+| [RFC 9449][rfc9449] | DPoP — sender-constrained access tokens |
+| [RFC 9728][rfc9728] | Protected Resource Metadata |
+| [RFC 8414][rfc8414] | OAuth 2.0 Authorization Server Metadata |
+| [RFC 7591][rfc7591] | Dynamic Client Registration |
+| [RFC 7662][rfc7662] | Token Introspection |
+| [RFC 7009][rfc7009] | Token Revocation (with ownership check) |
+| [RFC 8628][rfc8628] | Device Authorization Grant |
+| [RFC 8707][rfc8707] | Resource Indicators |
+| [RFC 9457][rfc9457] | Problem Details for HTTP APIs (error responses) |
+| MCP 2026-07-28 spec | OAuth discovery, RFC 8414 well-known suffix, RFC 9207 `iss` parameter |
+
+[txntok]: https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/
+
+[rfc7523]: https://datatracker.ietf.org/doc/html/rfc7523
+[rfc9728]: https://datatracker.ietf.org/doc/html/rfc9728
+[rfc8414]: https://datatracker.ietf.org/doc/html/rfc8414
+[rfc7591]: https://datatracker.ietf.org/doc/html/rfc7591
+[rfc7662]: https://datatracker.ietf.org/doc/html/rfc7662
+[rfc7009]: https://datatracker.ietf.org/doc/html/rfc7009
+[rfc8628]: https://datatracker.ietf.org/doc/html/rfc8628
+[rfc8707]: https://datatracker.ietf.org/doc/html/rfc8707
+[rfc9457]: https://datatracker.ietf.org/doc/html/rfc9457
 
 ## 60-Second Setup
 
@@ -245,6 +295,77 @@ curl -s -X POST http://localhost:8000/token \
   -d "scope=search:execute" \
   -d "client_id=$AGENT_B_ID&client_secret=$AGENT_B_SECRET"
 ```
+
+### Identity Chaining Across Trust Domains
+
+When an agent in your domain needs to call a resource owned by **another
+organisation**, nested `act` chains stop at the trust boundary. authgent
+implements [draft-ietf-oauth-identity-chaining-14][icn] (Approved-announcement
+in IESG), so a Domain A token becomes a short-lived JWT authorization grant
+for Domain B's authorization server, and Domain B redeems it for a Domain B
+access token via [RFC 7523][rfc7523] `jwt-bearer`.
+
+[rfc7523]: https://datatracker.ietf.org/doc/html/rfc7523
+
+```bash
+# Domain A: mint a JWT authorization grant bound to Domain B's AS.
+curl -s -X POST https://as.a.example/token \
+  -d "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
+  -d "subject_token=$DOMAIN_A_TOKEN" \
+  -d "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
+  -d "requested_token_type=urn:ietf:params:oauth:token-type:jwt" \
+  -d "audience=https://as.b.example/token" \
+  -d "client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET"
+# → { "access_token": "<JWT-grant>",
+#     "issued_token_type": "urn:ietf:params:oauth:token-type:jwt", ... }
+
+# Domain B: redeem the grant for a Domain B access token.
+curl -s -X POST https://as.b.example/token \
+  -d "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" \
+  -d "assertion=<JWT-grant>" \
+  -d "client_id=$DOMAIN_B_CLIENT_ID&client_secret=$DOMAIN_B_SECRET"
+```
+
+The grant is **single-use** (assertion `jti` blocked on consumption per §5.5),
+**audience-bound** (§2.3.3), **short-lived** (60s default, §5.5), and **never
+issues a refresh token** (§5.4). Configure trust boundaries with
+`AUTHGENT_TRUSTED_CHAINING_TARGETS` (Domain A allow-list) and
+`AUTHGENT_TRUSTED_CHAINING_ISSUERS` (Domain B allow-list).
+
+Both SDKs ship helpers: Python `client.start_identity_chain(...)` /
+`client.consume_identity_chain(...)`, TypeScript `client.startIdentityChain()`
+/ `client.consumeIdentityChain()`.
+
+### Transaction Tokens (intra-domain call chains)
+
+When a request enters your trust domain (e.g. through an API gateway) and
+fans out to internal services, you want every hop to carry **the same
+authorization context** without re-querying the authorization server.
+authgent implements [draft-ietf-oauth-transaction-tokens-08][txntok] (in WG
+Last Call): the gateway exchanges an external access token at the
+Transaction Token Service for a short-lived **Txn-Token** carrying a unique
+`txn` id, immutable transaction context (`tctx`), and requester context
+(`rctx`). Each downstream service validates the JWT signature and trusts
+the embedded context.
+
+```bash
+# Gateway → TTS: mint a Txn-Token for a stock-buy transaction.
+curl -s -X POST http://localhost:8000/token \
+  -d "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
+  -d "subject_token=$EXTERNAL_ACCESS_TOKEN" \
+  -d "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
+  -d "requested_token_type=urn:ietf:params:oauth:token-type:txn_token" \
+  -d "audience=https://trust-domain.example/" \
+  -d "scope=trade.stocks" \
+  --data-urlencode 'request_details={"action":"BUY","ticker":"MSFT","quantity":"100"}' \
+  -d "client_id=$GATEWAY_ID&client_secret=$GATEWAY_SECRET"
+```
+
+The Txn-Token is `typ: txntoken+jwt`, audience-bound to the Trust Domain,
+short-lived (120s default per §7), and scope-narrowed (§7.2 enforces
+`requested_scope ⊆ subject_token.scope`). Refresh tokens are never issued
+(§11). Both SDKs ship `issue_transaction_token` /
+`issueTransactionToken` helpers.
 
 ### Bridge from Auth0 / Okta / Any OIDC Provider
 
@@ -510,7 +631,7 @@ authgent/
 │   │   ├── config.py            # Pydantic Settings (AUTHGENT_* env vars)
 │   │   ├── crypto.py            # HKDF + AES-256-GCM
 │   │   └── errors.py            # RFC 9457 Problem Details hierarchy
-│   ├── tests/                   # 370+ tests — unit, integration, security, E2E
+│   ├── tests/                   # 420 tests — unit, integration, security, E2E
 │   ├── migrations/              # Alembic (SQLite dev → PostgreSQL prod)
 │   └── Dockerfile
 ├── sdks/
@@ -604,7 +725,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for development
 git clone https://github.com/authgent/authgent.git
 cd authgent/server
 pip install -e ".[dev]"
-pytest -v   # 370+ tests
+pytest -v   # 420 tests
 ```
 
 ## License

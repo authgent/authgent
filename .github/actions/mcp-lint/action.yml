@@ -1,0 +1,47 @@
+name: "authgent MCP lint"
+description: >
+  Audit a remote MCP server's OAuth posture against RFC 7591, 7636, 8414,
+  8707, 9207, 9449, 9728, and the MCP 2025-11-25 / 2026-07-28 spec.
+  Emits GitHub Actions workflow-command annotations on every finding so
+  problems surface inline in pull request reviews.
+
+inputs:
+  url:
+    description: "MCP server base URL to audit, e.g. https://mcp.example.com"
+    required: true
+  fail-on:
+    description: "Exit non-zero when findings >= this severity (info|warning|error|critical)."
+    required: false
+    default: "error"
+  python-version:
+    description: "Python interpreter to use."
+    required: false
+    default: "3.12"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install authgent-server
+      shell: bash
+      run: pip install --quiet "authgent-server>=0.2.0"
+
+    - name: Run authgent lint
+      shell: bash
+      run: |
+        set +e
+        authgent-server lint "${{ inputs.url }}" --format github
+        rc_human=$?
+        # Re-run in JSON for the artifact (cached by httpx, near-zero cost).
+        authgent-server lint "${{ inputs.url }}" --format json > authgent-lint.json
+        exit "$rc_human"
+
+    - name: Upload findings JSON
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: authgent-lint-findings
+        path: authgent-lint.json

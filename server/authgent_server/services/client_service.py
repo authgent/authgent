@@ -62,12 +62,20 @@ class ClientService:
             jwks=request.jwks,
             client_uri=request.client_uri,
             contacts=request.contacts or None,
+            software_id=request.software_id,
+            software_version=request.software_version,
+            software_statement=request.software_statement,
             agent_id=agent_id,
         )
         db.add(client)
         await db.commit()
 
-        logger.info("client_registered", client_id=client_id, client_name=request.client_name)
+        logger.info(
+            "client_registered",
+            client_id=client_id,
+            client_name=request.client_name,
+            software_id=request.software_id,
+        )
 
         return RegisterResponse(
             client_id=client_id,
@@ -82,6 +90,9 @@ class ClientService:
             jwks=request.jwks,
             client_uri=request.client_uri,
             contacts=request.contacts or [],
+            software_id=request.software_id,
+            software_version=request.software_version,
+            software_statement=request.software_statement,
         )
 
     async def authenticate_client(
@@ -163,8 +174,11 @@ class ClientService:
 
         if client_scopes and not requested.issubset(client_scopes):
             invalid = requested - client_scopes
+            # MCP SEP-2350: surface the missing scopes so the caller can
+            # accumulate them client-side on the next request.
             raise InsufficientScope(
-                f"Requested scopes not in client registration: {', '.join(invalid)}"
+                f"Requested scopes not in client registration: {', '.join(sorted(invalid))}",
+                required_scopes=sorted(invalid),
             )
 
         return requested_scope

@@ -56,6 +56,20 @@ class InsufficientScope(AuthgentError):
     title = "Insufficient Scope"
     error_code = "insufficient_scope"
 
+    def __init__(
+        self,
+        detail: str | None = None,
+        *,
+        required_scopes: list[str] | None = None,
+        **kwargs: object,
+    ):
+        # MCP SEP-2350 + RFC 6750 §3.1: when emitting insufficient_scope, the
+        # AS SHOULD include the scope(s) needed for the current operation in
+        # the WWW-Authenticate header so clients can do client-side scope
+        # accumulation in step-up requests.
+        self.required_scopes = required_scopes or []
+        super().__init__(detail=detail, **kwargs)
+
 
 class InvalidRequest(AuthgentError):
     type_uri = "https://authgent.dev/errors/invalid-request"
