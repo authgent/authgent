@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>authgent — open-source OAuth 2.1 server for AI agents</title>
-<meta name="description" content="Run your own OAuth 2.1 server for AI agents. Apache 2.0 reference implementation of draft-ietf-oauth-identity-chaining-14 and draft-ietf-oauth-transaction-tokens-08. Tested with Claude Desktop, Cursor, Continue.">
-<meta property="og:title" content="authgent — OAuth 2.1 for AI agents">
-<meta property="og:description" content="Open-source alternative to Auth0 / Okta / Keycloak for the agent era. Reference impl of two IETF drafts. Apache 2.0.">
+<title>authgent — OAuth 2.1 + scanner for AI agents</title>
+<meta name="description" content="Audit any MCP server's OAuth posture — and run your own. Open-source reference implementation of draft-ietf-oauth-identity-chaining-14 and draft-ietf-oauth-transaction-tokens-08. Apache 2.0.">
+<meta property="og:title" content="authgent — scan + run OAuth 2.1 for AI agents">
+<meta property="og:description" content="See how Stripe, Notion, Atlassian, Cloudflare grade against the IETF OAuth specs. Then run your own.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://authgent.github.io/authgent/home/">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2L2 7l10 5 10-5-10-5z'/><path d='M2 17l10 5 10-5'/><path d='M2 12l10 5 10-5'/></svg>">
@@ -32,6 +32,8 @@ body{background:#08080c;color:#e4e4e7;font-family:'Inter',system-ui,sans-serif;m
 .fade-in{animation:fadeIn .55s ease-out forwards}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .code-glow{box-shadow:0 0 0 1px #10b981 inset, 0 8px 32px -12px rgba(16,185,129,.5)}
+.spinner{width:14px;height:14px;border:2px solid #27272a;border-top-color:#10b981;border-radius:50%;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body class="grad-bg">
@@ -42,8 +44,9 @@ body{background:#08080c;color:#e4e4e7;font-family:'Inter',system-ui,sans-serif;m
       <span class="font-bold tracking-tight">authgent</span>
     </a>
     <nav class="flex items-center gap-5 text-sm text-zinc-400">
+      <a href="../scan/" class="hover:text-zinc-100">Scan</a>
+      <a href="../registry/" class="hover:text-zinc-100">Registry</a>
       <a href="../" class="hover:text-zinc-100">Playground</a>
-      <a href="../scan/" class="hover:text-zinc-100">Scanner</a>
       <a href="https://github.com/authgent/authgent" class="hover:text-zinc-100">GitHub</a>
       <a href="https://github.com/authgent/authgent/blob/main/STANDARDS.md" class="hidden sm:inline hover:text-zinc-100">Standards</a>
     </nav>
@@ -51,168 +54,158 @@ body{background:#08080c;color:#e4e4e7;font-family:'Inter',system-ui,sans-serif;m
 </header>
 
 <main>
-  <section class="max-w-6xl mx-auto px-5 pt-16 pb-12 sm:pt-24 sm:pb-16 fade-in">
+  <!-- HERO -->
+  <section class="max-w-6xl mx-auto px-5 pt-14 pb-10 sm:pt-20 sm:pb-14 fade-in">
     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/70 border border-zinc-800 text-[11px] text-em font-mono mb-6">
       <span class="w-1.5 h-1.5 rounded-full bg-em"></span>
-      v0.2.2 · Apache 2.0 · 420 tests · 82% coverage
+      v0.3.0 · Apache 2.0 · 444 tests · zero adoption — yet
     </div>
 
     <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-zinc-50 max-w-4xl glow leading-[1.05]">
-      Run your own OAuth&nbsp;2.1 server for AI agents.
+      Most MCP servers fail their own&nbsp;OAuth&nbsp;spec.
     </h1>
     <p class="mt-5 text-lg sm:text-xl text-zinc-400 max-w-3xl">
-      Open-source alternative to Auth0, Okta, and Keycloak for the agent era.
-      Reference implementation of <a class="text-em hover:underline" href="https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/">draft-ietf-oauth-identity-chaining-14</a>
+      authgent is an open-source MCP-OAuth scanner — and a full
+      OAuth 2.1 server you can run if you want to fix what it finds.
+      Reference implementation of
+      <a class="text-em hover:underline" href="https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/">draft-ietf-oauth-identity-chaining-14</a>
       and <a class="text-em hover:underline" href="https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/">draft-ietf-oauth-transaction-tokens-08</a>.
-      Tested with Claude Desktop, Cursor, Continue, VS Code MCP, and ChatGPT.
     </p>
 
     <div class="mt-9 flex flex-col sm:flex-row gap-3">
-      <a href="../" class="bg-em hover:brightness-110 text-zinc-950 font-bold px-6 py-3 rounded-lg text-sm flex items-center justify-center gap-2 transition">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        Try the Playground
-      </a>
-      <a href="../scan/" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-em/50 text-zinc-100 font-bold px-6 py-3 rounded-lg text-sm flex items-center justify-center gap-2 transition">
+      <a href="../scan/" class="bg-em hover:brightness-110 text-zinc-950 font-bold px-6 py-3 rounded-lg text-sm flex items-center justify-center gap-2 transition">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         Scan your MCP server
       </a>
-      <a href="https://github.com/authgent/authgent/blob/main/docs/mcp-quickstart.md" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-em/50 text-zinc-100 font-bold px-6 py-3 rounded-lg text-sm flex items-center justify-center gap-2 transition">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h6m-6 4h6m-6 4h4"/></svg>
-        Quickstart for MCP clients
+      <a href="../registry/" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-em/50 text-zinc-100 font-bold px-6 py-3 rounded-lg text-sm flex items-center justify-center gap-2 transition">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        See the registry
+      </a>
+      <a href="https://github.com/authgent/authgent" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-em/50 text-zinc-100 font-bold px-6 py-3 rounded-lg text-sm flex items-center justify-center gap-2 transition">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+        Run your own
       </a>
     </div>
 
     <div class="mt-10 max-w-3xl">
-      <pre class="card border border-zinc-800 rounded-xl p-5 text-[13px] font-mono text-zinc-200 code-glow overflow-x-auto"><code><span class="text-zinc-500"># Install + run a complete OAuth 2.1 server in 60 seconds.</span>
+      <pre class="card border border-zinc-800 rounded-xl p-5 text-[13px] font-mono text-zinc-200 code-glow overflow-x-auto"><code><span class="text-zinc-500"># Audit any MCP server's OAuth posture against 10 RFC checks.</span>
 $ pip install authgent-server
-$ authgent-server run
+$ authgent-server lint https://your-mcp-server.example.com
 
-<span class="text-zinc-500"># Audit any MCP server's OAuth posture.</span>
-$ authgent-server lint https://your-mcp.example.com</code></pre>
+<span class="text-zinc-500"># Or run a complete OAuth 2.1 server in 60 seconds.</span>
+$ authgent-server run</code></pre>
     </div>
   </section>
 
-  <section class="max-w-6xl mx-auto px-5 py-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-4 border-t border-zinc-900">
-    <div class="card border border-zinc-800 rounded-xl p-5">
-      <div class="text-em mb-2 font-mono text-[11px]">DELEGATION</div>
-      <div class="font-bold text-zinc-100">Multi-hop <code>act</code> chains</div>
-      <p class="text-zinc-400 text-[13px] mt-1">RFC&nbsp;8693 token exchange with nested <code>act</code> claims; depth and scope-narrowing enforced per hop. Signed delegation receipts close the chain-splice attack.</p>
-    </div>
-    <div class="card border border-zinc-800 rounded-xl p-5">
-      <div class="text-em mb-2 font-mono text-[11px]">CROSS-DOMAIN</div>
-      <div class="font-bold text-zinc-100">Identity chaining</div>
-      <p class="text-zinc-400 text-[13px] mt-1">Cross-trust-domain delegation: Domain&nbsp;A mints a short-lived JWT grant; Domain&nbsp;B redeems it via <code>jwt-bearer</code>. Single-use, audience-bound, no refresh tokens.</p>
-    </div>
-    <div class="card border border-zinc-800 rounded-xl p-5">
-      <div class="text-em mb-2 font-mono text-[11px]">TXN TOKENS</div>
-      <div class="font-bold text-zinc-100">Transaction context</div>
-      <p class="text-zinc-400 text-[13px] mt-1">Short-lived <code>typ:&nbsp;txntoken+jwt</code> with <code>txn</code>, <code>tctx</code>, <code>rctx</code>. Scope-subset enforced. Propagate authorization context through internal call chains.</p>
-    </div>
-    <div class="card border border-zinc-800 rounded-xl p-5">
-      <div class="text-em mb-2 font-mono text-[11px]">DPoP</div>
-      <div class="font-bold text-zinc-100">Sender-constrained</div>
-      <p class="text-zinc-400 text-[13px] mt-1">RFC&nbsp;9449 DPoP on by default. Tokens bound to the holder's key; useless if stolen from logs.</p>
-    </div>
-  </section>
-
+  <!-- LIVE REGISTRY PREVIEW -->
   <section class="max-w-6xl mx-auto px-5 py-12 border-t border-zinc-900">
-    <h2 class="text-2xl sm:text-3xl font-extrabold text-zinc-100 tracking-tight">Who is this for</h2>
+    <div class="flex items-end justify-between flex-wrap gap-3 mb-6">
+      <div>
+        <div class="text-[11px] uppercase tracking-wider text-em font-mono mb-1">Live · refreshed hourly</div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-zinc-100 tracking-tight">How major MCP servers grade today</h2>
+      </div>
+      <a href="../registry/" class="text-em text-sm font-semibold hover:underline">Full registry &nbsp;→</a>
+    </div>
+    <div class="card border border-zinc-800 rounded-2xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-zinc-500 text-[11px] uppercase tracking-wider bg-zinc-900/60">
+            <tr>
+              <th class="text-left px-4 py-3">Server</th>
+              <th class="text-left px-4 py-3">Vendor</th>
+              <th class="text-center px-4 py-3">Grade</th>
+              <th class="text-right px-4 py-3 hidden sm:table-cell">Score</th>
+              <th class="text-left px-4 py-3 hidden md:table-cell">Top issue</th>
+              <th class="text-right px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody id="preview-rows">
+            <tr>
+              <td colspan="6" class="text-center py-10 text-zinc-500">
+                <span class="spinner"></span>
+                <span class="ml-2">Loading…</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHO IS THIS FOR -->
+  <section class="max-w-6xl mx-auto px-5 py-12 border-t border-zinc-900">
+    <h2 class="text-2xl sm:text-3xl font-extrabold text-zinc-100 tracking-tight">Two products, one repo</h2>
+    <p class="text-zinc-400 mt-2 max-w-3xl">authgent is unusual: it's <span class="text-zinc-200">a scanner you can use without installing anything</span>, plus <span class="text-zinc-200">a full OAuth 2.1 server you can self-host if you want</span>. Pick the side that fits your job.</p>
+
     <div class="mt-7 grid md:grid-cols-2 gap-4">
-      <a href="https://github.com/authgent/authgent/blob/main/docs/mcp-quickstart.md" class="card border border-zinc-800 hover:border-em/60 rounded-xl p-5 transition">
-        <div class="font-bold text-zinc-100">MCP-server developer</div>
-        <p class="text-zinc-400 text-[13px] mt-1.5">"I need OAuth on my MCP server in 60 seconds, working with Claude Desktop / Cursor / Continue."</p>
-        <div class="text-em text-[12px] mt-3 font-mono">→ MCP Quickstart</div>
-      </a>
-      <a href="https://github.com/authgent/authgent/blob/main/ARCHITECTURE.md" class="card border border-zinc-800 hover:border-em/60 rounded-xl p-5 transition">
-        <div class="font-bold text-zinc-100">Enterprise agent platform</div>
-        <p class="text-zinc-400 text-[13px] mt-1.5">"I need delegation receipts, DPoP, and an audit chain that proves which agent did what on whose behalf."</p>
-        <div class="text-em text-[12px] mt-3 font-mono">→ Architecture</div>
-      </a>
-      <a href="https://github.com/authgent/authgent/blob/main/STANDARDS.md" class="card border border-zinc-800 hover:border-em/60 rounded-xl p-5 transition">
-        <div class="font-bold text-zinc-100">IETF / spec implementer</div>
-        <p class="text-zinc-400 text-[13px] mt-1.5">"I'm working on identity-chaining or transaction-tokens — I want a free reference impl to test against."</p>
-        <div class="text-em text-[12px] mt-3 font-mono">→ Standards Report</div>
-      </a>
-      <a href="../scan/" class="card border border-zinc-800 hover:border-em/60 rounded-xl p-5 transition">
-        <div class="font-bold text-zinc-100">Security engineer</div>
-        <p class="text-zinc-400 text-[13px] mt-1.5">"I want to lint our MCP servers' OAuth posture in CI, against known CVE-class issues."</p>
-        <div class="text-em text-[12px] mt-3 font-mono">→ MCP-OAuth scanner</div>
-      </a>
+      <div class="card border border-zinc-800 rounded-xl p-6">
+        <div class="text-em mb-2 font-mono text-[11px]">FOR AUDITORS · BUILDERS · MCP DEVS</div>
+        <div class="text-2xl font-extrabold text-zinc-100">The scanner</div>
+        <p class="text-zinc-400 text-[14px] mt-2">Paste any MCP URL. Get an A–F grade against RFC 7591, 7636, 8414, 8707, 9207, 9449, 9728. Embed the badge in your README. Wire <code class="text-em">authgent-server lint</code> into CI.</p>
+        <div class="mt-4 flex flex-wrap gap-2 text-[12px]">
+          <a href="../scan/" class="bg-zinc-950 border border-zinc-800 hover:border-em px-3 py-1.5 rounded-md font-mono text-zinc-300">scan a URL →</a>
+          <a href="../registry/" class="bg-zinc-950 border border-zinc-800 hover:border-em px-3 py-1.5 rounded-md font-mono text-zinc-300">see the registry →</a>
+          <a href="https://github.com/authgent/authgent/blob/main/.github/actions/mcp-lint/README.md" class="bg-zinc-950 border border-zinc-800 hover:border-em px-3 py-1.5 rounded-md font-mono text-zinc-300">github action →</a>
+        </div>
+      </div>
+      <div class="card border border-zinc-800 rounded-xl p-6">
+        <div class="text-em mb-2 font-mono text-[11px]">FOR PLATFORMS · ENTERPRISES · IETF IMPLEMENTERS</div>
+        <div class="text-2xl font-extrabold text-zinc-100">The OAuth 2.1 server</div>
+        <p class="text-zinc-400 text-[14px] mt-2">Run your own. Multi-hop nested-<code>act</code> chains, signed delegation receipts, DPoP by default. Reference impl of two WG-track IETF drafts. Bridges to Auth0/Okta via id_token exchange.</p>
+        <div class="mt-4 flex flex-wrap gap-2 text-[12px]">
+          <a href="../" class="bg-zinc-950 border border-zinc-800 hover:border-em px-3 py-1.5 rounded-md font-mono text-zinc-300">interactive playground →</a>
+          <a href="https://github.com/authgent/authgent/blob/main/docs/mcp-quickstart.md" class="bg-zinc-950 border border-zinc-800 hover:border-em px-3 py-1.5 rounded-md font-mono text-zinc-300">MCP client quickstart →</a>
+          <a href="https://github.com/authgent/authgent/blob/main/STANDARDS.md" class="bg-zinc-950 border border-zinc-800 hover:border-em px-3 py-1.5 rounded-md font-mono text-zinc-300">standards report →</a>
+        </div>
+      </div>
     </div>
   </section>
 
+  <!-- WHAT THE SCANNER CHECKS -->
   <section class="max-w-6xl mx-auto px-5 py-12 border-t border-zinc-900">
-    <h2 class="text-2xl sm:text-3xl font-extrabold text-zinc-100 tracking-tight">Standards implemented</h2>
-    <p class="text-zinc-400 mt-2 max-w-3xl">Every claim maps to a file:line in the source — see <a class="text-em hover:underline" href="https://github.com/authgent/authgent/blob/main/STANDARDS.md">STANDARDS.md</a> for the full conformance matrix.</p>
+    <h2 class="text-2xl sm:text-3xl font-extrabold text-zinc-100 tracking-tight">What the scanner actually checks</h2>
+    <p class="text-zinc-400 mt-2 max-w-3xl">Every check maps to a specific RFC clause or a documented attack class. No opinion-based scoring.</p>
+    <div class="mt-7 grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-[13px]">
+      <div class="card border border-zinc-800 rounded-lg p-3"><span class="font-mono text-em">MCP-PRM-001</span><span class="text-zinc-400"> — RFC 9728 Protected Resource Metadata present + well-formed.</span></div>
+      <div class="card border border-zinc-800 rounded-lg p-3"><span class="font-mono text-em">MCP-AS-001</span><span class="text-zinc-400"> — RFC 8414 Authorization Server Metadata reachable.</span></div>
+      <div class="card border border-zinc-800 rounded-lg p-3"><span class="font-mono text-em">MCP-PKCE-001</span><span class="text-zinc-400"> — PKCE S256 advertised; <code class="text-rd">plain</code> rejected.</span></div>
+      <div class="card border border-zinc-800 rounded-lg p-3"><span class="font-mono text-em">MCP-AUD-001</span><span class="text-zinc-400"> — RFC 8707 Resource Indicators (confused-deputy mitigation).</span></div>
+      <div class="card border border-zinc-800 rounded-lg p-3"><span class="font-mono text-em">MCP-ISS-001</span><span class="text-zinc-400"> — RFC 9207 / SEP-2468 <code>iss</code> on <code>/authorize</code>.</span></div>
+      <div class="card border border-zinc-800 rounded-lg p-3"><span class="font-mono text-em">MCP-DCR-MIRROR-001</span><span class="text-zinc-400"> — Distinct DCR registrations yield distinct <code>client_id</code>s (Obsidian Jan 2026).</span></div>
+      <div class="card border border-zinc-800 rounded-lg p-3"><span class="font-mono text-em">MCP-CSRF-001</span><span class="text-zinc-400"> — Implicit grant <code class="text-rd">response_type=token</code> not advertised.</span></div>
+      <div class="card border border-zinc-800 rounded-lg p-3"><span class="font-mono text-em">MCP-REFRESH-001</span><span class="text-zinc-400"> — Refresh tokens issued with DPoP (RFC 9449) sender-constraint.</span></div>
+      <div class="card border border-zinc-800 rounded-lg p-3"><span class="font-mono text-em">MCP-DCR-001</span><span class="text-zinc-400"> — Dynamic Client Registration (RFC 7591) advertised.</span></div>
+    </div>
+  </section>
+
+  <!-- IETF specs -->
+  <section class="max-w-6xl mx-auto px-5 py-12 border-t border-zinc-900">
+    <h2 class="text-2xl sm:text-3xl font-extrabold text-zinc-100 tracking-tight">Reference implementation of the IETF agent-OAuth stack</h2>
+    <p class="text-zinc-400 mt-2 max-w-3xl">Every spec maps to a file:line in the source — see <a class="text-em hover:underline" href="https://github.com/authgent/authgent/blob/main/STANDARDS.md">STANDARDS.md</a>.</p>
 
     <div class="mt-7 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      <div class="card border border-zinc-800 rounded-lg p-3.5">
-        <div class="text-em font-mono text-[12px]">draft-ietf-oauth-identity-chaining-14</div>
-        <div class="text-zinc-300 text-[13px] mt-0.5">Cross-domain delegation</div>
-      </div>
-      <div class="card border border-zinc-800 rounded-lg p-3.5">
-        <div class="text-em font-mono text-[12px]">draft-ietf-oauth-transaction-tokens-08</div>
-        <div class="text-zinc-300 text-[13px] mt-0.5">Transaction context</div>
-      </div>
-      <div class="card border border-zinc-800 rounded-lg p-3.5">
-        <div class="text-em font-mono text-[12px]">RFC 8693</div>
-        <div class="text-zinc-300 text-[13px] mt-0.5">Token Exchange + nested act</div>
-      </div>
-      <div class="card border border-zinc-800 rounded-lg p-3.5">
-        <div class="text-em font-mono text-[12px]">RFC 9449</div>
-        <div class="text-zinc-300 text-[13px] mt-0.5">DPoP sender-constrained tokens</div>
-      </div>
-      <div class="card border border-zinc-800 rounded-lg p-3.5">
-        <div class="text-em font-mono text-[12px]">RFC 9728</div>
-        <div class="text-zinc-300 text-[13px] mt-0.5">Protected Resource Metadata</div>
-      </div>
-      <div class="card border border-zinc-800 rounded-lg p-3.5">
-        <div class="text-em font-mono text-[12px]">RFC 8414</div>
-        <div class="text-zinc-300 text-[13px] mt-0.5">AS Metadata + path-suffix</div>
-      </div>
-      <div class="card border border-zinc-800 rounded-lg p-3.5">
-        <div class="text-em font-mono text-[12px]">RFC 9207</div>
-        <div class="text-zinc-300 text-[13px] mt-0.5">iss parameter (MCP SEP-2468)</div>
-      </div>
-      <div class="card border border-zinc-800 rounded-lg p-3.5">
-        <div class="text-em font-mono text-[12px]">RFC 8707</div>
-        <div class="text-zinc-300 text-[13px] mt-0.5">Resource Indicators</div>
-      </div>
-      <div class="card border border-zinc-800 rounded-lg p-3.5">
-        <div class="text-em font-mono text-[12px]">RFC 7591</div>
-        <div class="text-zinc-300 text-[13px] mt-0.5">Dynamic Client Registration</div>
-      </div>
-      <div class="card border border-zinc-800 rounded-lg p-3.5">
-        <div class="text-em font-mono text-[12px]">RFC 7636</div>
-        <div class="text-zinc-300 text-[13px] mt-0.5">PKCE (S256 only)</div>
-      </div>
-      <div class="card border border-zinc-800 rounded-lg p-3.5">
-        <div class="text-em font-mono text-[12px]">RFC 7662 / 7009</div>
-        <div class="text-zinc-300 text-[13px] mt-0.5">Introspection + Revocation</div>
-      </div>
-      <div class="card border border-zinc-800 rounded-lg p-3.5">
-        <div class="text-em font-mono text-[12px]">MCP 2026-07-28</div>
-        <div class="text-zinc-300 text-[13px] mt-0.5">SEP-2350, 2351, 2352, 2468</div>
-      </div>
+      <div class="card border border-zinc-800 rounded-lg p-3.5"><div class="text-em font-mono text-[12px]">draft-ietf-oauth-identity-chaining-14</div><div class="text-zinc-300 text-[13px] mt-0.5">Cross-domain delegation</div></div>
+      <div class="card border border-zinc-800 rounded-lg p-3.5"><div class="text-em font-mono text-[12px]">draft-ietf-oauth-transaction-tokens-08</div><div class="text-zinc-300 text-[13px] mt-0.5">Transaction context</div></div>
+      <div class="card border border-zinc-800 rounded-lg p-3.5"><div class="text-em font-mono text-[12px]">RFC 8693</div><div class="text-zinc-300 text-[13px] mt-0.5">Token Exchange + nested act</div></div>
+      <div class="card border border-zinc-800 rounded-lg p-3.5"><div class="text-em font-mono text-[12px]">RFC 9449</div><div class="text-zinc-300 text-[13px] mt-0.5">DPoP sender-constrained tokens</div></div>
+      <div class="card border border-zinc-800 rounded-lg p-3.5"><div class="text-em font-mono text-[12px]">RFC 9728</div><div class="text-zinc-300 text-[13px] mt-0.5">Protected Resource Metadata</div></div>
+      <div class="card border border-zinc-800 rounded-lg p-3.5"><div class="text-em font-mono text-[12px]">RFC 8414</div><div class="text-zinc-300 text-[13px] mt-0.5">AS Metadata + path-suffix</div></div>
+      <div class="card border border-zinc-800 rounded-lg p-3.5"><div class="text-em font-mono text-[12px]">RFC 9207</div><div class="text-zinc-300 text-[13px] mt-0.5">iss parameter (MCP SEP-2468)</div></div>
+      <div class="card border border-zinc-800 rounded-lg p-3.5"><div class="text-em font-mono text-[12px]">RFC 8707</div><div class="text-zinc-300 text-[13px] mt-0.5">Resource Indicators</div></div>
+      <div class="card border border-zinc-800 rounded-lg p-3.5"><div class="text-em font-mono text-[12px]">RFC 7591 / 7636</div><div class="text-zinc-300 text-[13px] mt-0.5">DCR + PKCE</div></div>
+      <div class="card border border-zinc-800 rounded-lg p-3.5"><div class="text-em font-mono text-[12px]">RFC 7662 / 7009</div><div class="text-zinc-300 text-[13px] mt-0.5">Introspection + Revocation</div></div>
+      <div class="card border border-zinc-800 rounded-lg p-3.5"><div class="text-em font-mono text-[12px]">MCP 2026-07-28</div><div class="text-zinc-300 text-[13px] mt-0.5">SEP-2350, 2351, 2352, 2468</div></div>
     </div>
   </section>
 
+  <!-- comparisons -->
   <section class="max-w-6xl mx-auto px-5 py-12 border-t border-zinc-900">
     <h2 class="text-2xl sm:text-3xl font-extrabold text-zinc-100 tracking-tight">Compose with what you already have</h2>
     <p class="text-zinc-400 mt-2 max-w-3xl">Already running Auth0 or Keycloak for human SSO? Bridge into authgent for the agent layer via id_token exchange.</p>
     <div class="mt-6 grid sm:grid-cols-3 gap-3">
-      <a href="https://github.com/authgent/authgent/blob/main/docs/compare/auth0.md" class="card border border-zinc-800 hover:border-em/60 rounded-xl p-4 transition">
-        <div class="font-bold text-zinc-100">vs Auth0</div>
-        <div class="text-zinc-500 text-[12px] mt-1">cost · self-host · agent-native</div>
-      </a>
-      <a href="https://github.com/authgent/authgent/blob/main/docs/compare/keycloak.md" class="card border border-zinc-800 hover:border-em/60 rounded-xl p-4 transition">
-        <div class="font-bold text-zinc-100">vs Keycloak</div>
-        <div class="text-zinc-500 text-[12px] mt-1">agent semantics · footprint</div>
-      </a>
-      <a href="https://github.com/authgent/authgent/blob/main/docs/compare/ory-hydra.md" class="card border border-zinc-800 hover:border-em/60 rounded-xl p-4 transition">
-        <div class="font-bold text-zinc-100">vs Ory Hydra</div>
-        <div class="text-zinc-500 text-[12px] mt-1">two IETF drafts · scanner</div>
-      </a>
+      <a href="https://github.com/authgent/authgent/blob/main/docs/compare/auth0.md" class="card border border-zinc-800 hover:border-em/60 rounded-xl p-4 transition"><div class="font-bold text-zinc-100">vs Auth0</div><div class="text-zinc-500 text-[12px] mt-1">cost · self-host · agent-native</div></a>
+      <a href="https://github.com/authgent/authgent/blob/main/docs/compare/keycloak.md" class="card border border-zinc-800 hover:border-em/60 rounded-xl p-4 transition"><div class="font-bold text-zinc-100">vs Keycloak</div><div class="text-zinc-500 text-[12px] mt-1">agent semantics · footprint</div></a>
+      <a href="https://github.com/authgent/authgent/blob/main/docs/compare/ory-hydra.md" class="card border border-zinc-800 hover:border-em/60 rounded-xl p-4 transition"><div class="font-bold text-zinc-100">vs Ory Hydra</div><div class="text-zinc-500 text-[12px] mt-1">two IETF drafts · scanner</div></a>
     </div>
   </section>
 
@@ -224,5 +217,56 @@ $ authgent-server lint https://your-mcp.example.com</code></pre>
     </div>
   </footer>
 </main>
+
+<script>
+const $ = id => document.getElementById(id);
+const escHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+const backend = (() => {
+  const h = location.hostname;
+  if (h.endsWith('.github.io')) return 'https://authgent-demo.dhruvagnihotri.com';
+  if (!h || h === 'localhost' || h === '127.0.0.1' || location.protocol === 'file:') return 'http://localhost:8000';
+  return location.origin;
+})();
+
+const GRADE_COLOR = {A:'em', B:'tl', C:'am', D:'og', F:'rd'};
+const SEV_COLOR = {critical:'rd', error:'og', warning:'am', info:'tl'};
+
+(async () => {
+  try {
+    const r = await fetch(`${backend}/api/registry`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const body = await r.json();
+    const top = body.rows
+      .slice()
+      .sort((a, b) => {
+        if (a.score == null) return 1;
+        if (b.score == null) return -1;
+        return b.score - a.score;
+      })
+      .slice(0, 6);
+    const html = top.map(r => {
+      const gColor = r.grade ? GRADE_COLOR[r.grade] : 'zinc';
+      const grade = r.grade ?? '·';
+      const score = r.score == null ? '—' : r.score;
+      const headline = r.headline_finding
+        ? `<span class="text-${SEV_COLOR[r.headline_finding.severity] || 'zinc'} font-mono text-[11px]">[${r.headline_finding.severity}]</span> <span class="text-zinc-400">${escHtml(r.headline_finding.title)}</span>`
+        : (r.status === 'pending' ? '<span class="text-zinc-500">scan pending</span>' : '<span class="text-em">no findings</span>');
+      const link = `../scan/?url=${encodeURIComponent(r.url)}`;
+      return `<tr class="border-t border-zinc-800/70 hover:bg-zinc-900/40 fade-in">
+        <td class="px-4 py-3"><a href="${link}" class="font-semibold text-zinc-100 hover:text-em">${escHtml(r.name)}</a></td>
+        <td class="px-4 py-3 text-zinc-300">${escHtml(r.vendor)}</td>
+        <td class="px-4 py-3 text-center"><span class="text-${gColor} font-extrabold text-2xl">${grade}</span></td>
+        <td class="px-4 py-3 text-right font-mono text-zinc-300 hidden sm:table-cell">${score}</td>
+        <td class="px-4 py-3 hidden md:table-cell">${headline}</td>
+        <td class="px-4 py-3 text-right"><a href="${link}" class="text-em text-[12px] hover:underline">view&nbsp;→</a></td>
+      </tr>`;
+    }).join('');
+    $('preview-rows').innerHTML = html;
+  } catch (err) {
+    $('preview-rows').innerHTML = `<tr><td colspan="6" class="text-center py-10 text-zinc-500">Live registry unavailable: ${escHtml(err.message)}. <a href="../registry/" class="text-em hover:underline">Try the full page →</a></td></tr>`;
+  }
+})();
+</script>
 </body>
 </html>
