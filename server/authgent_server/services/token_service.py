@@ -27,6 +27,8 @@ from authgent_server.models.token_blocklist import TokenBlocklist
 from authgent_server.providers.protocols import ClaimEnricher
 from authgent_server.schemas.token import TokenResponse
 from authgent_server.services.audit_service import AuditService
+from authgent_server.services.chaining_verifier import ChainingGrantVerifier
+from authgent_server.services.claims_transcription import get_transcriber
 from authgent_server.services.delegation_service import DelegationService
 from authgent_server.services.external_oidc import (
     ACCESS_TOKEN_TYPE,
@@ -35,6 +37,13 @@ from authgent_server.services.external_oidc import (
 )
 from authgent_server.services.jwks_service import JWKSService
 from authgent_server.utils import is_expired, utcnow
+
+# RFC 8693 §3 token type identifiers
+JWT_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:jwt"
+# draft-ietf-oauth-identity-chaining-14 §2.4 grant type
+JWT_BEARER_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+# draft-ietf-oauth-transaction-tokens-08 §3 token type
+TXN_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:txn_token"
 
 logger = structlog.get_logger()
 
@@ -52,6 +61,7 @@ class TokenService:
         audit: AuditService,
         claim_enricher: ClaimEnricher | None = None,
         external_oidc: ExternalIDTokenVerifier | None = None,
+        chaining_verifier: ChainingGrantVerifier | None = None,
     ):
         self._settings = settings
         self._jwks = jwks
@@ -59,6 +69,7 @@ class TokenService:
         self._audit = audit
         self._enricher = claim_enricher
         self._external_oidc = external_oidc
+        self._chaining = chaining_verifier or ChainingGrantVerifier(settings)
 
     async def issue_token(
         self,
@@ -75,6 +86,10 @@ class TokenService:
         refresh_token_value: str | None = None,
         subject_token: str | None = None,
         subject_token_type: str | None = None,
+        requested_token_type: str | None = None,
+        assertion: str | None = None,
+        request_context: dict[str, object] | None = None,
+        request_details: dict[str, object] | None = None,
         audience: str | None = None,
         device_code: str | None = None,
         dpop_jkt: str | None = None,
@@ -88,6 +103,7 @@ class TokenService:
             "refresh_token": self._handle_refresh_token,
             "urn:ietf:params:oauth:grant-type:token-exchange": self._handle_token_exchange,
             "urn:ietf:params:oauth:grant-type:device_code": self._handle_device_code,
+            JWT_BEARER_GRANT: self._handle_jwt_bearer,
         }
 
         handler = handlers.get(grant_type)
@@ -106,6 +122,10 @@ class TokenService:
             refresh_token_value=refresh_token_value,
             subject_token=subject_token,
             subject_token_type=subject_token_type,
+            requested_token_type=requested_token_type,
+            assertion=assertion,
+            request_context=request_context,
+            request_details=request_details,
             audience=audience,
             device_code=device_code,
             dpop_jkt=dpop_jkt,
@@ -372,22 +392,60 @@ class TokenService:
     async def _handle_token_exchange(
         self, db: AsyncSession, client_id: str, **kwargs: object
     ) -> TokenResponse:
-        """RFC 8693 token exchange — delegation chain construction.
+        """RFC 8693 token exchange — delegation chain or identity-chaining grant.
 
-        Supports two subject_token_type values:
+        Modes:
+        - requested_token_type=jwt → mints a cross-domain JWT authorization grant
+          per draft-ietf-oauth-identity-chaining-14 §2.3 (returned to the client
+          to be presented to a downstream AS via the jwt-bearer grant).
+        - default → builds a nested-act delegation chain access token + receipt
+          (authgent's intra-domain agent delegation flow).
+
+        subject_token_type values:
         - access_token (default): exchange an authgent-issued token
         - id_token: exchange an external IdP token (Auth0/Clerk/Okta)
         """
         subject_token = kwargs.get("subject_token")
         subject_token_type = str(kwargs.get("subject_token_type") or ACCESS_TOKEN_TYPE)
+        requested_token_type = kwargs.get("requested_token_type")
         audience_target = kwargs.get("audience")
+        resource_target = kwargs.get("resource")
         scope = kwargs.get("scope")
         dpop_jkt = kwargs.get("dpop_jkt")
 
         if not subject_token:
             raise InvalidRequest("subject_token is required for token exchange")
+        # §2.3.1: One of resource or audience MUST be present.
+        if not audience_target and not resource_target:
+            raise InvalidRequest("audience or resource is required for token exchange")
         if not audience_target:
-            raise InvalidRequest("audience is required for token exchange")
+            audience_target = resource_target
+
+        # Identity Chaining branch (draft-ietf-oauth-identity-chaining-14 §2.3)
+        if requested_token_type == JWT_TOKEN_TYPE:
+            return await self._issue_chaining_grant(
+                db=db,
+                client_id=client_id,
+                subject_token=str(subject_token),
+                subject_token_type=subject_token_type,
+                audience_target=str(audience_target),
+                scope=str(scope) if scope else None,
+                ip_address=kwargs.get("ip_address"),
+            )
+
+        # Transaction Tokens branch (draft-ietf-oauth-transaction-tokens-08 §3)
+        if requested_token_type == TXN_TOKEN_TYPE:
+            return await self._issue_transaction_token(
+                db=db,
+                client_id=client_id,
+                subject_token=str(subject_token),
+                subject_token_type=subject_token_type,
+                audience_target=str(audience_target),
+                scope=str(scope) if scope else None,
+                request_context=kwargs.get("request_context"),
+                request_details=kwargs.get("request_details"),
+                ip_address=kwargs.get("ip_address"),
+            )
 
         # Dispatch on subject_token_type (RFC 8693 §2.1)
         try:
@@ -525,6 +583,316 @@ class TokenService:
             "idp_sub": verified["idp_sub"],
             "human_root": True,
         }
+
+    async def _issue_chaining_grant(
+        self,
+        db: AsyncSession,
+        client_id: str,
+        subject_token: str,
+        subject_token_type: str,
+        audience_target: str,
+        scope: str | None,
+        ip_address: object | None,
+    ) -> TokenResponse:
+        """Mint a JWT authorization grant per draft-ietf-oauth-identity-chaining-14 §2.3.
+
+        Domain A → Domain B grant. The grant is short-lived, single-use (enforced
+        on consumption by the receiver), and audience-bound to the target AS.
+        Refresh tokens are NEVER issued for this grant type (§5.4).
+        """
+        # §2.3.2: enforce policy on the target trust domain.
+        if (
+            self._settings.trusted_chaining_targets
+            and audience_target not in self._settings.trusted_chaining_targets
+        ):
+            raise AccessDenied(
+                f"Target '{audience_target}' is not in AUTHGENT_TRUSTED_CHAINING_TARGETS"
+            )
+
+        # Verify subject_token (same dispatch as the delegation flow)
+        try:
+            if subject_token_type == ID_TOKEN_TYPE:
+                parent_claims = await self._verify_external_id_token(subject_token)
+            elif subject_token_type == ACCESS_TOKEN_TYPE:
+                parent_claims = await self.verify_and_check_blocklist(db, subject_token)
+            else:
+                raise InvalidRequest(f"Unsupported subject_token_type: {subject_token_type}")
+        except (InvalidRequest, TokenRevoked):
+            raise
+        except Exception as e:
+            raise InvalidGrant(f"Invalid subject_token: {e}") from e
+
+        # §2.5: Claims transcription — author may add/remove/change claims.
+        transcriber = get_transcriber(self._settings.chaining_claims_policy)
+        transcribed = transcriber.transcribe(parent_claims)
+
+        # §2.3.3: aud MUST identify the requested AS in trust domain B.
+        # SHOULD be a single AS (single string).
+        now = utcnow()
+        ttl = self._settings.chaining_grant_ttl
+        jti = _generate_jti()
+
+        grant_claims: dict[str, object] = {
+            "iss": self._settings.server_url,
+            "aud": audience_target,
+            "exp": int((now + timedelta(seconds=ttl)).timestamp()),
+            "iat": int(now.timestamp()),
+            "nbf": int(now.timestamp()),
+            "jti": jti,
+            "client_id": client_id,
+            **transcribed,
+        }
+        if scope:
+            grant_claims["scope"] = scope
+
+        grant_jwt = await self._jwks.sign_jwt(db, grant_claims)
+
+        await self._audit.log(
+            db,
+            "token.chaining_grant_issued",
+            actor=f"client:{client_id}",
+            subject=str(grant_claims.get("sub", "")),
+            client_id=client_id,
+            ip_address=str(ip_address or ""),
+            metadata={
+                "grant_type": "token_exchange",
+                "requested_token_type": JWT_TOKEN_TYPE,
+                "audience": audience_target,
+                "jti": jti,
+                "ttl": ttl,
+            },
+        )
+        await db.commit()
+
+        return TokenResponse(
+            access_token=grant_jwt,
+            token_type="N_A",
+            expires_in=ttl,
+            scope=scope,
+            issued_token_type=JWT_TOKEN_TYPE,
+        )
+
+    async def _issue_transaction_token(
+        self,
+        db: AsyncSession,
+        client_id: str,
+        subject_token: str,
+        subject_token_type: str,
+        audience_target: str,
+        scope: str | None,
+        request_context: object,
+        request_details: object,
+        ip_address: object | None,
+    ) -> TokenResponse:
+        """Issue a Transaction Token per draft-ietf-oauth-transaction-tokens-08.
+
+        A Txn-Token is short-lived, audience-bound to a Trust Domain, and carries
+        a unique `txn` identifier plus optional immutable `tctx` (transaction
+        context) and mutable `rctx` (requester context) claims. It is NOT an
+        access token: `token_type` is "N_A" and refresh tokens are never issued.
+
+        Spec sections enforced here:
+        - §3 typ header `txntoken+jwt`, required claims iat/aud/exp/txn/sub/scope/req_wl
+        - §7 short-lived (default 120s)
+        - §7.2 scope MUST NOT exceed subject_token's scope
+        - §7.3 access tokens MUST NOT be embedded
+        - §11 no refresh tokens
+        """
+        # Verify subject_token (RFC 8693 §2.1 dispatch).
+        try:
+            if subject_token_type == ID_TOKEN_TYPE:
+                parent_claims = await self._verify_external_id_token(subject_token)
+            elif subject_token_type == ACCESS_TOKEN_TYPE:
+                parent_claims = await self.verify_and_check_blocklist(db, subject_token)
+            else:
+                raise InvalidRequest(f"Unsupported subject_token_type: {subject_token_type}")
+        except (InvalidRequest, TokenRevoked):
+            raise
+        except Exception as e:
+            raise InvalidGrant(f"Invalid subject_token: {e}") from e
+
+        # §7.2: TTS MUST ensure requested scope is equal-or-less than subject_token's scope.
+        parent_scopes = set((parent_claims.get("scope", "") or "").split())
+        requested = set(scope.split()) if scope else set()
+        if parent_scopes and requested and not requested.issubset(parent_scopes):
+            escalated = requested - parent_scopes
+            raise AccessDenied(
+                f"Txn-Token scope MUST NOT exceed subject_token scope; "
+                f"escalated: {sorted(escalated)}"
+            )
+
+        trust_domain = self._settings.txn_token_trust_domain or audience_target
+        ttl = self._settings.txn_token_ttl
+        now = utcnow()
+        # §7 unique transaction identifier; uses jti shape for uniqueness.
+        txn_id = secrets.token_urlsafe(24)
+
+        sub = parent_claims.get("sub") or f"client:{client_id}"
+        if not sub:
+            raise InvalidGrant("Subject token has no usable sub claim")
+
+        claims: dict[str, object] = {
+            "iss": self._settings.server_url,
+            "iat": int(now.timestamp()),
+            "aud": trust_domain,
+            "exp": int((now + timedelta(seconds=ttl)).timestamp()),
+            "txn": txn_id,
+            "sub": sub,
+            "scope": scope or parent_claims.get("scope", ""),
+            "req_wl": f"client:{client_id}",
+        }
+
+        # §3 optional `tctx` immutable transaction context (caller-provided).
+        if isinstance(request_details, dict):
+            claims["tctx"] = request_details
+
+        # §3 optional `rctx` requester context. Compose from request_context plus
+        # automatically-derived environmental fields (req_ip, authn).
+        rctx: dict[str, object] = {}
+        if isinstance(request_context, dict):
+            rctx.update(request_context)
+        if ip_address:
+            rctx.setdefault("req_ip", str(ip_address))
+        rctx.setdefault("authn", "urn:ietf:rfc:6749")
+        claims["rctx"] = rctx
+
+        # Carry external IdP provenance forward (purely additive; not in §3 schema
+        # but useful for audit and downstream attestation).
+        for key in ("idp_iss", "idp_sub", "human_root"):
+            if key in parent_claims:
+                claims[key] = parent_claims[key]
+
+        # §3 RECOMMENDED `typ` header `txntoken+jwt`.
+        txn_jwt = await self._jwks.sign_jwt(db, claims, headers={"typ": "txntoken+jwt"})
+
+        await self._audit.log(
+            db,
+            "token.txn_token_issued",
+            actor=f"client:{client_id}",
+            subject=str(sub),
+            client_id=client_id,
+            ip_address=str(ip_address or ""),
+            metadata={
+                "grant_type": "token_exchange",
+                "requested_token_type": TXN_TOKEN_TYPE,
+                "txn": txn_id,
+                "trust_domain": trust_domain,
+                "ttl": ttl,
+            },
+        )
+        await db.commit()
+
+        return TokenResponse(
+            access_token=txn_jwt,
+            token_type="N_A",
+            expires_in=ttl,
+            scope=scope,
+            issued_token_type=TXN_TOKEN_TYPE,
+        )
+
+    async def _handle_jwt_bearer(
+        self, db: AsyncSession, client_id: str, **kwargs: object
+    ) -> TokenResponse:
+        """Consume a JWT authorization grant per identity-chaining §2.4 + RFC 7523.
+
+        Domain B side. Verifies an assertion issued by a trusted Domain A AS,
+        checks single-use replay protection on jti, and issues a Domain-B
+        access token. Per §5.4 this handler MUST NOT issue a refresh token.
+        """
+        assertion = kwargs.get("assertion")
+        scope = kwargs.get("scope")
+        resource = kwargs.get("resource")
+        dpop_jkt = kwargs.get("dpop_jkt")
+        ip_address = kwargs.get("ip_address")
+
+        if not assertion:
+            raise InvalidRequest("assertion is required for jwt-bearer grant")
+
+        try:
+            assertion_claims = await self._chaining.verify_assertion(str(assertion), db=db)
+        except (InvalidRequest, InvalidGrant):
+            raise
+        except Exception as e:
+            raise InvalidGrant(f"Invalid assertion: {e}") from e
+
+        # §5.5: single-use enforcement on jti — reuse the blocklist.
+        assertion_jti = assertion_claims.get("jti")
+        if not assertion_jti:
+            raise InvalidGrant("Assertion missing jti")
+
+        if await self.is_token_revoked(db, str(assertion_jti)):
+            raise InvalidGrant("Assertion has already been consumed (replay detected)")
+
+        consumed = TokenBlocklist(
+            jti=str(assertion_jti),
+            expires_at=datetime.fromtimestamp(int(assertion_claims["exp"]), tz=UTC),
+            reason="chaining_grant_consumed",
+        )
+        db.add(consumed)
+        try:
+            await db.flush()
+        except Exception as e:
+            await db.rollback()
+            raise InvalidGrant("Assertion has already been consumed (replay detected)") from e
+
+        # §2.4.2: subject MUST be identifiable.
+        subject = assertion_claims.get("sub")
+        if not subject:
+            raise InvalidGrant("Assertion missing identifiable subject")
+
+        # §2.5: Claims transcription on consumption — copy idp_iss/idp_sub
+        # forward so downstream services see the human root if any.
+        scopes_from_assertion = assertion_claims.get("scope", "")
+        effective_scope = scope or scopes_from_assertion or ""
+
+        # §5.4: SHOULD NOT issue refresh tokens — we don't.
+        ttl = self._settings.access_token_ttl
+        now = utcnow()
+        jti = _generate_jti()
+
+        access_claims: dict[str, object] = {
+            "iss": self._settings.server_url,
+            "sub": subject,
+            "aud": str(resource) if resource else self._settings.server_url,
+            "exp": int((now + timedelta(seconds=ttl)).timestamp()),
+            "iat": int(now.timestamp()),
+            "jti": jti,
+            "scope": str(effective_scope),
+            "client_id": client_id,
+            "chained_from": assertion_claims.get("iss"),
+        }
+        for k in ("idp_iss", "idp_sub", "human_root", "email", "name"):
+            if k in assertion_claims:
+                access_claims[k] = assertion_claims[k]
+
+        if dpop_jkt:
+            access_claims["cnf"] = {"jkt": dpop_jkt}
+
+        access_claims = await self._enrich_claims(access_claims, client_id, None, "jwt_bearer")
+        access_token = await self._jwks.sign_jwt(db, access_claims)
+
+        await self._audit.log(
+            db,
+            "token.chaining_grant_consumed",
+            actor=f"client:{client_id}",
+            subject=str(subject),
+            client_id=client_id,
+            ip_address=str(ip_address or ""),
+            metadata={
+                "grant_type": JWT_BEARER_GRANT,
+                "jti": jti,
+                "assertion_jti": str(assertion_jti),
+                "assertion_iss": assertion_claims.get("iss"),
+            },
+        )
+        await db.commit()
+
+        return TokenResponse(
+            access_token=access_token,
+            token_type="DPoP" if dpop_jkt else "Bearer",
+            expires_in=ttl,
+            scope=str(effective_scope),
+        )
 
     async def _handle_device_code(
         self, db: AsyncSession, client_id: str, **kwargs: object

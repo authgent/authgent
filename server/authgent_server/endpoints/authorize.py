@@ -8,6 +8,7 @@ import os
 import secrets
 import time
 from datetime import timedelta
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -104,6 +105,9 @@ async def authorize_get(
         location = f"{redirect_uri}{sep}code={auth_code}"
         if state:
             location += f"&state={state}"
+        # RFC 9207 / MCP SEP-2468: include iss so the client can verify the
+        # response came from the expected authorization server.
+        location += f"&iss={quote(settings.server_url, safe='')}"
         return RedirectResponse(url=location, status_code=302)
 
     # Render consent page
@@ -166,10 +170,12 @@ async def authorize_post(
         raise InvalidRequest("Invalid CSRF token")
 
     sep = "&" if "?" in redirect_uri else "?"
+    iss_param = f"&iss={quote(settings.server_url, safe='')}"
 
     if action == "deny":
         return RedirectResponse(
-            url=f"{redirect_uri}{sep}error=access_denied&state={state}",
+            # RFC 9207 / MCP SEP-2468: include iss on error responses too.
+            url=f"{redirect_uri}{sep}error=access_denied&state={state}{iss_param}",
             status_code=302,
         )
 
@@ -201,4 +207,6 @@ async def authorize_post(
     location = f"{redirect_uri}{sep}code={auth_code}"
     if state:
         location += f"&state={state}"
+    # RFC 9207 / MCP SEP-2468.
+    location += iss_param
     return RedirectResponse(url=location, status_code=302)

@@ -31,6 +31,11 @@ class OAuthClient(Base):
     jwks: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     client_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
     contacts: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # RFC 7591 §2 — software identification (echoed back to the client and
+    # available for per-software policy decisions).
+    software_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    software_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    software_statement: Mapped[str | None] = mapped_column(Text, nullable=True)
     agent_id: Mapped[str | None] = mapped_column(String(26), ForeignKey("agents.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 

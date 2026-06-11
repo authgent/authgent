@@ -23,6 +23,12 @@ class RegisterRequest(BaseModel):
     # RFC 7591 §2 — informational metadata
     client_uri: str | None = Field(default=None, max_length=2048)
     contacts: list[str] = Field(default_factory=list)
+    # RFC 7591 §2 software identification — surfaced verbatim by MCP clients
+    # so the AS can apply per-software policy (e.g. blocklists, version
+    # gating). Persisted but not used for policy in authgent's defaults.
+    software_id: str | None = Field(default=None, max_length=255)
+    software_version: str | None = Field(default=None, max_length=64)
+    software_statement: str | None = Field(default=None, max_length=8192)
 
     @field_validator("redirect_uris")
     @classmethod
@@ -61,6 +67,7 @@ class RegisterRequest(BaseModel):
             "refresh_token",
             "urn:ietf:params:oauth:grant-type:token-exchange",
             "urn:ietf:params:oauth:grant-type:device_code",
+            "urn:ietf:params:oauth:grant-type:jwt-bearer",
         }
         for gt in v:
             if gt not in valid:
@@ -119,3 +126,7 @@ class RegisterResponse(BaseModel):
     jwks: dict | None = None
     client_uri: str | None = None
     contacts: list[str] = Field(default_factory=list)
+    # RFC 7591 §2 software identification echoed back to the registering client.
+    software_id: str | None = None
+    software_version: str | None = None
+    software_statement: str | None = None

@@ -1,4 +1,21 @@
-"""authgent SDK — token validation, delegation chains, DPoP for AI agents."""
+"""authgent SDK — IETF agent-identity reference client.
+
+Implements client helpers for:
+
+- draft-ietf-oauth-identity-chaining-14 (cross-domain delegation):
+  ``AgentAuthClient.start_identity_chain``,
+  ``AgentAuthClient.consume_identity_chain``.
+- draft-ietf-oauth-transaction-tokens-08 (intra-domain transaction
+  context propagation): ``AgentAuthClient.issue_transaction_token``.
+- RFC 8693 Token Exchange with nested ``act`` chains:
+  ``AgentAuthClient.exchange_token``.
+- RFC 9449 DPoP: ``DPoPClient`` and ``verify_dpop_proof``.
+- Token validation against authgent's JWKS: ``verify_token``,
+  ``verify_delegation_chain``.
+
+See <https://github.com/authgent/authgent> and
+<https://github.com/authgent/authgent/blob/main/STANDARDS.md>.
+"""
 
 from authgent.verify import verify_token
 from authgent.delegation import verify_delegation_chain
@@ -13,7 +30,7 @@ from authgent.errors import (
     ServerError,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "verify_token",

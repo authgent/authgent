@@ -1,8 +1,57 @@
 # authgent — Architecture Document
 
-**Author:** Dhruv Agnihotri | **Version:** 2.1 | **Date:** March 28, 2026
-**Focus:** Core OAuth 2.1 Authorization Server with agent delegation chains, DPoP, and HITL.
+**Author:** Dhruv Agnihotri | **Version:** 2.2 | **Date:** June 9, 2026
+**Focus:** Core OAuth 2.1 Authorization Server with agent delegation chains, DPoP, HITL,
+and a reference implementation of [draft-ietf-oauth-identity-chaining-14](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/) for cross-domain delegation.
 **Platform roadmap:** See [ROADMAP.md](ROADMAP.md) for future platform layers (Gateway, Vault, Dashboard, Integrations).
+
+## Identity layers in authgent
+
+authgent operates two distinct delegation models that compose:
+
+1. **Intra-domain delegation (nested `act` chains).** Agent A → Agent B → Agent C
+   inside one trust boundary. Each `urn:ietf:params:oauth:grant-type:token-exchange`
+   request narrows scope, appends a nested `act` claim, and emits a signed
+   delegation receipt. Implemented by `delegation_service.py` + `token_service.py`.
+
+2. **Cross-domain identity chaining (draft-ietf-oauth-identity-chaining-14).**
+   Trust Domain A's authorization server mints a short-lived JWT authorization
+   grant whose `aud` is Domain B's AS. Domain B redeems that grant via
+   `urn:ietf:params:oauth:grant-type:jwt-bearer` (RFC 7523). Implemented by
+   `services/chaining_verifier.py`, `services/claims_transcription.py`, and the
+   `_issue_chaining_grant` / `_handle_jwt_bearer` paths in `token_service.py`.
+
+The two layers compose: an intra-domain agent chain inside Org A can be
+projected across the boundary into Org B by terminating the chain at A's
+edge AS and issuing a Domain-B grant. Org B sees a transcribed subject and
+an audit record (`token.chaining_grant_consumed`) that links back to A's
+issuer and the assertion's jti.
+
+**Spec mapping for identity chaining:**
+
+| Spec section | authgent file:func |
+|---|---|
+| §2.3.1 token-exchange request, audience/resource | `token_service.py:_handle_token_exchange` |
+| §2.3.2 policy, claims add/remove/change | `services/claims_transcription.py` |
+| §2.3.3 aud MUST identify Domain B | `token_service.py:_issue_chaining_grant` |
+| §2.4.1 jwt-bearer grant request | `token_service.py:_handle_jwt_bearer` |
+| §2.4.2 RFC 7523 §§3, 3.1 validation | `services/chaining_verifier.py:verify_assertion` |
+| §3 metadata | `endpoints/wellknown.py` (`identity_chaining_requested_token_types_supported`) |
+| §5.4 no refresh token | `_handle_jwt_bearer` (refresh deliberately omitted) |
+| §5.5 single-use jti | `token_blocklist` row with `reason="chaining_grant_consumed"` |
+
+**Spec mapping for Transaction Tokens (draft-ietf-oauth-transaction-tokens-08):**
+
+| Spec section | authgent file:func |
+|---|---|
+| §3 token type URI | `token_service.py:TXN_TOKEN_TYPE` |
+| §3 typ header `txntoken+jwt` | `_issue_transaction_token` (sign_jwt headers) |
+| §3 required claims (iat/aud/exp/txn/sub/scope/req_wl) | `_issue_transaction_token` |
+| §3 optional `tctx` (transaction context) | `_issue_transaction_token` (from `request_details`) |
+| §3 optional `rctx` (requester context) | `_issue_transaction_token` (from `request_context` + auto req_ip/authn) |
+| §7 short-lived | `Settings.txn_token_ttl` (120s default) |
+| §7.2 scope MUST NOT exceed subject_token | `_issue_transaction_token` scope-subset check |
+| §11 no refresh token | `_issue_transaction_token` returns no refresh_token |
 
 ---
 

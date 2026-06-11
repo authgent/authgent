@@ -4,15 +4,30 @@ build-backend = "hatchling.build"
 
 [project]
 name = "authgent"
-version = "0.1.0"
-description = "Python SDK for authgent — token validation, delegation chains, DPoP, middleware"
+version = "0.2.0"
+description = "Python SDK for authgent — IETF agent-identity stack: identity-chaining, transaction-tokens, RFC 8693 delegation, DPoP, MCP"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.11"
 authors = [
     { name = "Dhruv Agnihotri" },
 ]
-keywords = ["oauth", "agent", "mcp", "identity", "auth", "a2a", "delegation", "dpop", "ai-agent"]
+keywords = [
+    "oauth",
+    "oauth2.1",
+    "identity-chaining",
+    "transaction-tokens",
+    "rfc-8693",
+    "rfc-9449",
+    "dpop",
+    "mcp",
+    "model-context-protocol",
+    "agent",
+    "ai-agent",
+    "a2a",
+    "delegation",
+    "ietf",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

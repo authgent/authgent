@@ -4,15 +4,31 @@ build-backend = "hatchling.build"
 
 [project]
 name = "authgent-server"
-version = "0.1.0"
-description = "The open-source identity provider for AI agents — OAuth 2.1 Authorization Server"
+version = "0.2.0"
+description = "Open-source reference implementation of the IETF agent-identity stack — OAuth 2.1 + identity-chaining + transaction-tokens + DPoP + MCP"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.11"
 authors = [
     { name = "Dhruv Agnihotri" },
 ]
-keywords = ["oauth", "agent", "mcp", "identity", "auth", "a2a", "delegation", "dpop", "ai-agent"]
+keywords = [
+    "oauth",
+    "oauth2.1",
+    "identity-chaining",
+    "transaction-tokens",
+    "rfc-8693",
+    "rfc-9449",
+    "dpop",
+    "mcp",
+    "model-context-protocol",
+    "agent",
+    "ai-agent",
+    "a2a",
+    "delegation",
+    "ietf",
+    "authorization-server",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Framework :: FastAPI",

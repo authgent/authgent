@@ -86,6 +86,23 @@ class Settings(BaseSettings):
     trusted_oidc_issuers: list[str] = Field(default_factory=list)
     trusted_oidc_audience: str | None = None
 
+    # Identity Chaining Across Domains (draft-ietf-oauth-identity-chaining-14)
+    # When this server acts as Domain A: ASes we are allowed to mint chaining grants for
+    trusted_chaining_targets: list[str] = Field(default_factory=list)
+    # When this server acts as Domain B: ASes whose chaining grants we accept
+    trusted_chaining_issuers: list[str] = Field(default_factory=list)
+    # Short-lived per §5.5; default 60s
+    chaining_grant_ttl: int = 60
+    # "preserve_sub" copies parent sub through; "minimize" only carries idp_iss/idp_sub
+    chaining_claims_policy: Literal["preserve_sub", "minimize"] = "preserve_sub"
+
+    # Transaction Tokens (draft-ietf-oauth-transaction-tokens-08)
+    # Trust Domain identifier emitted in the `aud` claim of issued Txn-Tokens.
+    # If empty, defaults to server_url at issuance time.
+    txn_token_trust_domain: str | None = None
+    # Spec §7: tokens are short-lived "on the order of minutes or less". Default 120s.
+    txn_token_ttl: int = 120
+
     # Providers (dotted import paths, None = use default)
     attestation_provider: str | None = None
     policy_provider: str | None = None

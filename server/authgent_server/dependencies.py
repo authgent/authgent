@@ -29,6 +29,7 @@ from authgent_server.providers.protocols import (
 )
 from authgent_server.services.agent_service import AgentService
 from authgent_server.services.audit_service import AuditService
+from authgent_server.services.chaining_verifier import ChainingGrantVerifier
 from authgent_server.services.client_service import ClientService
 from authgent_server.services.consent_service import ConsentService
 from authgent_server.services.delegation_service import DelegationService
@@ -144,6 +145,10 @@ def get_external_oidc_verifier() -> ExternalIDTokenVerifier:
     return ExternalIDTokenVerifier(get_settings())
 
 
+def get_chaining_verifier() -> ChainingGrantVerifier:
+    return ChainingGrantVerifier(get_settings())
+
+
 def get_token_service() -> TokenService:
     providers = get_providers()
     return TokenService(
@@ -153,6 +158,7 @@ def get_token_service() -> TokenService:
         audit=get_audit_service(),
         claim_enricher=providers.claim_enricher,
         external_oidc=get_external_oidc_verifier(),
+        chaining_verifier=get_chaining_verifier(),
     )
 
 
