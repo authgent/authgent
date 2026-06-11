@@ -17,7 +17,7 @@ want to fix what it finds.
   [`draft-ietf-oauth-transaction-tokens-08`][txntok]. Tested with Claude
   Desktop, Cursor, Claude Code, Continue, VS Code MCP, ChatGPT.
 
-Apache 2.0, 444 tests, 3 published packages.
+Apache 2.0, 464 tests, 3 published packages.
 
 [icn]: https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/
 [rfc8693]: https://datatracker.ietf.org/doc/html/rfc8693
@@ -54,31 +54,26 @@ pip install authgent-server && authgent-server run
 
 ---
 
-## When to use authgent
+## What authgent does
 
-Every IdP handles login. But **login is just the first token.** When agents start delegating to other agents, you need something that tracks the chain:
+Two products in one repo, both useful, both Apache 2.0:
 
-```
-Human → Agent A → Agent B → Agent C → Database
-                                          ↑
-              Who authorized THIS access?
-              Was scope reduced at each hop?
-              Can we prove the chain wasn't forged?
-```
+1. **A scanner.** `authgent-server lint <mcp-url>` (or paste a URL into
+   the [hosted scanner](https://authgent.github.io/authgent/scan/)) audits
+   any MCP server's OAuth posture against 10 RFC-mapped checks and returns
+   an A–F grade with an embeddable badge. The same scanner ships as a
+   GitHub Action wrapper and powers the [public registry](https://authgent.github.io/authgent/registry/).
 
-authgent is a complete OAuth 2.1 server — it handles agent login (Auth Code + PKCE, Client Credentials, Device Auth) **and** tracks what happens after. One server for the full lifecycle.
+2. **An OAuth 2.1 server.** `pip install authgent-server`. A reference
+   implementation of the IETF agent-OAuth stack — multi-hop nested-`act`
+   chains, signed delegation receipts, RFC 9449 DPoP by default, RFC 8693
+   token exchange with cross-domain identity chaining, transaction tokens.
+   Designed to *not* fail the scanner.
 
-### Use authgent when you need...
-
-| Scenario | authgent | Auth0 / Okta | Keycloak |
-|:---------|:--------:|:------------:|:--------:|
-| **Agent login** — Auth Code + PKCE, Client Credentials, Device Auth | ✅ built-in | ✅ built-in | ✅ built-in |
-| **MCP server auth** — add OAuth to any MCP server | ✅ built-in | Add-on | Community guide |
-| **Delegation chain tracking** — who delegated what to whom | ✅ native, one server | Requires 4 products (Token Vault + FGA + XAA + Async Auth) | Not built-in |
-| **Scope enforcement per hop** — agents can't escalate | ✅ automatic | Manual policy wiring | Manual |
-| **Cryptographic delegation receipts** — prove chains weren't forged | ✅ built-in | [Not available](https://www.okta.com/blog/) — Okta acknowledges no IdP ships this natively | Not available |
-| **Human-in-the-loop mid-chain** — require approval for dangerous ops | ✅ built-in | Separate product | Not built-in |
-| **60-second setup** — `pip install` and go | ✅ | Account + dashboard + config | Java + XML + 20 min |
+You don't have to pick. Most visitors start with the scanner; some
+self-host the server. The two products share the same code, the same
+RFC interpretations, and the same audit semantics — what the scanner
+reports, the server has to live up to.
 
 ### Already using Auth0/Okta?
 
@@ -640,7 +635,7 @@ authgent/
 │   │   ├── config.py            # Pydantic Settings (AUTHGENT_* env vars)
 │   │   ├── crypto.py            # HKDF + AES-256-GCM
 │   │   └── errors.py            # RFC 9457 Problem Details hierarchy
-│   ├── tests/                   # 420 tests — unit, integration, security, E2E
+│   ├── tests/                   # 464 tests — unit, integration, security, E2E
 │   ├── migrations/              # Alembic (SQLite dev → PostgreSQL prod)
 │   └── Dockerfile
 ├── sdks/
@@ -734,7 +729,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for development
 git clone https://github.com/authgent/authgent.git
 cd authgent/server
 pip install -e ".[dev]"
-pytest -v   # 420 tests
+pytest -v   # 464 tests
 ```
 
 ## License

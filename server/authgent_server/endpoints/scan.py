@@ -37,12 +37,20 @@ class ScanResponse(BaseModel):
 def _grade(findings: list[Finding]) -> tuple[str, int]:
     """Compute a letter grade and 0-100 score from findings.
 
-    A single ``critical`` finding (e.g. PRM missing entirely) drops the
-    server below D — those are spec-fatal failures that mean MCP clients
-    cannot use the target as an authorization-protected resource at all.
+    Only ``tier="spec_required"`` findings affect the grade — those are
+    normative requirements of the MCP authorization spec or a cited RFC.
+    ``tier="advisory"`` findings (e.g. DPoP-by-default, RFC 9207 iss
+    advertisement) are surfaced in the report but do NOT affect the
+    letter grade. This stops a legacy IdP that predates MCP from
+    grading D before it ships MCP support.
+
+    A single ``critical`` spec-required finding drops the server below D
+    — those are spec-fatal failures that mean MCP clients cannot use the
+    target as an authorization-protected resource at all.
     """
     weight = {"info": 1, "warning": 5, "error": 15, "critical": 50}
-    penalty = sum(weight.get(f.severity, 5) for f in findings)
+    grade_findings = [f for f in findings if f.tier == "spec_required"]
+    penalty = sum(weight.get(f.severity, 5) for f in grade_findings)
     score = max(0, 100 - penalty)
     if score >= 95:
         return "A", score

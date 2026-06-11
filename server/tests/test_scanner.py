@@ -136,7 +136,14 @@ def _make_handler(routes: dict[tuple[str, str], httpx.Response | list[httpx.Resp
                 return next(queues[key])
             except StopIteration:  # pragma: no cover
                 return httpx.Response(404)
-        # Fallback: try without query string
+        # Fallback: match without query string for endpoint-only routes.
+        url_no_query = str(request.url).split("?", 1)[0].rstrip("/")
+        key_no_query = (request.method, url_no_query)
+        if key_no_query in queues:
+            try:
+                return next(queues[key_no_query])
+            except StopIteration:  # pragma: no cover
+                return httpx.Response(404)
         return httpx.Response(404)
 
     return handler
@@ -293,3 +300,59 @@ def test_format_github_uses_workflow_commands():
 
 def test_clean_findings_format_human_is_concise():
     assert format_human([]) == "✓ No findings."
+
+
+# --- MCP-PKCE-002 PKCE-drift probe -----------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_pkce_drift_clean_when_method_called_out_in_response(scanner_client):
+    """If the AS rejects ``plain`` and explicitly mentions the method in
+    its error body, we treat that as enforcement and emit no finding."""
+    from authgent_server.scanner import check_pkce_drift
+
+    as_meta = {
+        "authorization_endpoint": "http://as.example/authorize",
+        "code_challenge_methods_supported": ["S256"],
+    }
+    body = "error=invalid_request: unsupported code_challenge_method 'plain'"
+    routes = {("GET", "http://as.example/authorize"): httpx.Response(400, text=body)}
+    client = scanner_client(routes)
+    out = await check_pkce_drift(client, as_meta)
+    assert out == []
+
+
+@pytest.mark.asyncio
+async def test_pkce_drift_fires_when_method_silently_ignored(scanner_client):
+    """If the AS redirects without naming the method in its error, we
+    surface a drift finding (the Obsidian Jan 2026 pattern)."""
+    from authgent_server.scanner import check_pkce_drift
+
+    as_meta = {
+        "authorization_endpoint": "http://as.example/authorize",
+        "code_challenge_methods_supported": ["S256"],
+    }
+    routes = {
+        ("GET", "http://as.example/authorize"): httpx.Response(
+            302, headers={"location": "https://authgent.dev/lint-probe?error=invalid_client"}
+        )
+    }
+    client = scanner_client(routes)
+    out = await check_pkce_drift(client, as_meta)
+    assert any(f.check_id == "MCP-PKCE-002" for f in out)
+
+
+@pytest.mark.asyncio
+async def test_pkce_drift_skipped_when_plain_already_advertised(scanner_client):
+    """If the AS advertises ``plain``, MCP-PKCE-001 fires and the drift
+    probe is redundant — skip it."""
+    from authgent_server.scanner import check_pkce_drift
+
+    as_meta = {
+        "authorization_endpoint": "http://as.example/authorize",
+        "code_challenge_methods_supported": ["S256", "plain"],
+    }
+    routes: dict = {}
+    client = scanner_client(routes)
+    out = await check_pkce_drift(client, as_meta)
+    assert out == []

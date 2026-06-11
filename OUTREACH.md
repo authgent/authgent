@@ -30,7 +30,7 @@ Python:
     https://github.com/authgent/authgent
 
 Conformance details, including a per-section spec → file:func mapping
-and the full test suite (420 tests, 82% coverage):
+and the full test suite (464 tests, 82% coverage):
 
     https://github.com/authgent/authgent/blob/main/STANDARDS.md
     https://github.com/authgent/authgent/blob/main/docs/identity-chaining.md
@@ -167,7 +167,7 @@ were written against. If you want to deploy a Trust Domain in your
 VPC, or you're an IETF implementer testing your draft against
 another impl, this is meant for you.
 
-  - 420 tests, 82% coverage
+  - 464 tests, 82% coverage
   - Zero lint/format/type errors (ruff strict + mypy strict)
   - Python + TypeScript SDKs
   - Works alongside Auth0/Okta via id_token bridge

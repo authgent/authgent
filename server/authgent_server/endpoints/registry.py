@@ -39,7 +39,17 @@ router = APIRouter(tags=["registry"])
 # modelcontextprotocol/servers org, the awesome-mcp lists, vendor announcements,
 # and direct ToS-checked browsing. Each entry is the well-known *resource*
 # URL (the one MCP clients point at), not the OAuth issuer.
-_REGISTRY_TARGETS: list[dict[str, str]] = [
+#
+# Per-entry fields:
+# - ``name``, ``url``, ``vendor`` — display data.
+# - ``embargo_until`` (optional ISO-8601 date): if set and in the future,
+#   the registry shows the entry as "Pending — vendor notified YYYY-MM-DD"
+#   and does not publish the grade. This implements the SSL-Labs / Obsidian-
+#   style 14-day responsible-disclosure window.
+# - ``opted_out`` (optional bool): if true, the entry is hidden entirely.
+#   Vendors who don't want to be listed can email
+#   security@authgent.dev with the URL; we set this flag.
+_REGISTRY_TARGETS: list[dict[str, object]] = [
     {"name": "Stripe MCP", "url": "https://access.stripe.com/mcp", "vendor": "Stripe"},
     {"name": "Notion MCP", "url": "https://mcp.notion.com", "vendor": "Notion"},
     {
@@ -60,6 +70,25 @@ _REGISTRY_TARGETS: list[dict[str, str]] = [
         "vendor": "authgent",
     },
 ]
+
+
+def _is_embargoed(target: dict[str, object]) -> bool:
+    """True if the target is still inside its disclosure-window embargo."""
+    embargo = target.get("embargo_until")
+    if not isinstance(embargo, str):
+        return False
+    try:
+        deadline = datetime.fromisoformat(embargo.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=UTC)
+    return datetime.now(UTC) < deadline
+
+
+def _visible_targets() -> list[dict[str, object]]:
+    """Drop opted-out entries; embargoed entries stay but display as pending."""
+    return [t for t in _REGISTRY_TARGETS if not t.get("opted_out", False)]
 
 
 @dataclass
@@ -122,12 +151,33 @@ def _is_stale(entry: _CacheEntry) -> bool:
     return (time.time() - entry.last_scanned) > _CACHE_TTL_SECONDS
 
 
-def _serialize_entry(target: dict[str, str], entry: _CacheEntry | None) -> dict[str, Any]:
+def _serialize_entry(target: dict[str, object], entry: _CacheEntry | None) -> dict[str, Any]:
     base: dict[str, Any] = {
         "name": target["name"],
         "url": target["url"],
         "vendor": target["vendor"],
     }
+    # Embargoed entries are listed but not graded. The headline tells
+    # readers the vendor was notified and gives the disclosure date.
+    if _is_embargoed(target):
+        base.update(
+            {
+                "grade": None,
+                "score": None,
+                "blocking": None,
+                "finding_count": None,
+                "headline_finding": {
+                    "check_id": "EMBARGO",
+                    "severity": "info",
+                    "title": f"Vendor notified · grade publishes {target.get('embargo_until')}",
+                },
+                "last_scanned": None,
+                "last_scanned_iso": None,
+                "status": "embargoed",
+                "embargo_until": target.get("embargo_until"),
+            }
+        )
+        return base
     if entry is None:
         base.update(
             {
@@ -172,20 +222,22 @@ async def registry_endpoint(
     a small overall budget. Subsequent calls within the TTL return the
     cached snapshot instantly.
     """
+    visible = _visible_targets()
     targets_to_scan = [
         t
-        for t in _REGISTRY_TARGETS
-        if t["url"] not in _cache or (refresh and _is_stale(_cache[t["url"]]))
+        for t in visible
+        if not _is_embargoed(t)
+        and (str(t["url"]) not in _cache or (refresh and _is_stale(_cache[str(t["url"])])))
     ]
 
     if targets_to_scan:
-        tasks = [_scan_one(t["url"]) for t in targets_to_scan]
+        tasks = [_scan_one(str(t["url"])) for t in targets_to_scan]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for target, result in zip(targets_to_scan, results, strict=True):
             if isinstance(result, _CacheEntry):
-                _cache[target["url"]] = result
+                _cache[str(target["url"])] = result
 
-    rows = [_serialize_entry(t, _cache.get(t["url"])) for t in _REGISTRY_TARGETS]
+    rows = [_serialize_entry(t, _cache.get(str(t["url"]))) for t in visible]
 
     grade_counts: dict[str, int] = {}
     for r in rows:
@@ -194,12 +246,16 @@ async def registry_endpoint(
             grade_counts[g] = grade_counts.get(g, 0) + 1
 
     return {
-        "total": len(_REGISTRY_TARGETS),
+        "total": len(rows),
         "scanned": sum(1 for r in rows if r["status"] == "ok"),
+        "embargoed": sum(1 for r in rows if r["status"] == "embargoed"),
         "grade_counts": grade_counts,
         "rows": rows,
         "cache_ttl_seconds": _CACHE_TTL_SECONDS,
         "generated_at": datetime.now(UTC).isoformat(),
+        "disclosure_policy_url": (
+            "https://github.com/authgent/authgent/blob/main/docs/disclosure-policy.md"
+        ),
     }
 
 
@@ -212,20 +268,24 @@ async def registry_detail(vendor_or_name: str) -> dict[str, Any]:
     target = next(
         (
             t
-            for t in _REGISTRY_TARGETS
-            if t["vendor"].lower() == needle or t["name"].lower() == needle
+            for t in _visible_targets()
+            if str(t["vendor"]).lower() == needle or str(t["name"]).lower() == needle
         ),
         None,
     )
     if target is None:
         raise HTTPException(status_code=404, detail=f"Not in registry: {vendor_or_name}")
 
-    if target["url"] not in _cache or _is_stale(_cache[target["url"]]):
-        result = await _scan_one(target["url"])
-        if result is not None:
-            _cache[target["url"]] = result
+    if _is_embargoed(target):
+        return _serialize_entry(target, None)
 
-    entry = _cache.get(target["url"])
+    url = str(target["url"])
+    if url not in _cache or _is_stale(_cache[url]):
+        result = await _scan_one(url)
+        if result is not None:
+            _cache[url] = result
+
+    entry = _cache.get(url)
     base = _serialize_entry(target, entry)
     if entry is not None:
         base["findings"] = entry.findings
