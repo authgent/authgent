@@ -24,7 +24,7 @@ Apache 2.0). Updated June 2026.
 | OAuth 2.1 (PKCE, refresh rotation, RFC 7591 DCR) | ✅ | ✅ |
 | RFC 9728 Protected Resource Metadata | ✅ | ✅ |
 | RFC 9207 `iss` parameter (MCP SEP-2468) | ✅ | ✅ |
-| RFC 9449 DPoP | partial | ✅ default |
+| RFC 9449 DPoP | `/token` only, opt-in per tenant | All endpoints, opt-in via `AUTHGENT_REQUIRE_DPOP=true` |
 | `draft-ietf-oauth-identity-chaining-14` reference impl | ❌ | ✅ |
 | `draft-ietf-oauth-transaction-tokens-08` reference impl | ❌ | ✅ |
 | RFC 8693 nested-`act` delegation chain | OBO single-hop | ✅ multi-hop |
@@ -67,9 +67,12 @@ linked draft datatracker pages.)
 - **Multi-hop nested-`act` chains + signed receipts.** Auth0 OBO
   works for a single hop. authgent's chain depth is configurable and
   receipts close the chain-splice attack RFC 8693 leaves open.
-- **DPoP by default.** authgent emits DPoP-bound tokens out of the
-  box for any client that requests it. Auth0 has DPoP for some
-  endpoints but it's opt-in per tenant.
+- **DPoP across the surface.** authgent supports DPoP on `/token`,
+  `/authorize` (DPoP key bound at code issuance), `/introspect`, and
+  `/revoke` — opt-in via `AUTHGENT_REQUIRE_DPOP=true` (default false
+  for compatibility with bearer-only clients like ChatGPT Custom MCP).
+  Auth0 has DPoP at `/token` (GA May 2026), opt-in per tenant; other
+  endpoints aren't documented as DPoP-aware.
 - **MCP-OAuth scanner.** `authgent-server lint <mcp-url>` audits any
   MCP server's OAuth posture against 10 known-bad patterns
   (Obsidian-disclosed CSRF/state, RFC 8707 audience binding, PKCE

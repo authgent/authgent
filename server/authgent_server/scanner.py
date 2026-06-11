@@ -256,20 +256,38 @@ async def check_pkce_drift(client: httpx.AsyncClient, as_meta: dict) -> list[Fin
         body_text = resp.text[:2000]
     except Exception:
         pass
-    body_lower = body_text.lower()
+    location = resp.headers.get("location", "")
+    haystack = (body_text + " " + location).lower()
     # Strong signal: server mentions the method by name in its complaint.
     method_called_out = (
-        "code_challenge_method" in body_lower
-        or "challenge method" in body_lower
-        or "pkce" in body_lower
-        or "s256" in body_lower
+        "code_challenge_method" in haystack
+        or "challenge method" in haystack
+        or "pkce" in haystack
+        or "s256" in haystack
     )
     if method_called_out:
         return []  # server is correctly rejecting plain
-    # Server complained but only about the client_id / redirect_uri,
-    # not the method. That's drift signal.
+    # P0-4: suppress false-positives when the server rejected the request
+    # before reaching the PKCE check. Auth0 / Okta / Keycloak all validate
+    # client_id BEFORE looking at code_challenge_method, so an unregistered
+    # probe client triggers invalid_client / unauthorized_client instead of
+    # invalid_request. That's correct behavior — the server enforces PKCE
+    # at /token (or after a real client lookup), but our probe never gets
+    # that far. Treating those responses as drift would false-flag every
+    # major commercial IdP.
+    pre_pkce_rejection_signals = (
+        "invalid_client",
+        "unauthorized_client",
+        "invalid_redirect_uri",
+        "unregistered",
+        "unknown_client",
+        "client_not_found",
+    )
+    if any(sig in haystack for sig in pre_pkce_rejection_signals):
+        return []  # server rejected before getting to the PKCE check
+    # Server complained but only about something we can't tie to a
+    # specific check. That's drift signal.
     if resp.status_code in (302, 303):
-        location = resp.headers.get("location", "")
         if "error=invalid_request" not in location:
             findings.append(
                 Finding(
@@ -489,12 +507,27 @@ async def check_dcr_mirror(client: httpx.AsyncClient, as_meta: dict) -> list[Fin
 # --- Top-level scanner -------------------------------------------------------
 
 
-async def scan(base_url: str, *, http_client: httpx.AsyncClient | None = None) -> list[Finding]:
+async def scan(
+    base_url: str,
+    *,
+    http_client: httpx.AsyncClient | None = None,
+    probe_registrations: bool = False,
+) -> list[Finding]:
     """Run every check against the MCP resource at ``base_url``.
 
     Resolves the AS via PRM, then runs the AS-metadata checks plus any
-    MCP-server-level checks against ``base_url`` itself. ``http_client``
-    is exposed for tests to inject an ``httpx.MockTransport``.
+    MCP-server-level checks against ``base_url`` itself.
+
+    ``probe_registrations`` (default False) gates the DCR-mirror probe.
+    The probe creates two unsolicited ``POST /register`` calls against
+    the target's registration endpoint, which is fine for a one-shot
+    user-initiated scan but litters real third-party databases when run
+    on a schedule. Registry refresh leaves it False; the public
+    ``/api/scan?url=...`` endpoint sets it True so an interactive user
+    gets the full audit.
+
+    ``http_client`` is exposed for tests to inject an
+    ``httpx.MockTransport``.
     """
     findings: list[Finding] = []
     parsed = urlparse(base_url)
@@ -530,7 +563,8 @@ async def scan(base_url: str, *, http_client: httpx.AsyncClient | None = None) -
         findings.extend(check_state_csrf_advertised(as_meta))
         findings.extend(check_refresh_for_public_clients(as_meta))
         findings.extend(await check_passthrough(client, base_url))
-        findings.extend(await check_dcr_mirror(client, as_meta))
+        if probe_registrations:
+            findings.extend(await check_dcr_mirror(client, as_meta))
     finally:
         if owns_client:
             await client.aclose()

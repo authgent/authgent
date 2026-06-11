@@ -239,9 +239,34 @@ function renderResult(data) {
       <code class="bg-zinc-950 border border-zinc-800 rounded px-2 py-0.5 font-mono text-zinc-300">authgent-server lint ${target}</code>
       <span>·</span>
       <span>GitHub Action:</span>
-      <code class="bg-zinc-950 border border-zinc-800 rounded px-2 py-0.5 font-mono text-zinc-300">authgent/authgent/.github/actions/mcp-lint@v0.2.2</code>
+      <code class="bg-zinc-950 border border-zinc-800 rounded px-2 py-0.5 font-mono text-zinc-300">authgent/authgent/.github/actions/mcp-lint@v0.3.2</code>
     </div>
   </div>`;
+
+  // Conversion CTA: when the target is below B, point the visitor at
+  // the OAuth server we built that passes every check authgent runs.
+  // Single inline box, no banner. Quiet enough to feel like help, not
+  // a pitch — mirrors how SSL-Labs surfaces "use Let's Encrypt" hints.
+  if (["C", "D", "F"].includes(data.grade)) {
+    html += `
+    <div class="fade-in mt-5 bg-am/5 border border-am/30 rounded-2xl p-5">
+      <div class="flex items-start gap-3">
+        <div class="text-am text-xl leading-none mt-0.5">⚑</div>
+        <div class="flex-1">
+          <div class="font-bold text-zinc-100">Looking for a server that passes every one of these checks?</div>
+          <div class="text-zinc-400 text-[13px] mt-1">
+            authgent is the open-source OAuth 2.1 server behind this scanner.
+            Same code, same RFC interpretations — designed to not fail any of these.
+          </div>
+          <div class="mt-3 flex flex-wrap items-center gap-3 text-[12px]">
+            <code class="bg-zinc-950 border border-zinc-800 rounded px-3 py-1.5 font-mono text-zinc-200">pip install authgent-server</code>
+            <a class="text-em hover:underline" href="../home/">read the docs →</a>
+            <a class="text-em hover:underline" href="../">try the playground →</a>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
 
   if (findings.length === 0) {
     html += `

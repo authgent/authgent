@@ -224,7 +224,9 @@ async def test_calibration_dcr_mirror_grades_d_or_f():
         ("GET", base): httpx.Response(404),
         ("POST", f"{as_url}/register"): [same, same],
     }
+    # DCR-mirror probe is opt-in (P0-3). Calibration explicitly enables it
+    # since this fixture exists to assert the check fires when probed.
     async with _client(routes) as c:
-        findings = await scan(base, http_client=c)
+        findings = await scan(base, http_client=c, probe_registrations=True)
     grade, _ = _grade(findings)
     assert grade in ("D", "F"), f"DCR mirror should be D/F, got {grade}"
