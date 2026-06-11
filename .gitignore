@@ -57,3 +57,8 @@ sdks/typescript/dist/
 
 # Example generated files
 examples/pipeline/.agents.json
+
+# Maintainer-private notes — outreach drafts and internal product docs
+# stay on disk but never get committed.
+OUTREACH.md
+docs/internal/

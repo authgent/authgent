@@ -50,6 +50,11 @@ router = APIRouter(tags=["registry"])
 #   Vendors who don't want to be listed can email
 #   security@authgent.dev with the URL; we set this flag.
 _REGISTRY_TARGETS: list[dict[str, object]] = [
+    # NOTE: authgent's own demo deployment is deliberately NOT in this list.
+    # A registry that grades its own author A while everyone else gets D/F is
+    # not a credible public good. We test against the demo via the calibration
+    # suite instead (server/tests/test_calibration.py) so the dogfooding
+    # signal is preserved in CI, not in the user-facing scoreboard.
     {"name": "Stripe MCP", "url": "https://access.stripe.com/mcp", "vendor": "Stripe"},
     {"name": "Notion MCP", "url": "https://mcp.notion.com", "vendor": "Notion"},
     {
@@ -64,11 +69,30 @@ _REGISTRY_TARGETS: list[dict[str, object]] = [
     },
     {"name": "Linear MCP", "url": "https://mcp.linear.app", "vendor": "Linear"},
     {"name": "Descope MCP", "url": "https://mcp.descope.com", "vendor": "Descope"},
+    # P1-5 expansion (June 2026): notable additional MCP servers from the
+    # public modelcontextprotocol/servers org, vendor announcements, and
+    # awesome-mcp lists. Each URL is the well-known resource endpoint MCP
+    # clients connect to.
+    {"name": "GitHub MCP", "url": "https://api.github.com/mcp", "vendor": "GitHub"},
+    {"name": "Asana MCP", "url": "https://mcp.asana.com", "vendor": "Asana"},
+    {"name": "Intercom MCP", "url": "https://mcp.intercom.com", "vendor": "Intercom"},
+    {"name": "Plaid MCP", "url": "https://mcp.plaid.com", "vendor": "Plaid"},
+    {"name": "Square MCP", "url": "https://mcp.squareup.com", "vendor": "Square"},
     {
-        "name": "authgent demo (self)",
-        "url": "https://authgent-demo.dhruvagnihotri.com",
-        "vendor": "authgent",
+        "name": "PayPal MCP",
+        "url": "https://mcp-server.paypal.com",
+        "vendor": "PayPal",
     },
+    {"name": "Sentry MCP", "url": "https://mcp.sentry.dev", "vendor": "Sentry"},
+    {
+        "name": "PagerDuty MCP",
+        "url": "https://mcp.pagerduty.com",
+        "vendor": "PagerDuty",
+    },
+    {"name": "Workato MCP", "url": "https://mcp.workato.com", "vendor": "Workato"},
+    {"name": "Box MCP", "url": "https://mcp.box.com", "vendor": "Box"},
+    {"name": "HubSpot MCP", "url": "https://mcp.hubspot.com", "vendor": "HubSpot"},
+    {"name": "Zapier MCP", "url": "https://mcp.zapier.com", "vendor": "Zapier"},
 ]
 
 
@@ -104,7 +128,10 @@ class _CacheEntry:
 
 _cache: dict[str, _CacheEntry] = {}
 _CACHE_TTL_SECONDS = 3600
-_PER_TARGET_TIMEOUT = 4.0
+# Tight enough that one slow target can't DOS the registry, generous enough
+# that cold DNS + TLS + 3 round trips on a real vendor (typically 6-8s)
+# completes. Was 4s; bumped for the P1 timeout fix.
+_PER_TARGET_TIMEOUT = 12.0
 
 
 async def _scan_one(url: str) -> _CacheEntry | None:

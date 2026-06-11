@@ -123,7 +123,7 @@ authgent-server lint <url> -f github  # GitHub Actions annotations
 Or in CI:
 
 ```yaml
-- uses: authgent/authgent/.github/actions/mcp-lint@v0.3.1
+- uses: authgent/authgent/.github/actions/mcp-lint@v0.3.2
   with:
     url: https://your-mcp-server.example.com
     fail-on: error

@@ -113,7 +113,9 @@ async def scan_endpoint(
             ),
         )
     try:
-        findings = await scan(url)
+        # Manual scan requested by a real user → run the full audit
+        # including the DCR-mirror probe (two POST /register calls).
+        findings = await scan(url, probe_registrations=True)
     except Exception as exc:  # noqa: BLE001 — surface a friendly error
         raise HTTPException(
             status_code=502,

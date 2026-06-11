@@ -17,7 +17,7 @@ want to fix what it finds.
   [`draft-ietf-oauth-transaction-tokens-08`][txntok]. Tested with Claude
   Desktop, Cursor, Claude Code, Continue, VS Code MCP, ChatGPT.
 
-Apache 2.0, 464 tests, 3 published packages.
+Apache 2.0, 467 tests, 3 published packages.
 
 [icn]: https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/
 [rfc8693]: https://datatracker.ietf.org/doc/html/rfc8693
@@ -48,7 +48,7 @@ pip install authgent-server && authgent-server run
 | Persona | What you get | Where to start |
 |---|---|---|
 | **MCP-server developer** — *"I need OAuth on my MCP server in 60 seconds, working with Claude Desktop / Cursor / Continue."* | A real `mcp` SDK example with stdio + HTTP transports, and copy-pastable client configs for every major MCP client. | [MCP Quickstart](docs/mcp-quickstart.md) |
-| **Enterprise agent platform** — *"I need delegation receipts, DPoP, and an audit chain that proves which agent did what on whose behalf."* | RFC 8693 nested-`act` chains, signed delegation receipts, RFC 9449 DPoP by default, and the cross-domain identity-chaining flow. | [Architecture](ARCHITECTURE.md) |
+| **Enterprise agent platform** — *"I need delegation receipts, DPoP, and an audit chain that proves which agent did what on whose behalf."* | RFC 8693 nested-`act` chains, signed delegation receipts, RFC 9449 DPoP supported (opt-in via `AUTHGENT_REQUIRE_DPOP=true`), and the cross-domain identity-chaining flow. | [Architecture](ARCHITECTURE.md) |
 | **IETF / spec implementer** — *"I'm working on identity-chaining, transaction-tokens, AIMS — I want a free reference impl to test against."* | A clean Apache-2.0 implementation of both WG-track drafts with a section-by-section conformance map. | [Standards Report](STANDARDS.md) |
 | **Security engineer auditing MCP servers** — *"I need to lint our MCP servers' OAuth posture in CI."* | An MCP-OAuth scanner (`authgent-server lint <url>`) with a GitHub Action wrapper. | [MCP-Lint Action](.github/actions/mcp-lint/README.md) |
 
@@ -66,7 +66,7 @@ Two products in one repo, both useful, both Apache 2.0:
 
 2. **An OAuth 2.1 server.** `pip install authgent-server`. A reference
    implementation of the IETF agent-OAuth stack — multi-hop nested-`act`
-   chains, signed delegation receipts, RFC 9449 DPoP by default, RFC 8693
+   chains, signed delegation receipts, RFC 9449 DPoP supported (opt-in via `AUTHGENT_REQUIRE_DPOP=true`), RFC 8693
    token exchange with cross-domain identity chaining, transaction tokens.
    Designed to *not* fail the scanner.
 
@@ -635,7 +635,7 @@ authgent/
 │   │   ├── config.py            # Pydantic Settings (AUTHGENT_* env vars)
 │   │   ├── crypto.py            # HKDF + AES-256-GCM
 │   │   └── errors.py            # RFC 9457 Problem Details hierarchy
-│   ├── tests/                   # 464 tests — unit, integration, security, E2E
+│   ├── tests/                   # 467 tests — unit, integration, security, E2E
 │   ├── migrations/              # Alembic (SQLite dev → PostgreSQL prod)
 │   └── Dockerfile
 ├── sdks/
@@ -729,7 +729,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for development
 git clone https://github.com/authgent/authgent.git
 cd authgent/server
 pip install -e ".[dev]"
-pytest -v   # 464 tests
+pytest -v   # 467 tests
 ```
 
 ## License

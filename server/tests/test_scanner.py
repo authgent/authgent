@@ -235,6 +235,9 @@ async def test_scan_pkce_plain_is_blocking(scanner_client):
 
 @pytest.mark.asyncio
 async def test_scan_dcr_mirror_critical_when_clientid_repeats(scanner_client):
+    """DCR-mirror is opt-in via probe_registrations=True so registry
+    refresh doesn't litter vendor databases. Verify it still fires for
+    the explicit interactive scan path."""
     base = "http://mcp.example"
     as_url = "http://as.example"
     same = httpx.Response(201, json={"client_id": "agnt_static", "client_secret": "s"})
@@ -249,9 +252,41 @@ async def test_scan_dcr_mirror_critical_when_clientid_repeats(scanner_client):
         ("POST", f"{as_url}/register"): [same, same],
     }
     client = scanner_client(routes)
-    findings = await scan(base, http_client=client)
+    findings = await scan(base, http_client=client, probe_registrations=True)
     assert any(f.check_id == "MCP-DCR-MIRROR-001" and f.severity == "critical" for f in findings)
     assert has_blocking(findings)
+
+
+@pytest.mark.asyncio
+async def test_scan_dcr_mirror_skipped_when_probing_disabled(scanner_client):
+    """Default scan() (registry refresh path) MUST NOT make POST /register
+    calls. This is the abuse-mitigation fix for P0-3."""
+    base = "http://mcp.example"
+    as_url = "http://as.example"
+    register_calls = {"count": 0}
+
+    def counting_register(req):
+        register_calls["count"] += 1
+        return httpx.Response(201, json={"client_id": "agnt_static", "client_secret": "s"})
+
+    transport = httpx.MockTransport(
+        lambda req: (
+            httpx.Response(200, json=_good_prm(base, as_url))
+            if req.method == "GET"
+            and str(req.url).rstrip("/") == f"{base}/.well-known/oauth-protected-resource"
+            else httpx.Response(200, json=_good_as_meta(as_url))
+            if req.method == "GET"
+            and str(req.url).rstrip("/") == f"{as_url}/.well-known/oauth-authorization-server"
+            else counting_register(req)
+            if req.method == "POST" and str(req.url).rstrip("/") == f"{as_url}/register"
+            else httpx.Response(404)
+        )
+    )
+    client = httpx.AsyncClient(transport=transport)
+    findings = await scan(base, http_client=client)
+    await client.aclose()
+    assert register_calls["count"] == 0, "DCR mirror should be skipped by default"
+    assert not any(f.check_id == "MCP-DCR-MIRROR-001" for f in findings)
 
 
 # ---- Output formatters ----------------------------------------------------
@@ -332,14 +367,64 @@ async def test_pkce_drift_fires_when_method_silently_ignored(scanner_client):
         "authorization_endpoint": "http://as.example/authorize",
         "code_challenge_methods_supported": ["S256"],
     }
+    # The strongest drift signal: server redirects back to the redirect_uri
+    # with no error at all, meaning it accepted code_challenge_method=plain.
+    # The Obsidian Jan 2026 disclosure showed exactly this shape.
     routes = {
         ("GET", "http://as.example/authorize"): httpx.Response(
-            302, headers={"location": "https://authgent.dev/lint-probe?error=invalid_client"}
+            302,
+            headers={
+                "location": "https://authgent.dev/lint-probe?code=fake_auth_code&state=lintprobe"
+            },
         )
     }
     client = scanner_client(routes)
     out = await check_pkce_drift(client, as_meta)
     assert any(f.check_id == "MCP-PKCE-002" for f in out)
+
+
+@pytest.mark.asyncio
+async def test_pkce_drift_suppressed_on_invalid_client(scanner_client):
+    """P0-4: Auth0/Okta/Keycloak validate client_id BEFORE PKCE. They
+    return invalid_client to our unregistered probe, which is correct
+    behavior. Don't flag those as drift — that produces a wave of
+    false-positives from exactly the vendors we need on our side."""
+    from authgent_server.scanner import check_pkce_drift
+
+    as_meta = {
+        "authorization_endpoint": "http://as.example/authorize",
+        "code_challenge_methods_supported": ["S256"],
+    }
+    routes = {
+        ("GET", "http://as.example/authorize"): httpx.Response(
+            302,
+            headers={
+                "location": "https://authgent.dev/lint-probe?error=invalid_client&error_description=Unknown+client"
+            },
+        )
+    }
+    client = scanner_client(routes)
+    out = await check_pkce_drift(client, as_meta)
+    assert out == [], f"invalid_client response should suppress, got {out}"
+
+
+@pytest.mark.asyncio
+async def test_pkce_drift_suppressed_on_unauthorized_client(scanner_client):
+    """Same protection for unauthorized_client and invalid_redirect_uri."""
+    from authgent_server.scanner import check_pkce_drift
+
+    as_meta = {
+        "authorization_endpoint": "http://as.example/authorize",
+        "code_challenge_methods_supported": ["S256"],
+    }
+    routes = {
+        ("GET", "http://as.example/authorize"): httpx.Response(
+            400, text='{"error":"unauthorized_client","error_description":"Client not registered"}'
+        )
+    }
+    client = scanner_client(routes)
+    out = await check_pkce_drift(client, as_meta)
+    assert out == []
 
 
 @pytest.mark.asyncio
