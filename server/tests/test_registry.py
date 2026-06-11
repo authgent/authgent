@@ -103,11 +103,14 @@ def test_registry_detail_unknown_vendor_returns_404(test_client, monkeypatch):
 
 
 def test_registry_detail_known_vendor_returns_findings(test_client, monkeypatch):
+    """Detail endpoint resolves a vendor slug from the registry. We use
+    Notion here because it's curated to be live; the actual list rotates
+    as vendors come online and this test should follow."""
     monkeypatch.setattr(registry_module, "_scan_one", _async_returning(_fake_entry("D", 50)))
-    resp = test_client.get("/api/registry/Stripe")
+    resp = test_client.get("/api/registry/Notion")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["vendor"] == "Stripe"
+    assert body["vendor"] == "Notion"
     assert body["grade"] == "D"
     assert "findings" in body
 

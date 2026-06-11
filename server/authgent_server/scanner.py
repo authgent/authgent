@@ -457,14 +457,35 @@ async def check_passthrough(client: httpx.AsyncClient, base_url: str) -> list[Fi
     return findings
 
 
+# Module-level cache: registration_endpoint URL -> (last_probed_epoch, findings).
+# Lets us run the DCR-mirror probe at most once per hour per target regardless
+# of how many users invoke /api/scan, so a motivated visitor can't pollute a
+# vendor's registration table by hitting the public scanner in a loop.
+_DCR_MIRROR_TTL_SECONDS = 3600
+_dcr_mirror_cache: dict[str, tuple[float, list[Finding]]] = {}
+
+
 async def check_dcr_mirror(client: httpx.AsyncClient, as_meta: dict) -> list[Finding]:
     """MCP-DCR-MIRROR-001: Two DCR registrations MUST yield distinct
     client_ids. A static client_id across users is the Obsidian-disclosed
     consent-cache-bypass pattern.
+
+    Process-wide rate-limited: at most one probe per registration endpoint
+    per ``_DCR_MIRROR_TTL_SECONDS``. Cached findings are returned to all
+    callers within the window. Required so the public ``/api/scan``
+    endpoint can run with ``probe_registrations=True`` without becoming
+    an abuse vector.
     """
+    import time as _time
+
     reg = as_meta.get("registration_endpoint")
     if not reg:
         return []
+
+    cached = _dcr_mirror_cache.get(reg)
+    if cached and (_time.time() - cached[0]) < _DCR_MIRROR_TTL_SECONDS:
+        return list(cached[1])
+
     payload = {
         "client_name": "authgent-lint-probe",
         "grant_types": ["client_credentials"],
@@ -501,6 +522,7 @@ async def check_dcr_mirror(client: httpx.AsyncClient, as_meta: dict) -> list[Fin
                     ),
                 )
             )
+    _dcr_mirror_cache[reg] = (_time.time(), list(findings))
     return findings
 
 
