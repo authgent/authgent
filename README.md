@@ -28,7 +28,7 @@ Apache 2.0, 420 tests, 3 published packages, ships an MCP-OAuth scanner.
 pip install authgent-server && authgent-server run
 ```
 
-[Live Playground](https://authgent.github.io/authgent/) · [MCP Quickstart](docs/mcp-quickstart.md) · [Compatibility Matrix](docs/compatibility-matrix.md) · [vs Auth0](docs/compare/auth0.md) · [vs Keycloak](docs/compare/keycloak.md) · [vs Ory Hydra](docs/compare/ory-hydra.md) · [Standards Report](STANDARDS.md) · [Architecture](ARCHITECTURE.md)
+[Live Playground](https://authgent.github.io/authgent/) · [MCP-OAuth Scanner](https://authgent.github.io/authgent/scan/) · [Landing](https://authgent.github.io/authgent/home/) · [MCP Quickstart](docs/mcp-quickstart.md) · [Compatibility Matrix](docs/compatibility-matrix.md) · [vs Auth0](docs/compare/auth0.md) · [vs Keycloak](docs/compare/keycloak.md) · [vs Ory Hydra](docs/compare/ory-hydra.md) · [Standards Report](STANDARDS.md) · [Architecture](ARCHITECTURE.md)
 
 </div>
 
