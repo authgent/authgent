@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +15,27 @@ from authgent_server.models.oauth_client import OAuthClient
 from authgent_server.services.jwks_service import JWKSService
 
 router = APIRouter(tags=["discovery"])
+
+
+@router.get("/.well-known/security.txt", response_class=PlainTextResponse)
+async def security_txt() -> PlainTextResponse:
+    """RFC 9116 — security contact disclosure.
+
+    A vendor whose MCP server we scan SHOULD have a way to report
+    findings back to us; reciprocally, anyone scanned by authgent
+    should be able to find a contact for the registry.
+    """
+    expires = (datetime.now(UTC) + timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    body = (
+        "Contact: mailto:security@authgent.dev\n"
+        "Contact: https://github.com/authgent/authgent/issues\n"
+        f"Expires: {expires}\n"
+        "Preferred-Languages: en\n"
+        "Canonical: https://authgent-demo.dhruvagnihotri.com/.well-known/security.txt\n"
+        "Policy: https://github.com/authgent/authgent/blob/main/docs/disclosure-policy.md\n"
+        "Acknowledgments: https://github.com/authgent/authgent/blob/main/STANDARDS.md\n"
+    )
+    return PlainTextResponse(content=body)
 
 
 async def _resolve_scopes(settings: Settings, db: AsyncSession) -> list[str]:

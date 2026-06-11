@@ -55,13 +55,14 @@ _REGISTRY_TARGETS: list[dict[str, object]] = [
     # not a credible public good. We test against the demo via the calibration
     # suite instead (server/tests/test_calibration.py) so the dogfooding
     # signal is preserved in CI, not in the user-facing scoreboard.
-    {"name": "Stripe MCP", "url": "https://access.stripe.com/mcp", "vendor": "Stripe"},
+    #
+    # Curation policy: every URL on this list MUST respond 200 to
+    # ``GET /.well-known/oauth-protected-resource``. The registry is not the
+    # right place to surface "this URL doesn't host an MCP server" — that
+    # framing reads as "trillion-dollar vendor gets F" rather than the actual
+    # finding. Verified probes that fail PRM live in the future-work/
+    # candidates list, not here.
     {"name": "Notion MCP", "url": "https://mcp.notion.com", "vendor": "Notion"},
-    {
-        "name": "Atlassian MCP",
-        "url": "https://mcp.atlassian.com",
-        "vendor": "Atlassian",
-    },
     {
         "name": "Cloudflare MCP",
         "url": "https://mcp.cloudflare.com",
@@ -69,30 +70,10 @@ _REGISTRY_TARGETS: list[dict[str, object]] = [
     },
     {"name": "Linear MCP", "url": "https://mcp.linear.app", "vendor": "Linear"},
     {"name": "Descope MCP", "url": "https://mcp.descope.com", "vendor": "Descope"},
-    # P1-5 expansion (June 2026): notable additional MCP servers from the
-    # public modelcontextprotocol/servers org, vendor announcements, and
-    # awesome-mcp lists. Each URL is the well-known resource endpoint MCP
-    # clients connect to.
-    {"name": "GitHub MCP", "url": "https://api.github.com/mcp", "vendor": "GitHub"},
     {"name": "Asana MCP", "url": "https://mcp.asana.com", "vendor": "Asana"},
-    {"name": "Intercom MCP", "url": "https://mcp.intercom.com", "vendor": "Intercom"},
-    {"name": "Plaid MCP", "url": "https://mcp.plaid.com", "vendor": "Plaid"},
     {"name": "Square MCP", "url": "https://mcp.squareup.com", "vendor": "Square"},
-    {
-        "name": "PayPal MCP",
-        "url": "https://mcp-server.paypal.com",
-        "vendor": "PayPal",
-    },
-    {"name": "Sentry MCP", "url": "https://mcp.sentry.dev", "vendor": "Sentry"},
-    {
-        "name": "PagerDuty MCP",
-        "url": "https://mcp.pagerduty.com",
-        "vendor": "PagerDuty",
-    },
-    {"name": "Workato MCP", "url": "https://mcp.workato.com", "vendor": "Workato"},
     {"name": "Box MCP", "url": "https://mcp.box.com", "vendor": "Box"},
     {"name": "HubSpot MCP", "url": "https://mcp.hubspot.com", "vendor": "HubSpot"},
-    {"name": "Zapier MCP", "url": "https://mcp.zapier.com", "vendor": "Zapier"},
 ]
 
 

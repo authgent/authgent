@@ -121,3 +121,15 @@ def test_oauth_server_metadata_deep_path_suffix(test_client: TestClient) -> None
     resp = test_client.get("/.well-known/oauth-authorization-server/tenant-a/v2")
     assert resp.status_code == 200
     assert resp.json()["issuer"] == "http://localhost:8000/tenant-a/v2"
+
+
+def test_security_txt_rfc9116(test_client: TestClient) -> None:
+    """RFC 9116: /.well-known/security.txt is text/plain with required
+    Contact and Expires fields."""
+    resp = test_client.get("/.well-known/security.txt")
+    assert resp.status_code == 200
+    assert "text/plain" in resp.headers["content-type"]
+    body = resp.text
+    assert "Contact:" in body
+    assert "Expires:" in body
+    assert "Policy:" in body

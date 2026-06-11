@@ -1,3 +1,3 @@
 """authgent-server — The open-source identity provider for AI agents."""
 
-__version__ = "0.3.2"
+__version__ = "0.3.3"

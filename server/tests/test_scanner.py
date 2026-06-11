@@ -258,6 +258,42 @@ async def test_scan_dcr_mirror_critical_when_clientid_repeats(scanner_client):
 
 
 @pytest.mark.asyncio
+async def test_dcr_mirror_cached_across_calls(scanner_client):
+    """Even with probe_registrations=True, the DCR-mirror probe MUST NOT
+    re-POST to the same registration endpoint within the TTL window.
+    Without this, a motivated user pasting the same URL into /api/scan in
+    a loop can pollute the vendor's registration table indefinitely."""
+    import authgent_server.scanner as scanner_mod
+
+    scanner_mod._dcr_mirror_cache.clear()
+
+    register_calls = {"count": 0}
+
+    def transport(req: httpx.Request) -> httpx.Response:
+        if req.method == "POST":
+            register_calls["count"] += 1
+            return httpx.Response(201, json={"client_id": f"agnt_{register_calls['count']}"})
+        return httpx.Response(404)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(transport))
+    as_meta = {"registration_endpoint": "http://as.example/register"}
+
+    # First call probes (2 POSTs).
+    out1 = await scanner_mod.check_dcr_mirror(client, as_meta)
+    first = register_calls["count"]
+    # Second call within the TTL: cache hit, zero new POSTs.
+    out2 = await scanner_mod.check_dcr_mirror(client, as_meta)
+    second = register_calls["count"]
+
+    await client.aclose()
+    assert first == 2, "first call must do the two probe registrations"
+    assert second == 2, "second call MUST be cached, not re-probe"
+    assert out1 == out2
+
+    scanner_mod._dcr_mirror_cache.clear()
+
+
+@pytest.mark.asyncio
 async def test_scan_dcr_mirror_skipped_when_probing_disabled(scanner_client):
     """Default scan() (registry refresh path) MUST NOT make POST /register
     calls. This is the abuse-mitigation fix for P0-3."""

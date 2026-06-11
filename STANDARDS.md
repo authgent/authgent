@@ -5,7 +5,7 @@ and authgent's source code.** It is written for spec authors, implementers,
 auditors, and reviewers evaluating authgent as a reference implementation.
 
 Last updated: 2026-06-11. authgent version: 0.3.x (see [CHANGELOG.md](CHANGELOG.md)).
-Test count: **467**, all passing. Coverage: **82%**. Lint/format/type: clean.
+Test count: **469**, all passing. Coverage: **82%**. Lint/format/type: clean.
 
 ---
 

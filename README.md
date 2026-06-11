@@ -17,7 +17,7 @@ want to fix what it finds.
   [`draft-ietf-oauth-transaction-tokens-08`][txntok]. Tested with Claude
   Desktop, Cursor, Claude Code, Continue, VS Code MCP, ChatGPT.
 
-Apache 2.0, 467 tests, 3 published packages.
+Apache 2.0, 469 tests, 3 published packages.
 
 [icn]: https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/
 [rfc8693]: https://datatracker.ietf.org/doc/html/rfc8693
@@ -28,6 +28,7 @@ Apache 2.0, 467 tests, 3 published packages.
 [![PyPI - SDK](https://img.shields.io/pypi/v/authgent?label=authgent%20SDK&color=blue)](https://pypi.org/project/authgent/)
 [![npm](https://img.shields.io/npm/v/authgent?label=authgent%20npm&color=CB3837)](https://www.npmjs.com/package/authgent)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Cite](https://img.shields.io/badge/cite-CITATION.cff-9cf.svg)](CITATION.cff)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg)](https://python.org)
 [![Node 20+](https://img.shields.io/badge/node-20+-339933.svg)](https://nodejs.org)
 
@@ -121,24 +122,43 @@ Or use authgent standalone — it handles the full auth lifecycle without any ex
 [rfc8707]: https://datatracker.ietf.org/doc/html/rfc8707
 [rfc9457]: https://datatracker.ietf.org/doc/html/rfc9457
 
-## 60-Second Setup
+## Run the server
 
 ```bash
 pip install authgent-server
-authgent-server run
+authgent-server run     # auto-init, listens on http://localhost:8000
 ```
 
-That's it. Full OAuth 2.1 server at `localhost:8000`. No account signup, no dashboard, no Java.
-First run auto-generates a secret key and `.env` — no separate init step needed.
+Full OAuth 2.1 server. Auto-generates `.env` + signing keys on first run.
+SQLite by default; set `AUTHGENT_DATABASE_URL=postgresql+asyncpg://…` for
+production. Docker / Helm / Render / Fly templates in
+[`server/`](server/) and the [server-infra setup](docs/operations/).
 
-What you get out of the box:
+### Audit any MCP server
 
-- **Delegation chain tracking** — when Agent A delegates to Agent B, every hop is recorded in the JWT
-- **Scope enforcement per hop** — agents can only give away permissions they have, never escalate
-- **MCP auth server** — OAuth discovery, dynamic client registration, scoped tool access
-- **Human-in-the-loop** — require human approval for sensitive operations mid-chain
-- **DPoP token binding** — tokens are bound to the sender's key, useless if stolen from logs
-- **Bridge from Auth0/Okta** — exchange external id_tokens to start a delegation chain
+```bash
+authgent-server lint https://your-mcp-server.example.com
+authgent-server lint https://your-mcp-server.example.com --format github
+```
+
+CLI is the same code path as the [hosted scanner](https://authgent.github.io/authgent/scan/)
+and [GitHub Action](.github/actions/mcp-lint/README.md) — three surfaces,
+one set of findings.
+
+### Deeper docs (deliberately not inlined here)
+
+- [MCP client quickstart](docs/mcp-quickstart.md) — Claude Desktop /
+  Cursor / Continue / VS Code MCP / ChatGPT configs.
+- [Identity chaining](docs/identity-chaining.md) — cross-domain JWT
+  grants + `jwt-bearer` consumer flow with worked examples.
+- [Transaction tokens](docs/transaction-tokens.md) — `txntoken+jwt`
+  with `tctx`/`rctx` claims.
+- [Scanner methodology](docs/methodology.md) — every check, every RFC
+  clause, weighted grade math.
+- [Calibration set](docs/calibration.md) — published expected grades
+  for 6 known-good and known-bad shapes, asserted by CI.
+- [Disclosure policy](docs/disclosure-policy.md) — embargo, opt-out,
+  correction process for the registry.
 
 <details>
 <summary><b>How delegation chains work inside the JWT</b></summary>
@@ -172,211 +192,6 @@ At each hop: scope can only shrink, the `act` chain grows, DPoP rebinds the toke
 
 </details>
 
-## Quick Start
-
-### Option 1: pip — [pypi.org/project/authgent-server](https://pypi.org/project/authgent-server/)
-
-```bash
-pip install authgent-server
-authgent-server run     # auto-initializes on first run, starts on http://localhost:8000
-```
-
-> Defaults to SQLite for dev. For production, set `AUTHGENT_DATABASE_URL=postgresql+asyncpg://...` — see [Configuration](#configuration-authgent-environment-variables).
-
-### Option 2: Docker
-
-```bash
-curl -O https://raw.githubusercontent.com/authgent/authgent/main/server/docker-compose.yml
-docker compose up -d
-```
-
-### Option 3: From source
-
-```bash
-git clone https://github.com/authgent/authgent.git
-cd authgent/server
-pip install -e ".[dev]"
-authgent-server run
-```
-
-Auto-discovery endpoints:
-- `GET /.well-known/oauth-authorization-server` — server metadata (RFC 8414)
-- `GET /.well-known/oauth-protected-resource` — resource server metadata (RFC 9728)
-- `GET /.well-known/openid-configuration` — OIDC discovery alias
-- `GET /.well-known/jwks.json` — public signing keys (RFC 7517)
-- `GET /openapi.json` — full OpenAPI spec with `securitySchemes` for automated parsing
-- `GET /docs` — interactive API docs (Swagger UI with PKCE support)
-
-### Foreign Agent Auto-Discovery
-
-A foreign agent with **zero prior configuration** can fully bootstrap itself against authgent. Here's the complete flow:
-
-**Step 1 — Hit a protected endpoint, get pointed to the auth server:**
-```bash
-curl -i https://your-mcp-server.example.com/tools/search
-# HTTP/1.1 401 Unauthorized
-# WWW-Authenticate: Bearer realm="authgent",
-#   authorization_uri="http://localhost:8000/token",
-#   resource_metadata="http://localhost:8000/.well-known/oauth-protected-resource",
-#   error="invalid_token"
-```
-
-**Step 2 — Fetch server metadata to learn capabilities:**
-```bash
-curl -s http://localhost:8000/.well-known/oauth-authorization-server | jq .
-# {
-#   "issuer": "http://localhost:8000",
-#   "token_endpoint": "http://localhost:8000/token",
-#   "registration_endpoint": "http://localhost:8000/register",
-#   "grant_types_supported": ["client_credentials", "authorization_code",
-#     "urn:ietf:params:oauth:grant-type:token-exchange", ...],
-#   "code_challenge_methods_supported": ["S256"],
-#   ...
-# }
-```
-
-**Step 3 — Dynamically register (RFC 7591):**
-```bash
-curl -s -X POST http://localhost:8000/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "client_name": "foreign-search-bot",
-    "grant_types": ["client_credentials"],
-    "scope": "search:execute",
-    "client_uri": "https://foreign-agent.example.com",
-    "contacts": ["admin@foreign-agent.example.com"]
-  }' | jq .
-# { "client_id": "agnt_xxx", "client_secret": "sec_xxx", ... }
-```
-
-**Step 4 — Request a scoped token and call the protected resource:**
-```bash
-TOKEN=$(curl -s -X POST http://localhost:8000/token \
-  -d "grant_type=client_credentials&client_id=agnt_xxx&client_secret=sec_xxx&scope=search:execute" \
-  | jq -r .access_token)
-
-curl -s https://your-mcp-server.example.com/tools/search \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"query": "latest AI papers"}'
-```
-
-No SDK required. No hardcoded URLs. The entire flow is discoverable from a single 401 response.
-
-### Register an Agent & Get a Token
-
-```bash
-# Option A: CLI (recommended)
-authgent-server create-agent --name search-bot --scopes search:execute
-authgent-server get-token --client-id agnt_xxx --client-secret sec_xxx --scope search:execute
-
-# Option B: curl
-curl -s -X POST http://localhost:8000/agents \
-  -H "Content-Type: application/json" \
-  -d '{"name": "search-bot", "allowed_scopes": ["search:execute"]}' | jq .
-
-curl -s -X POST http://localhost:8000/token \
-  -d "grant_type=client_credentials&client_id=agnt_xxx&client_secret=sec_xxx&scope=search:execute"
-```
-
-### Inspect a Token & See the Delegation Chain
-
-```bash
-# CLI — shows claims table, expiry, delegation tree
-authgent-server inspect-token eyJhbGci...
-
-# API — returns structured JSON with delegation chain
-curl -s "http://localhost:8000/tokens/inspect?token=eyJhbGci..." | jq .
-```
-
-### Delegate to Another Agent
-
-```bash
-# Agent B exchanges Agent A's token for a narrower one
-curl -s -X POST http://localhost:8000/token \
-  -d "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
-  -d "subject_token=$AGENT_A_TOKEN" \
-  -d "audience=https://agent-b.example.com" \
-  -d "scope=search:execute" \
-  -d "client_id=$AGENT_B_ID&client_secret=$AGENT_B_SECRET"
-```
-
-### Identity Chaining Across Trust Domains
-
-When an agent in your domain needs to call a resource owned by **another
-organisation**, nested `act` chains stop at the trust boundary. authgent
-implements [draft-ietf-oauth-identity-chaining-14][icn] (Approved-announcement
-in IESG), so a Domain A token becomes a short-lived JWT authorization grant
-for Domain B's authorization server, and Domain B redeems it for a Domain B
-access token via [RFC 7523][rfc7523] `jwt-bearer`.
-
-[rfc7523]: https://datatracker.ietf.org/doc/html/rfc7523
-
-```bash
-# Domain A: mint a JWT authorization grant bound to Domain B's AS.
-curl -s -X POST https://as.a.example/token \
-  -d "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
-  -d "subject_token=$DOMAIN_A_TOKEN" \
-  -d "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
-  -d "requested_token_type=urn:ietf:params:oauth:token-type:jwt" \
-  -d "audience=https://as.b.example/token" \
-  -d "client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET"
-# → { "access_token": "<JWT-grant>",
-#     "issued_token_type": "urn:ietf:params:oauth:token-type:jwt", ... }
-
-# Domain B: redeem the grant for a Domain B access token.
-curl -s -X POST https://as.b.example/token \
-  -d "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" \
-  -d "assertion=<JWT-grant>" \
-  -d "client_id=$DOMAIN_B_CLIENT_ID&client_secret=$DOMAIN_B_SECRET"
-```
-
-The grant is **single-use** (assertion `jti` blocked on consumption per §5.5),
-**audience-bound** (§2.3.3), **short-lived** (60s default, §5.5), and **never
-issues a refresh token** (§5.4). Configure trust boundaries with
-`AUTHGENT_TRUSTED_CHAINING_TARGETS` (Domain A allow-list) and
-`AUTHGENT_TRUSTED_CHAINING_ISSUERS` (Domain B allow-list).
-
-Both SDKs ship helpers: Python `client.start_identity_chain(...)` /
-`client.consume_identity_chain(...)`, TypeScript `client.startIdentityChain()`
-/ `client.consumeIdentityChain()`.
-
-### Transaction Tokens (intra-domain call chains)
-
-When a request enters your trust domain (e.g. through an API gateway) and
-fans out to internal services, you want every hop to carry **the same
-authorization context** without re-querying the authorization server.
-authgent implements [draft-ietf-oauth-transaction-tokens-08][txntok] (in WG
-Last Call): the gateway exchanges an external access token at the
-Transaction Token Service for a short-lived **Txn-Token** carrying a unique
-`txn` id, immutable transaction context (`tctx`), and requester context
-(`rctx`). Each downstream service validates the JWT signature and trusts
-the embedded context.
-
-```bash
-# Gateway → TTS: mint a Txn-Token for a stock-buy transaction.
-curl -s -X POST http://localhost:8000/token \
-  -d "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
-  -d "subject_token=$EXTERNAL_ACCESS_TOKEN" \
-  -d "subject_token_type=urn:ietf:params:oauth:token-type:access_token" \
-  -d "requested_token_type=urn:ietf:params:oauth:token-type:txn_token" \
-  -d "audience=https://trust-domain.example/" \
-  -d "scope=trade.stocks" \
-  --data-urlencode 'request_details={"action":"BUY","ticker":"MSFT","quantity":"100"}' \
-  -d "client_id=$GATEWAY_ID&client_secret=$GATEWAY_SECRET"
-```
-
-The Txn-Token is `typ: txntoken+jwt`, audience-bound to the Trust Domain,
-short-lived (120s default per §7), and scope-narrowed (§7.2 enforces
-`requested_scope ⊆ subject_token.scope`). Refresh tokens are never issued
-(§11). Both SDKs ship `issue_transaction_token` /
-`issueTransactionToken` helpers.
-
-### Bridge from Auth0 / Okta / Any OIDC Provider
-
-Already using Auth0? See [Already using Auth0/Okta?](#already-using-auth0okta) — exchange external id_tokens to start a delegation chain.
-
-Configure trusted issuers: `AUTHGENT_TRUSTED_OIDC_ISSUERS='["https://your-tenant.auth0.com/"]'`
-
 ## CLI Commands
 
 The `authgent-server` CLI provides rich-formatted output for managing agents, tokens, and the server.
@@ -407,76 +222,12 @@ authgent-server inspect-token eyJhbGciOiJFUzI1NiJ9...
 authgent-server audit --limit 20
 ```
 
-## How to Actually Use This
+## Examples
 
-### Protect an existing endpoint (3 lines)
-
-```diff
-  from fastapi import FastAPI, Depends
-+ from authgent.middleware.fastapi import AgentAuthMiddleware, get_agent_identity
-+ from authgent.models import AgentIdentity
-
-  app = FastAPI()
-+ app.add_middleware(AgentAuthMiddleware, issuer="http://localhost:8000")
-
-  @app.post("/search")
-- async def search(query: str):
--     # Who is calling this? No idea.
-+ async def search(query: str, identity: AgentIdentity = Depends(get_agent_identity)):
-+     print(identity.subject)            # "user:alice"
-+     print(identity.scopes)             # ["search:execute"]
-+     print(identity.delegation_chain)   # who delegated to whom
-      return {"results": [...]}
-```
-
-### Add delegation to agent-to-agent calls (3 lines per call)
-
-```python
-from authgent import AgentAuthClient
-
-auth = AgentAuthClient("http://localhost:8000")
-
-# Before calling another agent: exchange your token for a scoped one
-delegated = await auth.exchange_token(
-    subject_token=my_token,                      # your current token
-    audience="https://search-agent.example.com",  # who you're calling
-    scopes=["search:execute"],                    # only what they need
-    client_id=MY_CLIENT_ID,
-    client_secret=MY_CLIENT_SECRET,
-)
-
-# Call the other agent with the delegated token
-resp = httpx.post(
-    "https://search-agent.example.com/search",
-    json={"query": "latest AI papers"},
-    headers={"Authorization": f"Bearer {delegated.access_token}"},
-)
-```
-
-### Where does authgent-server run?
-
-| Scenario | Where | How |
-|:---------|:------|:----|
-| **Local dev** | Same machine | `authgent-server run` (SQLite, zero config) |
-| **Team / staging** | Shared VM or container | Docker + PostgreSQL |
-| **Production** | Dedicated service | `docker compose up` behind a load balancer |
-| **With Auth0/Okta** | Same infra | Exchange external id_tokens via token exchange |
-
-One server per environment. All agents point to the same authgent-server — it's the shared identity layer.
-
-### Examples
-
-| Example | What it shows | Run it |
-|:--------|:-------------|:-------|
-| **[Quickstart](examples/quickstart/)** | 60-second demo — register, delegate, revoke | `python examples/quickstart/demo.py` |
-| **[FastAPI Before/After](examples/fastapi_protected/)** | 3-line diff to protect an endpoint | Side-by-side `before.py` vs `after.py` |
-| **[3-Agent Pipeline](examples/pipeline/)** | Orchestrator → Search → DB with scope narrowing | `python examples/pipeline/run_pipeline.py` |
-| **[MCP Server](examples/mcp_server/)** | MCP server with authgent as OAuth provider | `uvicorn mcp_server:app --port 9002` |
-| **[LangChain Tool](examples/langchain_tool/)** | AuthgentToolWrapper for automatic token management | `python examples/langchain_tool/langchain_agent.py` |
-| **[OpenAI Agents SDK](examples/openai_agents/)** | Auth pattern for multi-agent orchestration + handoffs | `python examples/openai_agents/openai_agents_demo.py` |
-| **[CrewAI](examples/crewai/)** | Per-agent identity + scoped tokens for crew members | `python examples/crewai/crewai_demo.py` |
-| **[OpenClaw](examples/openclaw/)** | 5 drop-in skills for secure agent delegation (zero code changes) | `python examples/openclaw/demo_openclaw_authgent.py` |
-| **[Interactive Playground](playground/)** | 7-step visual demo with HITL approval | [Try it live](https://authgent.github.io/authgent/) or `docker compose up` → [localhost:3000](http://localhost:3000) |
+Working integrations live in [`examples/`](examples/) — FastAPI middleware,
+3-agent pipeline with scope narrowing, MCP server with stdio + HTTP
+transport, LangChain tool wrapper, OpenAI Agents handoff, CrewAI per-agent
+identity, OpenClaw skills.
 
 ## SDKs
 
@@ -635,7 +386,7 @@ authgent/
 │   │   ├── config.py            # Pydantic Settings (AUTHGENT_* env vars)
 │   │   ├── crypto.py            # HKDF + AES-256-GCM
 │   │   └── errors.py            # RFC 9457 Problem Details hierarchy
-│   ├── tests/                   # 467 tests — unit, integration, security, E2E
+│   ├── tests/                   # 469 tests — unit, integration, security, E2E
 │   ├── migrations/              # Alembic (SQLite dev → PostgreSQL prod)
 │   └── Dockerfile
 ├── sdks/
@@ -729,7 +480,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for development
 git clone https://github.com/authgent/authgent.git
 cd authgent/server
 pip install -e ".[dev]"
-pytest -v   # 467 tests
+pytest -v   # 469 tests
 ```
 
 ## License
