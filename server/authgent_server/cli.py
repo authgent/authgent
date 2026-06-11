@@ -18,6 +18,8 @@ from rich.table import Table
 from rich.text import Text  # noqa: F401
 from rich.tree import Tree
 
+from authgent_server import __version__
+
 console = Console()
 err_console = Console(stderr=True)
 
@@ -27,8 +29,6 @@ app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
 )
-
-__version__ = "0.1.0"
 
 
 def _version_callback(value: bool) -> None:
