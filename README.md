@@ -2,13 +2,22 @@
 
 # authgent
 
-### Run your own OAuth 2.1 server for AI agents — open-source alternative to Auth0, Okta, and Keycloak for the agent era.
+### Most MCP servers fail their own OAuth spec. authgent shows you which.
 
-Reference implementation of [`draft-ietf-oauth-identity-chaining-14`][icn]
-(in IESG approval) and [`draft-ietf-oauth-transaction-tokens-08`][txntok]
-(in OAuth WG Last Call). Tested against Claude Desktop, Cursor, Claude
-Code, Continue, VS Code MCP, and ChatGPT Custom MCP.
-Apache 2.0, 420 tests, 3 published packages, ships an MCP-OAuth scanner.
+A free MCP-OAuth scanner — and the OAuth 2.1 server you can run if you
+want to fix what it finds.
+
+- **`authgent-server lint <mcp-url>`** — 10 RFC-mapped checks, A–F grade,
+  embeddable badge. CLI + GitHub Action + hosted at
+  [authgent.github.io/authgent/scan/](https://authgent.github.io/authgent/scan/).
+- **Public registry** of how Stripe, Notion, Atlassian, Cloudflare, Linear,
+  Descope grade today: [authgent.github.io/authgent/registry/](https://authgent.github.io/authgent/registry/).
+- **`pip install authgent-server`** — full OAuth 2.1 server, reference
+  implementation of [`draft-ietf-oauth-identity-chaining-14`][icn] and
+  [`draft-ietf-oauth-transaction-tokens-08`][txntok]. Tested with Claude
+  Desktop, Cursor, Claude Code, Continue, VS Code MCP, ChatGPT.
+
+Apache 2.0, 444 tests, 3 published packages.
 
 [icn]: https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/
 [rfc8693]: https://datatracker.ietf.org/doc/html/rfc8693
@@ -28,7 +37,7 @@ Apache 2.0, 420 tests, 3 published packages, ships an MCP-OAuth scanner.
 pip install authgent-server && authgent-server run
 ```
 
-[Live Playground](https://authgent.github.io/authgent/) · [MCP-OAuth Scanner](https://authgent.github.io/authgent/scan/) · [Landing](https://authgent.github.io/authgent/home/) · [MCP Quickstart](docs/mcp-quickstart.md) · [Compatibility Matrix](docs/compatibility-matrix.md) · [vs Auth0](docs/compare/auth0.md) · [vs Keycloak](docs/compare/keycloak.md) · [vs Ory Hydra](docs/compare/ory-hydra.md) · [Standards Report](STANDARDS.md) · [Architecture](ARCHITECTURE.md)
+[Home](https://authgent.github.io/authgent/home/) · [Scanner](https://authgent.github.io/authgent/scan/) · [Registry](https://authgent.github.io/authgent/registry/) · [Playground](https://authgent.github.io/authgent/) · [MCP Quickstart](docs/mcp-quickstart.md) · [Compatibility Matrix](docs/compatibility-matrix.md) · [vs Auth0](docs/compare/auth0.md) · [vs Keycloak](docs/compare/keycloak.md) · [vs Ory Hydra](docs/compare/ory-hydra.md) · [Standards Report](STANDARDS.md) · [Architecture](ARCHITECTURE.md)
 
 </div>
 

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MCP-OAuth Registry · authgent</title>
+<meta name="description" content="Public registry of MCP servers ranked by OAuth conformance. Stripe, Notion, Atlassian, Cloudflare, Linear and others — graded A through F against RFC 7591, 7636, 8414, 8707, 9207, 9449, 9728.">
+<meta property="og:title" content="MCP-OAuth Registry — public scan results">
+<meta property="og:description" content="See how Stripe, Notion, Atlassian, Cloudflare, Linear and other MCP servers grade against the IETF OAuth specs.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://authgent.github.io/authgent/registry/">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='7' height='7' rx='1'/><rect x='14' y='3' width='7' height='7' rx='1'/><rect x='3' y='14' width='7' height='7' rx='1'/><rect x='14' y='14' width='7' height='7' rx='1'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={theme:{extend:{
+  fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']},
+  colors:{
+    zinc:{950:'#09090b',900:'#18181b',800:'#27272a',700:'#3f3f46',600:'#52525b',500:'#71717a',400:'#a1a1aa',300:'#d4d4d8',200:'#e4e4e7',100:'#f4f4f5',50:'#fafafa'},
+    em:'#10b981',rd:'#ef4444',am:'#f59e0b',og:'#f97316',tl:'#14b8a6',pk:'#ec4899',
+  }
+}}}
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#08080c;color:#e4e4e7;font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#27272a;border-radius:3px}
+.glow{text-shadow:0 0 22px rgba(16,185,129,.35)}
+.grad-bg{background:radial-gradient(1200px 600px at 20% -10%,rgba(16,185,129,.07),transparent 60%),radial-gradient(900px 500px at 90% 10%,rgba(20,184,166,.05),transparent 60%),#08080c}
+.fade-in{animation:fadeIn .4s ease-out forwards}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.spinner{width:14px;height:14px;border:2px solid #27272a;border-top-color:#10b981;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+table{border-collapse:separate;border-spacing:0}
+th,td{vertical-align:middle}
+</style>
+</head>
+<body class="grad-bg">
+<header class="border-b border-zinc-800/70">
+  <div class="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
+    <a href="../home/" class="flex items-center gap-2 text-zinc-100 hover:text-em transition">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      <span class="font-bold tracking-tight">authgent</span>
+    </a>
+    <nav class="flex items-center gap-5 text-sm text-zinc-400">
+      <a href="../home/" class="hover:text-zinc-100">Home</a>
+      <a href="../scan/" class="hover:text-zinc-100">Scan</a>
+      <a href="../" class="hover:text-zinc-100">Playground</a>
+      <a href="https://github.com/authgent/authgent" class="hover:text-zinc-100">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-5 py-10 sm:py-14">
+  <section class="mb-9">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/70 border border-zinc-800 text-[11px] text-em font-mono mb-4">
+      <span class="w-1.5 h-1.5 rounded-full bg-em"></span>
+      <span>Registry · refreshed hourly</span>
+    </div>
+    <h1 class="text-3xl sm:text-5xl font-extrabold text-zinc-50 tracking-tight glow">
+      MCP-OAuth Registry
+    </h1>
+    <p class="mt-3 text-zinc-400 text-base sm:text-lg max-w-3xl">
+      Public scan results for every notable MCP server. Each row is graded
+      A&nbsp;through&nbsp;F against RFC&nbsp;7591, 7636, 8414, 8707, 9207, 9449,
+      and 9728. Click any row for the detailed report.
+    </p>
+    <p class="mt-4 text-[12px] text-zinc-500 max-w-3xl">
+      All findings come from publicly observable metadata (the
+      <code>/.well-known/*</code> endpoints any MCP client reads). No
+      authenticated probes. To remove a server, open an issue.
+    </p>
+  </section>
+
+  <section id="summary" class="mb-7 grid grid-cols-2 sm:grid-cols-5 gap-3 text-center" aria-label="Summary"></section>
+
+  <section class="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-zinc-900/70 text-zinc-400 text-[11px] uppercase tracking-wider">
+          <tr>
+            <th class="text-left px-4 py-3">#</th>
+            <th class="text-left px-4 py-3">Server</th>
+            <th class="text-left px-4 py-3">Vendor</th>
+            <th class="text-center px-4 py-3">Grade</th>
+            <th class="text-right px-4 py-3">Score</th>
+            <th class="text-left px-4 py-3 hidden md:table-cell">Headline finding</th>
+            <th class="text-right px-4 py-3 hidden sm:table-cell">Last&nbsp;scan</th>
+            <th class="text-right px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr>
+            <td colspan="8" class="text-center py-10 text-zinc-500">
+              <div class="flex items-center justify-center gap-2">
+                <div class="spinner"></div>
+                <span>Loading registry…</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="mt-10 grid sm:grid-cols-3 gap-4">
+    <a href="../scan/" class="group bg-zinc-900/40 border border-zinc-800 hover:border-em/60 rounded-xl p-5 transition">
+      <div class="text-em mb-2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
+      <div class="font-bold text-zinc-100 group-hover:text-em">Scan your own</div>
+      <div class="text-zinc-500 text-[12px] mt-1">Paste any MCP server URL — get a graded report and a shareable badge.</div>
+    </a>
+    <div class="bg-zinc-900/40 border border-zinc-800 rounded-xl p-5">
+      <div class="text-em mb-2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-6 0v4"/><rect x="2" y="9" width="20" height="12" rx="2"/></svg></div>
+      <div class="font-bold text-zinc-100">Embed the badge</div>
+      <div class="text-zinc-500 text-[12px] mt-1 font-mono break-all">![authgent](.../api/badge?url=YOUR_MCP)</div>
+    </div>
+    <a href="https://github.com/authgent/authgent" class="group bg-zinc-900/40 border border-zinc-800 hover:border-em/60 rounded-xl p-5 transition">
+      <div class="text-em mb-2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg></div>
+      <div class="font-bold text-zinc-100 group-hover:text-em">authgent on GitHub</div>
+      <div class="text-zinc-500 text-[12px] mt-1">Open-source OAuth 2.1 server + scanner. Apache 2.0.</div>
+    </a>
+  </section>
+
+  <footer class="mt-12 pt-7 border-t border-zinc-900 text-[12px] text-zinc-500 flex flex-wrap items-center gap-3 justify-between">
+    <div>Powered by <a class="text-em hover:underline" href="https://github.com/authgent/authgent">authgent</a> · stateless scanner over public metadata only.</div>
+    <div class="font-mono">CLI: <code class="text-zinc-300">authgent-server lint &lt;url&gt;</code></div>
+  </footer>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const escHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+const backend = (() => {
+  const h = location.hostname;
+  if (h.endsWith('.github.io')) return 'https://authgent-demo.dhruvagnihotri.com';
+  if (!h || h === 'localhost' || h === '127.0.0.1' || location.protocol === 'file:') return 'http://localhost:8000';
+  return location.origin;
+})();
+
+const GRADE_COLOR = {A:'em', B:'tl', C:'am', D:'og', F:'rd'};
+const SEV_COLOR = {critical:'rd', error:'og', warning:'am', info:'tl'};
+
+function relTime(iso){
+  if(!iso) return '—';
+  const t = new Date(iso).getTime();
+  const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+
+function renderSummary(body) {
+  const cells = [
+    {label: 'Servers', value: body.total},
+    {label: 'Scanned', value: body.scanned},
+  ];
+  for (const grade of ['A', 'B', 'C', 'D', 'F']) {
+    cells.push({label: grade, value: body.grade_counts?.[grade] ?? 0, grade});
+  }
+  // Render only 5 boxes max — drop the count cells if any grade is present
+  // to keep the layout compact.
+  const final = cells.slice(0, 5);
+  $('summary').innerHTML = final.map(c => {
+    const cls = c.grade ? `text-${GRADE_COLOR[c.grade]}` : 'text-zinc-100';
+    return `<div class="bg-zinc-900/50 border border-zinc-800 rounded-xl py-3">
+      <div class="text-2xl font-extrabold ${cls}">${c.value}</div>
+      <div class="text-[11px] uppercase tracking-wider text-zinc-500 mt-0.5">${escHtml(c.label)}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRows(body) {
+  const rows = body.rows.slice().sort((a, b) => {
+    if (a.score == null) return 1;
+    if (b.score == null) return -1;
+    return b.score - a.score;
+  });
+  if (rows.length === 0) {
+    $('rows').innerHTML = `<tr><td colspan="8" class="text-center py-10 text-zinc-500">No targets in registry.</td></tr>`;
+    return;
+  }
+  $('rows').innerHTML = rows.map((r, i) => {
+    const gColor = r.grade ? GRADE_COLOR[r.grade] : 'zinc';
+    const grade = r.grade ?? '·';
+    const score = r.score == null ? '—' : `${r.score}`;
+    const headline = r.headline_finding
+      ? `<span class="text-${SEV_COLOR[r.headline_finding.severity] || 'zinc'} font-mono text-[11px]">[${r.headline_finding.severity}]</span>
+         <span class="text-zinc-300">${escHtml(r.headline_finding.title)}</span>`
+      : (r.status === 'pending'
+          ? `<span class="text-zinc-500">Scan pending…</span>`
+          : `<span class="text-em">No findings</span>`);
+    const detailHref = `../scan/?url=${encodeURIComponent(r.url)}`;
+    return `<tr class="border-t border-zinc-800/70 hover:bg-zinc-900/40 transition fade-in">
+      <td class="px-4 py-3 text-zinc-500 text-[12px] font-mono">${i + 1}</td>
+      <td class="px-4 py-3"><a href="${detailHref}" class="font-semibold text-zinc-100 hover:text-em">${escHtml(r.name)}</a><div class="text-[11px] font-mono text-zinc-500 break-all">${escHtml(r.url)}</div></td>
+      <td class="px-4 py-3 text-zinc-300">${escHtml(r.vendor)}</td>
+      <td class="px-4 py-3 text-center"><span class="text-${gColor} font-extrabold text-2xl">${grade}</span></td>
+      <td class="px-4 py-3 text-right font-mono text-zinc-300">${score}</td>
+      <td class="px-4 py-3 hidden md:table-cell">${headline}</td>
+      <td class="px-4 py-3 text-right text-zinc-500 text-[12px] hidden sm:table-cell">${relTime(r.last_scanned_iso)}</td>
+      <td class="px-4 py-3 text-right"><a href="${detailHref}" class="text-em text-[12px] hover:underline">view&nbsp;→</a></td>
+    </tr>`;
+  }).join('');
+}
+
+async function load() {
+  try {
+    const r = await fetch(`${backend}/api/registry`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const body = await r.json();
+    renderSummary(body);
+    renderRows(body);
+  } catch (err) {
+    $('rows').innerHTML = `<tr><td colspan="8" class="text-center py-10 text-rd">Could not load registry: ${escHtml(err.message)}</td></tr>`;
+  }
+}
+
+load();
+</script>
+</body>
+</html>
