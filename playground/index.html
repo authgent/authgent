@@ -389,6 +389,11 @@ body.demo-active #demoSection{display:block}
       <span class="text-[10px] font-semibold text-zinc-600 bg-zinc-800 px-2 py-0.5 rounded-full">playground</span>
     </div>
     <div class="flex-1"></div>
+    <nav class="hidden md:flex items-center gap-4 text-[12px] text-zinc-400 mr-2">
+      <a href="home/" class="hover:text-zinc-100">Home</a>
+      <a href="scan/" class="hover:text-em" title="Scan any MCP server's OAuth posture">Scan</a>
+      <a href="https://github.com/authgent/authgent" class="hover:text-zinc-100">GitHub</a>
+    </nav>
     <div class="flex items-center gap-1.5 bg-zinc-900 rounded-lg border border-zinc-800 px-2.5 py-1">
       <div class="w-2 h-2 rounded-full bg-zinc-700 transition-all" id="healthDot"></div>
       <input id="serverUrl" type="text" class="bg-transparent text-[11px] font-mono text-zinc-400 outline-none w-28 sm:w-40" placeholder="http://localhost:8000">

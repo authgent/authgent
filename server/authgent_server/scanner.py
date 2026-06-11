@@ -66,7 +66,13 @@ async def _get_json(client: httpx.AsyncClient, url: str) -> tuple[int, dict | No
 async def check_protected_resource_metadata(
     client: httpx.AsyncClient, base_url: str
 ) -> tuple[list[Finding], dict | None]:
-    """MCP-PRM-001: RFC 9728 PRM endpoint MUST exist and be well-formed."""
+    """MCP-PRM-001: RFC 9728 PRM endpoint MUST exist and be well-formed.
+
+    PRM is the discovery gate; MCP clients require it to find the
+    authorization server. Treat its absence as ``critical`` so the score
+    reflects "this is not actually an MCP server" rather than "this MCP
+    server has one missing field".
+    """
     url = urljoin(base_url + "/", ".well-known/oauth-protected-resource")
     status, body, _ = await _get_json(client, url)
     findings: list[Finding] = []
@@ -74,11 +80,13 @@ async def check_protected_resource_metadata(
         findings.append(
             Finding(
                 check_id="MCP-PRM-001",
-                severity="error",
+                severity="critical",
                 title="Missing or malformed Protected Resource Metadata",
                 detail=(
                     f"GET {url} returned {status}. MCP clients require RFC 9728 "
-                    "metadata to discover the authorization server."
+                    "metadata to discover the authorization server. Without "
+                    "this endpoint a target is not a valid MCP server per the "
+                    "2025-11-25 / 2026-07-28 spec."
                 ),
                 spec_link="https://datatracker.ietf.org/doc/html/rfc9728",
                 remediation=(

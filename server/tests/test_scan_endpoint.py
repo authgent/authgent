@@ -99,3 +99,28 @@ def test_scan_endpoint_rejects_private_ip(test_client):
 def test_scan_endpoint_rejects_non_http(test_client):
     resp = test_client.get("/api/scan", params={"url": "ftp://example.com"})
     assert resp.status_code == 400
+
+
+# --- badge endpoint --------------------------------------------------------
+
+
+def test_badge_unsafe_url_returns_failing_svg(test_client):
+    """Unsafe URLs (loopback etc.) MUST still return SVG, not JSON 400.
+    A README-embedded badge cannot afford to break with an HTTP 4xx."""
+    resp = test_client.get("/api/badge", params={"url": "http://localhost"})
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("image/svg+xml")
+    assert b"<svg" in resp.content
+    assert b">F" in resp.content or b"F\xc2\xb7" in resp.content or b"F &" in resp.content
+
+
+def test_badge_endpoint_returns_svg_with_caching(test_client):
+    """Badge endpoint returns SVG with a sensible Cache-Control header."""
+    # Use an unsafe URL to keep the test hermetic — we still get a valid SVG,
+    # just with the failure-mode F.
+    resp = test_client.get("/api/badge", params={"url": "http://10.0.0.1"})
+    assert resp.status_code == 200
+    assert "image/svg+xml" in resp.headers["content-type"]
+    assert resp.headers.get("cache-control")
+    assert b"<svg" in resp.content
+    assert b"</svg>" in resp.content
