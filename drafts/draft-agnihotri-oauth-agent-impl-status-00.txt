@@ -170,7 +170,7 @@ Agnihotri               Expires 14 December 2026                [Page 3]
 Internet-Draft           Agent OAuth Impl Status               June 2026
 
 
-   *  Contact: dhruv@authgent.dev (mailto:dhruv@authgent.dev)
+   *  Contact: dagni@umich.edu (mailto:dagni@umich.edu)
 
 4.2.  Coverage map
 
@@ -423,7 +423,7 @@ Author's Address
 
    Dhruv Agnihotri
    Independent
-   Email: dhruv@authgent.dev
+   Email: dagni@umich.edu
 
 
 

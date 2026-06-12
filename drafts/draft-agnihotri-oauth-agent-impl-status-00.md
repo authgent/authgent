@@ -17,7 +17,7 @@ author:
   -
     fullname: Dhruv Agnihotri
     organization: Independent
-    email: dhruv@authgent.dev
+    email: dagni@umich.edu
 normative:
   I-D.draft-ietf-oauth-identity-chaining-14:
   I-D.draft-ietf-oauth-transaction-tokens-08:
@@ -94,7 +94,7 @@ when, and only when, they appear in all capitals, as shown here.
 - License: Apache 2.0
 - Maturity: production-deployed; 476 tests; 83% coverage; live demo
   at <https://authgent-demo.dhruvagnihotri.com>.
-- Contact: <dhruv@authgent.dev>
+- Contact: <dagni@umich.edu>
 
 ## Coverage map
 
