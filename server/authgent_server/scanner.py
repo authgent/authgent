@@ -294,15 +294,18 @@ async def check_pkce_drift(client: httpx.AsyncClient, as_meta: dict) -> list[Fin
                     check_id="MCP-PKCE-002",
                     severity="error",
                     tier="spec_required",
-                    title="PKCE method not validated at /authorize",
+                    title="PKCE method not enforced at /authorize (advertise-vs-enforce drift)",
                     detail=(
                         f"GET /authorize with code_challenge_method=plain returned "
                         f"HTTP {resp.status_code} without naming the method in the "
-                        "error response. OAuth 2.1 forbids 'plain'; an AS that "
-                        "advertises only 'S256' but doesn't reject 'plain' at the "
-                        "endpoint matches the Obsidian Jan 2026 disclosure pattern."
+                        "error response. OAuth 2.1 forbids 'plain' (RFC 7636). "
+                        "When metadata advertises 'S256' only but the endpoint "
+                        "accepts 'plain', the server has the advertise-vs-enforce "
+                        "sub-variant of the known PKCE-downgrade family (CWE-757; "
+                        "OAuch BCP_4_8; Better-Auth GHSA-9h47-pqcx-hjr4). See "
+                        "https://github.com/authgent/authgent/blob/main/docs/attacks/pkce-drift.md"
                     ),
-                    spec_link="https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1",
+                    spec_link="https://github.com/authgent/authgent/blob/main/docs/attacks/pkce-drift.md",
                     remediation=(
                         "Validate code_challenge_method at /authorize and reject "
                         "any value other than S256 with error=invalid_request."
