@@ -24,23 +24,25 @@ normative:
 --- abstract
 
 This document reports an open-source implementation of two WG-track OAuth
-drafts: `draft-ietf-oauth-identity-chaining-14` (cross-domain identity
-chaining) and `draft-ietf-oauth-transaction-tokens-08` (transaction
-tokens). It maps every normative section of each draft to the corresponding
-source location in the implementation, identifies one ambiguity surfaced
-during implementation, and offers the implementation as an interop partner
-for any WG-adopted draft revision.
+drafts on cross-domain identity chaining and transaction tokens. It maps
+every normative section of each draft to the corresponding source location
+in the implementation, identifies one ambiguity surfaced during
+implementation, and offers the implementation as an interop partner for
+any WG-adopted draft revision.
 
-The intent is to give the editors of both drafts material they can include
-in an Implementation Status appendix without further work on their part.
+The intent is to give the editors of both drafts material they can
+publish under RFC 7942 guidelines without further work on their part.
 
 --- middle
 
-# Status of This Memo
+# Introduction
 
-This section is to be removed before publishing as an RFC.
+## Implementation Status Note
 
-This section records the status of known implementations of the
+This section, and the per-draft Implementation sections that follow,
+are to be removed before publishing as an RFC.
+
+This document records the status of known implementations of the
 protocols defined by {{I-D.ietf-oauth-identity-chaining}} and
 {{I-D.ietf-oauth-transaction-tokens}} at the time of posting of
 this Internet-Draft, in accordance with the guidelines in {{!RFC7942}}.
@@ -61,7 +63,7 @@ experimentation and feedback that have made the implemented protocols
 more mature. It is up to the individual working groups to use this
 information as they see fit".
 
-# Introduction
+## Background
 
 Two WG-track OAuth drafts that currently lack listed implementations:
 
@@ -77,13 +79,13 @@ and is published as `authgent-server` on PyPI.
 The implementation tracks the drafts at the revision in the title; this
 document will be revised when a successor draft of either is published.
 
-# Conventions
+# Conventions and Definitions
 
-The key words "**MUST**", "**MUST NOT**", "**REQUIRED**", "**SHALL**",
-"**SHALL NOT**", "**SHOULD**", "**SHOULD NOT**", "**RECOMMENDED**",
-"**NOT RECOMMENDED**", "**MAY**", and "**OPTIONAL**" in this document
-are to be interpreted as described in BCP 14 {{!RFC2119}} {{!RFC8174}}
-when, and only when, they appear in all capitals, as shown here.
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+"SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+"OPTIONAL" in this document are to be interpreted as described in
+BCP 14 {{!RFC2119}} {{!RFC8174}} when, and only when, they appear in
+all capitals, as shown here.
 
 # Implementation: identity-chaining
 
@@ -92,8 +94,8 @@ when, and only when, they appear in all capitals, as shown here.
 - Project: authgent
 - Repository: <https://github.com/authgent/authgent>
 - License: Apache 2.0
-- Maturity: production-deployed; 476 tests; 83% coverage; live demo
-  at <https://authgent-demo.dhruvagnihotri.com>.
+- Maturity: production-deployed; 476 tests; 83% coverage. A live
+  demo URL is published at the repository link above.
 - Contact: <dagni@umich.edu>
 
 ## Coverage map

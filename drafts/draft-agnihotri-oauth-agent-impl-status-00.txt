@@ -14,17 +14,15 @@ Implementation Status of OAuth Identity Chaining and Transaction Tokens
 Abstract
 
    This document reports an open-source implementation of two WG-track
-   OAuth drafts: draft-ietf-oauth-identity-chaining-14 (cross-domain
-   identity chaining) and draft-ietf-oauth-transaction-tokens-08
-   (transaction tokens).  It maps every normative section of each draft
-   to the corresponding source location in the implementation,
-   identifies one ambiguity surfaced during implementation, and offers
-   the implementation as an interop partner for any WG-adopted draft
+   OAuth drafts on cross-domain identity chaining and transaction
+   tokens.  It maps every normative section of each draft to the
+   corresponding source location in the implementation, identifies one
+   ambiguity surfaced during implementation, and offers the
+   implementation as an interop partner for any WG-adopted draft
    revision.
 
    The intent is to give the editors of both drafts material they can
-   include in an Implementation Status appendix without further work on
-   their part.
+   publish under RFC 7942 guidelines without further work on their part.
 
 Status of This Memo
 
@@ -48,8 +46,10 @@ Copyright Notice
    Copyright (c) 2026 IETF Trust and the persons identified as the
    document authors.  All rights reserved.
 
-
-
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents (https://trustee.ietf.org/
+   license-info) in effect on the date of publication of this document.
+   Please review these documents carefully, as they describe your rights
 
 
 
@@ -58,10 +58,6 @@ Agnihotri               Expires 14 December 2026                [Page 1]
 Internet-Draft           Agent OAuth Impl Status               June 2026
 
 
-   This document is subject to BCP 78 and the IETF Trust's Legal
-   Provisions Relating to IETF Documents (https://trustee.ietf.org/
-   license-info) in effect on the date of publication of this document.
-   Please review these documents carefully, as they describe your rights
    and restrictions with respect to this document.  Code Components
    extracted from this document must include Revised BSD License text as
    described in Section 4.e of the Trust Legal Provisions and are
@@ -69,30 +65,34 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
 
 Table of Contents
 
-   1.  Status of This Memo . . . . . . . . . . . . . . . . . . . . .   2
-   2.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3
-   3.  Conventions . . . . . . . . . . . . . . . . . . . . . . . . .   3
-   4.  Implementation: identity-chaining . . . . . . . . . . . . . .   3
-     4.1.  Implementer . . . . . . . . . . . . . . . . . . . . . . .   3
-     4.2.  Coverage map  . . . . . . . . . . . . . . . . . . . . . .   4
-     4.3.  Editorial observation . . . . . . . . . . . . . . . . . .   5
-   5.  Implementation: transaction-tokens  . . . . . . . . . . . . .   5
-     5.1.  Coverage map  . . . . . . . . . . . . . . . . . . . . . .   5
-   6.  Implementation Notes  . . . . . . . . . . . . . . . . . . . .   6
-     6.1.  Scanner . . . . . . . . . . . . . . . . . . . . . . . . .   6
-     6.2.  Calibration . . . . . . . . . . . . . . . . . . . . . . .   6
-   7.  Interoperability  . . . . . . . . . . . . . . . . . . . . . .   6
-   8.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .   7
-   9.  Security Considerations . . . . . . . . . . . . . . . . . . .   7
-   10. Normative References  . . . . . . . . . . . . . . . . . . . .   7
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   2
+     1.1.  Implementation Status Note  . . . . . . . . . . . . . . .   2
+     1.2.  Background  . . . . . . . . . . . . . . . . . . . . . . .   3
+   2.  Conventions and Definitions . . . . . . . . . . . . . . . . .   3
+   3.  Implementation: identity-chaining . . . . . . . . . . . . . .   3
+     3.1.  Implementer . . . . . . . . . . . . . . . . . . . . . . .   3
+     3.2.  Coverage map  . . . . . . . . . . . . . . . . . . . . . .   4
+     3.3.  Editorial observation . . . . . . . . . . . . . . . . . .   5
+   4.  Implementation: transaction-tokens  . . . . . . . . . . . . .   5
+     4.1.  Coverage map  . . . . . . . . . . . . . . . . . . . . . .   5
+   5.  Implementation Notes  . . . . . . . . . . . . . . . . . . . .   6
+     5.1.  Scanner . . . . . . . . . . . . . . . . . . . . . . . . .   6
+     5.2.  Calibration . . . . . . . . . . . . . . . . . . . . . . .   6
+   6.  Interoperability  . . . . . . . . . . . . . . . . . . . . . .   6
+   7.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .   7
+   8.  Security Considerations . . . . . . . . . . . . . . . . . . .   7
+   9.  Normative References  . . . . . . . . . . . . . . . . . . . .   7
    Appendix A.  Acknowledgments  . . . . . . . . . . . . . . . . . .   8
    Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .   8
 
-1.  Status of This Memo
+1.  Introduction
 
-   This section is to be removed before publishing as an RFC.
+1.1.  Implementation Status Note
 
-   This section records the status of known implementations of the
+   This section, and the per-draft Implementation sections that follow,
+   are to be removed before publishing as an RFC.
+
+   This document records the status of known implementations of the
    protocols defined by [I-D.ietf-oauth-identity-chaining] and
    [I-D.ietf-oauth-transaction-tokens] at the time of posting of this
    Internet-Draft, in accordance with the guidelines in [RFC7942].  The
@@ -121,7 +121,7 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
    It is up to the individual working groups to use this information as
    they see fit".
 
-2.  Introduction
+1.2.  Background
 
    Two WG-track OAuth drafts that currently lack listed implementations:
 
@@ -140,17 +140,17 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
    this document will be revised when a successor draft of either is
    published.
 
-3.  Conventions
+2.  Conventions and Definitions
 
-   The key words "*MUST*", "*MUST NOT*", "*REQUIRED*", "*SHALL*",
-   "*SHALL NOT*", "*SHOULD*", "*SHOULD NOT*", "*RECOMMENDED*", "*NOT
-   RECOMMENDED*", "*MAY*", and "*OPTIONAL*" in this document are to be
-   interpreted as described in BCP 14 [RFC2119] [RFC8174] when, and only
-   when, they appear in all capitals, as shown here.
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+   "OPTIONAL" in this document are to be interpreted as described in BCP
+   14 [RFC2119] [RFC8174] when, and only when, they appear in all
+   capitals, as shown here.
 
-4.  Implementation: identity-chaining
+3.  Implementation: identity-chaining
 
-4.1.  Implementer
+3.1.  Implementer
 
    *  Project: authgent
 
@@ -159,9 +159,9 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
 
    *  License: Apache 2.0
 
-   *  Maturity: production-deployed; 476 tests; 83% coverage; live demo
-      at https://authgent-demo.dhruvagnihotri.com (https://authgent-
-      demo.dhruvagnihotri.com).
+   *  Maturity: production-deployed; 476 tests; 83% coverage.  A live
+      demo URL is published at the repository link above.
+
 
 
 
@@ -172,7 +172,7 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
 
    *  Contact: dagni@umich.edu (mailto:dagni@umich.edu)
 
-4.2.  Coverage map
+3.2.  Coverage map
 
    Section 2.1 (Overview / sequence)  Implemented in services/
       token_service.py functions _issue_chaining_grant and
@@ -236,7 +236,7 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
    Test surface: server/tests/test_identity_chaining.py (17 tests, named
    after the spec sections they exercise).
 
-4.3.  Editorial observation
+3.3.  Editorial observation
 
    Section 2.5 ("Claims Transcription") permits the Domain-A
    authorization server to add, remove, or change claims, but is silent
@@ -254,9 +254,9 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
    when sub is unresolvable, but (2) is also defensible.  Editorial
    guidance in a future revision would help interop.
 
-5.  Implementation: transaction-tokens
+4.  Implementation: transaction-tokens
 
-5.1.  Coverage map
+4.1.  Coverage map
 
    Section 3 (token type URN)  TXN_TOKEN_TYPE constant.
 
@@ -292,9 +292,9 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
 
    Test surface: server/tests/test_transaction_tokens.py (8 tests).
 
-6.  Implementation Notes
+5.  Implementation Notes
 
-6.1.  Scanner
+5.1.  Scanner
 
    The implementation also publishes an open-source conformance scanner
    that audits any deployed MCP authorization server against the
@@ -312,7 +312,7 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
    specifically; the scanner does not claim to originate the underlying
    attack class.
 
-6.2.  Calibration
+5.2.  Calibration
 
    The implementation publishes a calibration set
    (https://github.com/authgent/authgent/blob/main/docs/calibration.md
@@ -322,7 +322,7 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
    advertised; PRM missing; implicit grant advertised; DCR-mirror
    critical) so weight changes can't drift silently.
 
-7.  Interoperability
+6.  Interoperability
 
    The implementer offers interop testing against any other
    implementation of either draft.  Contact the address in the front
@@ -338,11 +338,11 @@ Agnihotri               Expires 14 December 2026                [Page 6]
 Internet-Draft           Agent OAuth Impl Status               June 2026
 
 
-8.  IANA Considerations
+7.  IANA Considerations
 
    This document requests no IANA actions.
 
-9.  Security Considerations
+8.  Security Considerations
 
    This document is informational and reports the existence of an
    implementation.  The security considerations of the protocols
@@ -364,7 +364,7 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
    inspected for adherence to these considerations at the URLs given in
    the Implementation sections.
 
-10.  Normative References
+9.  Normative References
 
    [I-D.ietf-oauth-identity-chaining]
               Schwenkschuster, A., Kasselman, P., Burgin, K., Jenkins,
