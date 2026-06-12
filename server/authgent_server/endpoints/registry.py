@@ -29,8 +29,8 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from authgent_server.endpoints.scan import _grade, _is_safe_url
-from authgent_server.scanner import Finding, scan
+from authgent_server.endpoints.scan import _bounded_scan, _grade, _is_safe_url
+from authgent_server.scanner import Finding
 
 router = APIRouter(tags=["registry"])
 
@@ -116,9 +116,18 @@ _PER_TARGET_TIMEOUT = 12.0
 
 
 async def _scan_one(url: str) -> _CacheEntry | None:
-    """Scan a single target with a tight timeout. Returns None on failure."""
+    """Scan a single target with a tight timeout. Returns None on failure.
+
+    Goes through the global ``_bounded_scan`` semaphore so an 8-target
+    parallel registry refresh cannot crowd out a user-initiated /api/scan
+    on the same worker.
+    """
     try:
-        findings = await asyncio.wait_for(scan(url), timeout=_PER_TARGET_TIMEOUT)
+        findings = await _bounded_scan(
+            url,
+            timeout=_PER_TARGET_TIMEOUT,
+            probe_registrations=False,
+        )
     except (TimeoutError, Exception):
         return None
     grade, score = _grade(findings)

@@ -62,3 +62,10 @@ examples/pipeline/.agents.json
 # stay on disk but never get committed.
 OUTREACH.md
 docs/internal/
+
+# Disclosure-window data: the list of MCP servers being scanned during
+# an active responsible-disclosure window, and the per-vendor scan
+# outputs, MUST NOT be checked in. Anonymised aggregate counts go into
+# docs/attacks/*.md after the window closes.
+tools/disclosure-targets.json
+tools/scan-results/

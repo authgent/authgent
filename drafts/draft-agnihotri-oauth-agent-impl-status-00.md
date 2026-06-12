@@ -70,7 +70,7 @@ BCP 14.
 - Project: authgent
 - Repository: <https://github.com/authgent/authgent>
 - License: Apache 2.0
-- Maturity: production-deployed; 467 tests; 82% coverage; live demo
+- Maturity: production-deployed; 476 tests; 83% coverage; live demo
   at <https://authgent-demo.dhruvagnihotri.com>.
 - Contact: <dhruv@authgent.dev>
 
@@ -145,7 +145,12 @@ runs the same code path as the implementation's CI test suite, so
 tests" produce the same answer.
 
 The scanner is available at `<https://authgent.github.io/authgent/scan/>`
-and as a CLI (`authgent-server lint <url>`).
+and as a CLI (`authgent-server lint <url>`). Scanner check `MCP-PKCE-002`
+operationalises the advertise-vs-enforce sub-variant of the known
+PKCE-downgrade family (OAuch BCP_4_8; Authentik CVE-2024-23647;
+Better-Auth GHSA-9h47-pqcx-hjr4) for MCP-OAuth deployments
+specifically; the scanner does not claim to originate the underlying
+attack class.
 
 ## Calibration
 

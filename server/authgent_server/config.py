@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     # Rate limiting
     token_rate_limit: int = 100
     register_rate_limit: int = 10
+    # Per-IP per-minute caps on the public scanner endpoints. The scanner
+    # makes outbound HTTP, so an unrate-limited /api/scan endpoint is the
+    # easiest way to saturate the event loop with slow targets. Badge
+    # endpoint is cheaper (cached SVG) so it gets a higher cap to keep
+    # README-embedded badges responsive.
+    scan_rate_limit: int = 30
+    badge_rate_limit: int = 120
 
     # Webhook delivery (HITL step-up notifications)
     webhook_url: str | None = None

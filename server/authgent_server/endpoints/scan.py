@@ -8,6 +8,7 @@ by the existing :class:`RateLimitMiddleware`.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import asdict
 from typing import Literal
 from urllib.parse import urlparse
@@ -23,6 +24,49 @@ from authgent_server.scanner import (
 )
 
 router = APIRouter(tags=["scan"])
+
+# Caps the number of concurrent outbound scans across every public scan
+# surface (/api/scan, /api/badge, /api/scan/cached, /api/registry). One
+# scan can make 6+ outbound HTTP requests against a remote target and
+# wait up to ~10s on a slow path; without a global cap, a burst of slow
+# targets saturates the event loop and starves /token, /authorize, and
+# the OAuth core. 8 keeps the scanner snappy under normal load while
+# refusing to enqueue work the worker cannot service.
+_SCAN_CONCURRENCY_LIMIT = 8
+_scan_semaphore: asyncio.Semaphore | None = None
+
+
+def _get_semaphore() -> asyncio.Semaphore:
+    """Lazy-init so the semaphore binds to the running loop, not import time."""
+    global _scan_semaphore
+    if _scan_semaphore is None:
+        _scan_semaphore = asyncio.Semaphore(_SCAN_CONCURRENCY_LIMIT)
+    return _scan_semaphore
+
+
+# Outer wall-clock budgets. The scanner's per-request httpx timeout is
+# 10s; these are the max we'll wait for the *whole* scan to finish.
+# Badge is tighter because the caller is rendering an <img> in a README
+# and timing out is preferable to blocking page load. /api/scan and
+# /api/scan/cached can take longer because they're user-initiated.
+_BADGE_TOTAL_TIMEOUT = 6.0
+_SCAN_TOTAL_TIMEOUT = 10.0
+
+
+async def _bounded_scan(url: str, *, timeout: float, probe_registrations: bool) -> list[Finding]:
+    """Run scan() under the global concurrency cap and an outer wall-clock budget.
+
+    Raises asyncio.TimeoutError if the scan can't acquire the semaphore
+    AND finish within ``timeout``. Callers translate that into a sensible
+    HTTP response (502 for /api/scan, F-grade SVG for /api/badge).
+    """
+    sem = _get_semaphore()
+
+    async def _run() -> list[Finding]:
+        async with sem:
+            return await scan(url, probe_registrations=probe_registrations)
+
+    return await asyncio.wait_for(_run(), timeout=timeout)
 
 
 class ScanResponse(BaseModel):
@@ -115,7 +159,19 @@ async def scan_endpoint(
     try:
         # Manual scan requested by a real user → run the full audit
         # including the DCR-mirror probe (two POST /register calls).
-        findings = await scan(url, probe_registrations=True)
+        findings = await _bounded_scan(
+            url,
+            timeout=_SCAN_TOTAL_TIMEOUT,
+            probe_registrations=True,
+        )
+    except TimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail=(
+                f"Scanner timed out after {_SCAN_TOTAL_TIMEOUT:.0f}s. The target may "
+                "be slow or rate-limiting the probe. Try again in a moment."
+            ),
+        ) from exc
     except Exception as exc:  # noqa: BLE001 — surface a friendly error
         raise HTTPException(
             status_code=502,
@@ -197,9 +253,16 @@ async def scan_badge(
             headers={"Cache-Control": "public, max-age=60"},
         )
     try:
-        findings = await scan(url)
+        findings = await _bounded_scan(
+            url,
+            timeout=_BADGE_TOTAL_TIMEOUT,
+            probe_registrations=False,
+        )
         grade, score = _grade(findings)
-    except Exception:  # noqa: BLE001 — never 500 on a badge endpoint
+    except (TimeoutError, Exception):  # noqa: BLE001 — never 500 on a badge endpoint
+        # Badge endpoints embed in READMEs; we cannot afford a 4xx/5xx.
+        # A timeout maps to "F · 0" so the badge renders something rather
+        # than breaking the README's image grid.
         grade, score = "F", 0
     return Response(
         content=_svg_badge(grade, score),

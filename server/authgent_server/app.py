@@ -256,6 +256,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         rate=settings.token_rate_limit,
         paths=["/token", "/register", "/agents"],
     )
+    # Public scanner surfaces: separate per-IP buckets so a Show HN spike
+    # or a bot scripting /api/badge?url= cannot saturate the event loop
+    # via outbound HTTP. /api/badge is cheaper (cached SVG) so it gets a
+    # higher cap; /api/scan invokes the full audit and is tighter.
+    app.add_middleware(
+        RateLimitMiddleware,
+        rate=settings.scan_rate_limit,
+        paths=["/api/scan", "/api/registry"],
+    )
+    app.add_middleware(
+        RateLimitMiddleware,
+        rate=settings.badge_rate_limit,
+        paths=["/api/badge"],
+    )
 
     # Routes
     app.include_router(api_router)

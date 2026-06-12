@@ -1,0 +1,29 @@
+{
+  "_README": [
+    "Schema for tools/disclosure-targets.json — the active disclosure-window",
+    "target list. The actual file is gitignored and lives only on the maintainer's",
+    "machine until the disclosure window closes.",
+    "",
+    "Each target has a public MCP-server URL plus a security contact, sourced from",
+    "the vendor's /.well-known/security.txt or their published security page.",
+    "",
+    "Population order:",
+    "  1. modelcontextprotocol/servers org + the homepage registry list",
+    "  2. punkpeye/awesome-mcp-servers community list",
+    "  3. Vendor MCP announcements (Atlassian, Notion, Cloudflare, Linear, ...)",
+    "  4. GitHub code search for 'oauth-protected-resource' on *.mcp.* hosts",
+    "",
+    "Anything that fails GET /.well-known/oauth-protected-resource gets dropped",
+    "before the scan; we never publish 'this URL doesn't host an MCP server'."
+  ],
+  "targets": [
+    {
+      "name": "Example Vendor MCP",
+      "url": "https://mcp.example.com",
+      "vendor": "ExampleCo",
+      "security_contact": "security@example.com",
+      "security_txt": "https://example.com/.well-known/security.txt",
+      "notes": "Optional human-readable provenance — where the URL came from."
+    }
+  ]
+}
