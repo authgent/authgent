@@ -11,16 +11,16 @@
 
 <!ENTITY I-D.draft-ietf-oauth-identity-chaining-14 SYSTEM "https://bib.ietf.org/public/rfc/bibxml3/reference.I-D.draft-ietf-oauth-identity-chaining-14.xml">
 <!ENTITY I-D.draft-ietf-oauth-transaction-tokens-08 SYSTEM "https://bib.ietf.org/public/rfc/bibxml3/reference.I-D.draft-ietf-oauth-transaction-tokens-08.xml">
-<!ENTITY RFC8693 SYSTEM "https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8693.xml">
-<!ENTITY RFC7523 SYSTEM "https://bib.ietf.org/public/rfc/bibxml/reference.RFC.7523.xml">
+<!ENTITY RFC7942 SYSTEM "https://bib.ietf.org/public/rfc/bibxml/reference.RFC.7942.xml">
+<!ENTITY RFC2119 SYSTEM "https://bib.ietf.org/public/rfc/bibxml/reference.RFC.2119.xml">
+<!ENTITY RFC8174 SYSTEM "https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8174.xml">
 <!ENTITY RFC9449 SYSTEM "https://bib.ietf.org/public/rfc/bibxml/reference.RFC.9449.xml">
-<!ENTITY RFC9728 SYSTEM "https://bib.ietf.org/public/rfc/bibxml/reference.RFC.9728.xml">
 ]>
 
 
-<rfc ipr="trust200902" docName="draft-agnihotri-oauth-agent-impl-status-00" category="info">
+<rfc ipr="trust200902" docName="draft-agnihotri-oauth-agent-impl-status-00" category="info" submissionType="IETF">
   <front>
-    <title abbrev="Agent OAuth Impl Status">Implementation Status of draft-ietf-oauth-identity-chaining and draft-ietf-oauth-transaction-tokens</title>
+    <title abbrev="Agent OAuth Impl Status">Implementation Status of OAuth Identity Chaining and Transaction Tokens</title>
 
     <author fullname="Dhruv Agnihotri">
       <organization>Independent</organization>
@@ -29,7 +29,7 @@
       </address>
     </author>
 
-    <date year="2026" month="June" day="11"/>
+    <date year="2026" month="June" day="12"/>
 
     <area>Security</area>
     <workgroup>OAuth Working Group</workgroup>
@@ -38,7 +38,7 @@
     <abstract>
 
 
-<?line 28?>
+<?line 24?>
 
 <t>This document reports an open-source implementation of two WG-track OAuth
 drafts: <spanx style="verb">draft-ietf-oauth-identity-chaining-14</spanx> (cross-domain identity
@@ -62,8 +62,34 @@ in an Implementation Status appendix without further work on their part.</t>
   <middle>
 
 
-<?line 41?>
+<?line 37?>
 
+<section anchor="status-of-this-memo"><name>Status of This Memo</name>
+
+<t>This section is to be removed before publishing as an RFC.</t>
+
+<t>This section records the status of known implementations of the
+protocols defined by <xref target="I-D.ietf-oauth-identity-chaining"/> and
+<xref target="I-D.ietf-oauth-transaction-tokens"/> at the time of posting of
+this Internet-Draft, in accordance with the guidelines in <xref target="RFC7942"/>.
+The description of implementations in this section is intended to
+assist the IETF in its decision processes in progressing drafts to
+RFCs. Please note that the listing of any individual implementation
+here does not imply endorsement by the IETF. Furthermore, no effort
+has been spent to verify the information presented here that was
+supplied by IETF contributors. This is not intended as, and must not
+be construed to be, a catalog of available implementations or their
+features. Readers are advised to note that other implementations may
+exist.</t>
+
+<t>According to <xref target="RFC7942"/>, "this will allow reviewers and working
+groups to assign due consideration to documents that have the benefit
+of running code, which may serve as evidence of valuable
+experimentation and feedback that have made the implemented protocols
+more mature. It is up to the individual working groups to use this
+information as they see fit".</t>
+
+</section>
 <section anchor="introduction"><name>Introduction</name>
 
 <t>Two WG-track OAuth drafts that currently lack listed implementations:</t>
@@ -85,10 +111,11 @@ document will be revised when a successor draft of either is published.</t>
 </section>
 <section anchor="conventions"><name>Conventions</name>
 
-<t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
-"SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
-"OPTIONAL" in this document are to be interpreted as described in
-BCP 14.</t>
+<t>The key words "<strong>MUST</strong>", "<strong>MUST NOT</strong>", "<strong>REQUIRED</strong>", "<strong>SHALL</strong>",
+"<strong>SHALL NOT</strong>", "<strong>SHOULD</strong>", "<strong>SHOULD NOT</strong>", "<strong>RECOMMENDED</strong>",
+"<strong>NOT RECOMMENDED</strong>", "<strong>MAY</strong>", and "<strong>OPTIONAL</strong>" in this document
+are to be interpreted as described in BCP 14 <xref target="RFC2119"/> <xref target="RFC8174"/>
+when, and only when, they appear in all capitals, as shown here.</t>
 
 </section>
 <section anchor="implementation-identity-chaining"><name>Implementation: identity-chaining</name>
@@ -107,56 +134,78 @@ at <eref target="https://authgent-demo.dhruvagnihotri.com">https://authgent-demo
 </section>
 <section anchor="coverage-map"><name>Coverage map</name>
 
-<texttable>
-      <ttcol align='left'>Spec section</ttcol>
-      <ttcol align='left'>Implemented</ttcol>
-      <ttcol align='left'>Source</ttcol>
-      <c>§2.1 Overview / sequence</c>
-      <c>Yes</c>
-      <c><spanx style="verb">services/token_service.py:_issue_chaining_grant</spanx>, <spanx style="verb">services/token_service.py:_handle_jwt_bearer</spanx></c>
-      <c>§2.2 Discovery via RFC 9728 PRM</c>
-      <c>Yes</c>
-      <c><spanx style="verb">endpoints/wellknown.py</spanx></c>
-      <c>§2.3.1 Token Exchange request</c>
-      <c>Yes</c>
-      <c><spanx style="verb">services/token_service.py:_handle_token_exchange</spanx> (branches on <spanx style="verb">requested_token_type=jwt</spanx>)</c>
-      <c>§2.3.1 audience or resource REQUIRED</c>
-      <c>Yes</c>
-      <c>enforced; raises <spanx style="verb">InvalidRequest</spanx></c>
-      <c>§2.3.2 Policy: deny invalid/policy-rejected; AS may add/remove/change claims</c>
-      <c>Yes</c>
-      <c><spanx style="verb">trusted_chaining_targets</spanx> allowlist; <spanx style="verb">services/claims_transcription.py</spanx> (pluggable)</c>
-      <c>§2.3.3 <spanx style="verb">aud</spanx> MUST identify Domain B</c>
-      <c>Yes</c>
-      <c>claim built directly from <spanx style="verb">audience_target</spanx></c>
-      <c>§2.4.1 <spanx style="verb">urn:ietf:params:oauth:grant-type:jwt-bearer</spanx></c>
-      <c>Yes</c>
-      <c><spanx style="verb">JWT_BEARER_GRANT</spanx> constant + handler dispatch</c>
-      <c>§2.4.2 RFC 7523 §§3, 3.1 validation</c>
-      <c>Yes</c>
-      <c><spanx style="verb">services/chaining_verifier.py:verify_assertion</spanx></c>
-      <c>§2.5 Claims transcription</c>
-      <c>Yes</c>
-      <c><spanx style="verb">services/claims_transcription.py</spanx> ships <spanx style="verb">preserve_sub</spanx> (default) and <spanx style="verb">minimize</spanx> policies; pluggable Protocol</c>
-      <c>§3 Metadata field <spanx style="verb">identity_chaining_requested_token_types_supported</spanx></c>
-      <c>Yes</c>
-      <c><spanx style="verb">endpoints/wellknown.py</spanx></c>
-      <c>§5.1 Client authentication</c>
-      <c>Inherited</c>
-      <c><spanx style="verb">client_secret_post</spanx> / <spanx style="verb">client_secret_basic</spanx></c>
-      <c>§5.2 Sender constraining (DPoP)</c>
-      <c>Yes</c>
-      <c>DPoP <spanx style="verb">cnf.jkt</spanx> is preserved into the Domain-B access token</c>
-      <c>§5.3 Authorized use of subject_token</c>
-      <c>Yes</c>
-      <c><spanx style="verb">verify_and_check_blocklist</spanx> checks revocation before mint</c>
-      <c>§5.4 SHOULD NOT issue refresh tokens</c>
-      <c>Yes</c>
-      <c><spanx style="verb">_handle_jwt_bearer</spanx> deliberately omits refresh issuance</c>
-      <c>§5.5 short-lived; single-use</c>
-      <c>Yes</c>
-      <c><spanx style="verb">chaining_grant_ttl</spanx> defaults to 60s; assertion <spanx style="verb">jti</spanx> is added to <spanx style="verb">token_blocklist</spanx> with <spanx style="verb">reason="chaining_grant_consumed"</spanx> on consumption; reuse rejected</c>
-</texttable>
+<dl>
+  <dt>Section 2.1 (Overview / sequence)</dt>
+  <dd>
+    <t>Implemented in <spanx style="verb">services/token_service.py</spanx> functions
+<spanx style="verb">_issue_chaining_grant</spanx> and <spanx style="verb">_handle_jwt_bearer</spanx>.</t>
+  </dd>
+  <dt>Section 2.2 (Discovery via RFC 9728 PRM)</dt>
+  <dd>
+    <t>Implemented in <spanx style="verb">endpoints/wellknown.py</spanx>.</t>
+  </dd>
+  <dt>Section 2.3.1 (Token Exchange request)</dt>
+  <dd>
+    <t>Implemented in <spanx style="verb">services/token_service.py</spanx> function
+<spanx style="verb">_handle_token_exchange</spanx>, which branches on
+<spanx style="verb">requested_token_type=jwt</spanx>.</t>
+  </dd>
+  <dt>Section 2.3.1 (audience or resource REQUIRED)</dt>
+  <dd>
+    <t>Enforced; raises <spanx style="verb">InvalidRequest</spanx> when neither is present.</t>
+  </dd>
+  <dt>Section 2.3.2 (Policy and claims transformation)</dt>
+  <dd>
+    <t>Trust-domain policy via <spanx style="verb">trusted_chaining_targets</spanx> allowlist;
+claim transformation in <spanx style="verb">services/claims_transcription.py</spanx>
+(pluggable Protocol).</t>
+  </dd>
+  <dt>Section 2.3.3 (<spanx style="verb">aud</spanx> MUST identify Domain B)</dt>
+  <dd>
+    <t>The audience claim is built directly from <spanx style="verb">audience_target</spanx>.</t>
+  </dd>
+  <dt>Section 2.4.1 (<spanx style="verb">jwt-bearer</spanx> grant type URN)</dt>
+  <dd>
+    <t><spanx style="verb">JWT_BEARER_GRANT</spanx> constant plus handler dispatch.</t>
+  </dd>
+  <dt>Section 2.4.2 (RFC 7523 Sections 3 and 3.1 validation)</dt>
+  <dd>
+    <t>Implemented in <spanx style="verb">services/chaining_verifier.py</spanx> function
+<spanx style="verb">verify_assertion</spanx>.</t>
+  </dd>
+  <dt>Section 2.5 (Claims transcription)</dt>
+  <dd>
+    <t><spanx style="verb">services/claims_transcription.py</spanx> ships <spanx style="verb">preserve_sub</spanx> (default)
+and <spanx style="verb">minimize</spanx> policies via a pluggable Protocol.</t>
+  </dd>
+  <dt>Section 3 (Metadata field <spanx style="verb">identity_chaining_requested_token_types_supported</spanx>)</dt>
+  <dd>
+    <t>Advertised by <spanx style="verb">endpoints/wellknown.py</spanx>.</t>
+  </dd>
+  <dt>Section 5.1 (Client authentication)</dt>
+  <dd>
+    <t>Inherited; supports <spanx style="verb">client_secret_post</spanx> and <spanx style="verb">client_secret_basic</spanx>.</t>
+  </dd>
+  <dt>Section 5.2 (Sender constraining via DPoP)</dt>
+  <dd>
+    <t>The DPoP <spanx style="verb">cnf.jkt</spanx> value is preserved into the Domain-B access
+token.</t>
+  </dd>
+  <dt>Section 5.3 (Authorized use of subject_token)</dt>
+  <dd>
+    <t>Revocation check via <spanx style="verb">verify_and_check_blocklist</spanx> before mint.</t>
+  </dd>
+  <dt>Section 5.4 (SHOULD NOT issue refresh tokens)</dt>
+  <dd>
+    <t><spanx style="verb">_handle_jwt_bearer</spanx> deliberately omits refresh issuance.</t>
+  </dd>
+  <dt>Section 5.5 (short-lived; single-use)</dt>
+  <dd>
+    <t><spanx style="verb">chaining_grant_ttl</spanx> defaults to 60 seconds; the assertion <spanx style="verb">jti</spanx>
+is added to <spanx style="verb">token_blocklist</spanx> with reason
+<spanx style="verb">chaining_grant_consumed</spanx> on consumption; replay is rejected.</t>
+  </dd>
+</dl>
 
 <t>Test surface: <spanx style="verb">server/tests/test_identity_chaining.py</spanx> (17 tests, named
 after the spec sections they exercise).</t>
@@ -164,7 +213,7 @@ after the spec sections they exercise).</t>
 </section>
 <section anchor="editorial-observation"><name>Editorial observation</name>
 
-<t>§2.5 ("Claims Transcription") permits the Domain-A authorization server
+<t>Section 2.5 ("Claims Transcription") permits the Domain-A authorization server
 to add, remove, or change claims, but is silent on the case where the
 incoming <spanx style="verb">subject_token</spanx> carries no <spanx style="verb">sub</spanx> claim. Two reasonable
 interpretations exist:</t>
@@ -187,38 +236,47 @@ a future revision would help interop.</t>
 
 <section anchor="coverage-map-1"><name>Coverage map</name>
 
-<texttable>
-      <ttcol align='left'>Spec section</ttcol>
-      <ttcol align='left'>Implemented</ttcol>
-      <ttcol align='left'>Source</ttcol>
-      <c>§3 token type URN</c>
-      <c>Yes</c>
-      <c><spanx style="verb">TXN_TOKEN_TYPE</spanx> constant</c>
-      <c>§3 <spanx style="verb">typ</spanx> header <spanx style="verb">txntoken+jwt</spanx></c>
-      <c>Yes</c>
-      <c><spanx style="verb">_jwks.sign_jwt(claims, headers={"typ": "txntoken+jwt"})</spanx></c>
-      <c>§3 required claims <spanx style="verb">iat</spanx>, <spanx style="verb">aud</spanx>, <spanx style="verb">exp</spanx>, <spanx style="verb">txn</spanx>, <spanx style="verb">sub</spanx>, <spanx style="verb">scope</spanx>, <spanx style="verb">req_wl</spanx></c>
-      <c>Yes</c>
-      <c>built in <spanx style="verb">_issue_transaction_token</spanx></c>
-      <c>§3 optional <spanx style="verb">tctx</spanx> (immutable transaction context)</c>
-      <c>Yes</c>
-      <c>from <spanx style="verb">request_details</spanx> form param</c>
-      <c>§3 optional <spanx style="verb">rctx</spanx> (requester context) with auto <spanx style="verb">req_ip</spanx>, <spanx style="verb">authn</spanx></c>
-      <c>Yes</c>
-      <c>composed in <spanx style="verb">_issue_transaction_token</spanx></c>
-      <c>§3 response <spanx style="verb">issued_token_type=...:txn_token</spanx>, <spanx style="verb">token_type=N_A</spanx></c>
-      <c>Yes</c>
-      <c>hardcoded</c>
-      <c>§7 short-lived</c>
-      <c>Yes</c>
-      <c><spanx style="verb">txn_token_ttl</spanx> defaults to 120s</c>
-      <c>§7.2 scope MUST NOT exceed subject_token</c>
-      <c>Yes</c>
-      <c>inline <spanx style="verb">requested.issubset(parent_scopes)</spanx> check; raises <spanx style="verb">AccessDenied</spanx></c>
-      <c>§11 no refresh tokens</c>
-      <c>Yes</c>
-      <c>response omits <spanx style="verb">refresh_token</spanx></c>
-</texttable>
+<dl>
+  <dt>Section 3 (token type URN)</dt>
+  <dd>
+    <t><spanx style="verb">TXN_TOKEN_TYPE</spanx> constant.</t>
+  </dd>
+  <dt>Section 3 (<spanx style="verb">typ</spanx> header <spanx style="verb">txntoken+jwt</spanx>)</dt>
+  <dd>
+    <t>Set via <spanx style="verb">_jwks.sign_jwt(claims, headers={"typ": "txntoken+jwt"})</spanx>.</t>
+  </dd>
+  <dt>Section 3 (required claims)</dt>
+  <dd>
+    <t><spanx style="verb">iat</spanx>, <spanx style="verb">aud</spanx>, <spanx style="verb">exp</spanx>, <spanx style="verb">txn</spanx>, <spanx style="verb">sub</spanx>, <spanx style="verb">scope</spanx>, and <spanx style="verb">req_wl</spanx>
+are all built in <spanx style="verb">_issue_transaction_token</spanx>.</t>
+  </dd>
+  <dt>Section 3 (optional <spanx style="verb">tctx</spanx> immutable transaction context)</dt>
+  <dd>
+    <t>Carried from the <spanx style="verb">request_details</spanx> form parameter.</t>
+  </dd>
+  <dt>Section 3 (optional <spanx style="verb">rctx</spanx> requester context)</dt>
+  <dd>
+    <t>Composed in <spanx style="verb">_issue_transaction_token</spanx> with auto-derived
+<spanx style="verb">req_ip</spanx> and <spanx style="verb">authn</spanx>.</t>
+  </dd>
+  <dt>Section 3 (response <spanx style="verb">issued_token_type=...:txn_token</spanx>, <spanx style="verb">token_type=N_A</spanx>)</dt>
+  <dd>
+    <t>Hardcoded.</t>
+  </dd>
+  <dt>Section 7 (short-lived)</dt>
+  <dd>
+    <t><spanx style="verb">txn_token_ttl</spanx> defaults to 120 seconds.</t>
+  </dd>
+  <dt>Section 7.2 (scope MUST NOT exceed subject_token)</dt>
+  <dd>
+    <t>Inline <spanx style="verb">requested.issubset(parent_scopes)</spanx> check; raises
+<spanx style="verb">AccessDenied</spanx> on violation.</t>
+  </dd>
+  <dt>Section 11 (no refresh tokens)</dt>
+  <dd>
+    <t>Response omits <spanx style="verb">refresh_token</spanx>.</t>
+  </dd>
+</dl>
 
 <t>Test surface: <spanx style="verb">server/tests/test_transaction_tokens.py</spanx> (8 tests).</t>
 
@@ -270,9 +328,26 @@ GitHub issue at <eref target="https://github.com/authgent/authgent/issues">https
 </section>
 <section anchor="security-considerations"><name>Security Considerations</name>
 
-<t>This document reports the existence of an implementation; security
-considerations of the implemented protocols are addressed in the
-respective drafts.</t>
+<t>This document is informational and reports the existence of an
+implementation. The security considerations of the protocols
+implemented are addressed in the respective specifications:
+<xref target="I-D.ietf-oauth-identity-chaining"/> Section 5 and
+<xref target="I-D.ietf-oauth-transaction-tokens"/> Section 11. In particular,
+implementers should review:</t>
+
+<t><list style="symbols">
+  <t>Section 5.1-5.5 of identity-chaining-14: client authentication at both
+Domain A and Domain B, sender-constraining via DPoP <xref target="RFC9449"/>,
+authorized use of subject_token, and short-lived single-use
+semantics for the JWT authorization grant.</t>
+  <t>Section 11 of transaction-tokens-08: short-lived TT-tokens, scope
+reduction relative to the subject_token (Section 7.2), and the
+no-refresh-token requirement.</t>
+</list></t>
+
+<t>The reporting implementation discussed here is open source and may
+be inspected for adherence to these considerations at the URLs given
+in the Implementation sections.</t>
 
 </section>
 
@@ -282,38 +357,34 @@ respective drafts.</t>
   <back>
 
 
-<references title='References' anchor="sec-combined-references">
 
     <references title='Normative References' anchor="sec-normative-references">
 
 &I-D.draft-ietf-oauth-identity-chaining-14;
 &I-D.draft-ietf-oauth-transaction-tokens-08;
-
-
-    </references>
-
-    <references title='Informative References' anchor="sec-informative-references">
-
-&RFC8693;
-&RFC7523;
+&RFC7942;
+&RFC2119;
+&RFC8174;
 &RFC9449;
-&RFC9728;
 
 
     </references>
 
-</references>
 
 
-<?line 180?>
+
+<?line 272?>
 
 <section anchor="acknowledgments"><name>Acknowledgments</name>
 
-<t>Thanks to the editors of <spanx style="verb">draft-ietf-oauth-identity-chaining</spanx> (Arndt
-Schwenkschuster, Pieter Kasselman, Kelley Burgin, Michael Jenkins,
-Brian Campbell, Aaron Parecki) and <spanx style="verb">draft-ietf-oauth-transaction-tokens</spanx>
-(Atul Tulshibagwale, George Fletcher, Pieter Kasselman) for the
-specifications this document reports on.</t>
+<t>Thanks to the editors of <spanx style="verb">draft-ietf-oauth-identity-chaining-14</spanx> -
+Arndt Schwenkschuster (Defakto Security), Pieter Kasselman (Defakto
+Security), Kelley Burgin (MITRE), Michael Jenkins (NSA-CCSS), Brian
+Campbell (Ping Identity), and Aaron Parecki (Okta) - and the editors
+of <spanx style="verb">draft-ietf-oauth-transaction-tokens-08</spanx> - Atul Tulshibagwale
+(CrowdStrike), George Fletcher (Practical Identity LLC), and Pieter
+Kasselman (Defakto Security) - for the specifications this document
+reports on.</t>
 
 </section>
 
@@ -321,86 +392,107 @@ specifications this document reports on.</t>
   </back>
 
 <!-- ##markdown-source:
-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
+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
 
 -->
 
