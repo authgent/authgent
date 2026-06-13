@@ -8,6 +8,13 @@ authors:
 license: Apache-2.0
 repository-code: "https://github.com/authgent/authgent"
 url: "https://github.com/authgent/authgent"
+identifiers:
+  - type: other
+    value: "draft-agnihotri-oauth-agent-impl-status-00"
+    description: "IETF Internet-Draft documenting authgent as the reference implementation of draft-ietf-oauth-identity-chaining-14 and draft-ietf-oauth-transaction-tokens-08, posted 2026-06-12."
+  - type: url
+    value: "https://datatracker.ietf.org/doc/draft-agnihotri-oauth-agent-impl-status/"
+    description: "IETF Datatracker page for the Implementation Status I-D."
 abstract: >
   authgent is a self-hosted OAuth 2.1 authorization server for AI agents.
   It is the open-source reference implementation of
