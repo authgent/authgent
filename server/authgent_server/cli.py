@@ -1143,6 +1143,24 @@ def lint(
         "-f",
         help="Output format: human | json | github (workflow-command annotations).",
     ),
+    diff: str | None = typer.Option(
+        None,
+        "--diff",
+        help=(
+            "Path to a baseline JSON file (output of `lint -f json`). "
+            "Exit non-zero only on findings that are NEW since the baseline. "
+            "CI gate-on-regression mode."
+        ),
+    ),
+    save_baseline: str | None = typer.Option(
+        None,
+        "--save-baseline",
+        help=(
+            "Write the current findings to this path as JSON. Companion to "
+            "--diff: run once with --save-baseline=baseline.json, commit it, "
+            "then on every PR run with --diff=baseline.json."
+        ),
+    ),
 ) -> None:
     """MCP-OAuth conformance scanner.
 
@@ -1155,10 +1173,12 @@ def lint(
         authgent-server lint https://mcp.example.com
         authgent-server lint https://mcp.example.com -f json
         authgent-server lint https://mcp.example.com -f github > findings.txt
+        authgent-server lint https://mcp.example.com --save-baseline=baseline.json
+        authgent-server lint https://mcp.example.com --diff=baseline.json
     """
     from authgent_server.scanner import main_cli
 
-    rc = main_cli(url, fmt=fmt)
+    rc = main_cli(url, fmt=fmt, diff_baseline=diff, save_baseline=save_baseline)
     raise typer.Exit(code=rc)
 
 

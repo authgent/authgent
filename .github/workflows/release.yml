@@ -1,0 +1,201 @@
+name: Release
+
+# Triggered by a git tag of the form vMAJOR.MINOR.PATCH.
+# Builds + signs + publishes both PyPI packages and the npm package,
+# attaches CycloneDX SBOMs, and cuts a GitHub Release with everything.
+#
+# Authoritative process: https://docs.pypi.org/trusted-publishers/
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+
+  build-server:
+    name: Build authgent-server
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Read version from pyproject.toml
+        id: read
+        run: |
+          v=$(python -c "import tomllib,pathlib;print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - name: Verify tag matches pyproject version
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          PYPROJECT_VERSION: ${{ steps.read.outputs.version }}
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$tag" != "$PYPROJECT_VERSION" ]; then
+            echo "Tag $tag does not match pyproject version $PYPROJECT_VERSION" >&2
+            exit 1
+          fi
+      - run: pip install --upgrade build
+      - run: python -m build
+      - name: Generate CycloneDX SBOM (server)
+        uses: anchore/sbom-action@v0
+        with:
+          path: server
+          format: cyclonedx-json
+          artifact-name: authgent-server-sbom.cyclonedx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: authgent-server-dist
+          path: server/dist/
+
+  build-python-sdk:
+    name: Build authgent (Python SDK)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdks/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --upgrade build
+      - run: python -m build
+      - name: Generate CycloneDX SBOM (python sdk)
+        uses: anchore/sbom-action@v0
+        with:
+          path: sdks/python
+          format: cyclonedx-json
+          artifact-name: authgent-pysdk-sbom.cyclonedx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: authgent-python-sdk-dist
+          path: sdks/python/dist/
+
+  build-typescript-sdk:
+    name: Build authgent (TypeScript SDK)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdks/typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - run: npm run build
+      - run: npm pack
+      - uses: actions/upload-artifact@v4
+        with:
+          name: authgent-typescript-sdk-pack
+          path: sdks/typescript/*.tgz
+
+  publish-server:
+    name: Publish authgent-server to PyPI
+    needs: build-server
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi-server
+      url: https://pypi.org/project/authgent-server/
+    permissions:
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: authgent-server-dist
+          path: dist/
+      - name: Generate build provenance attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: 'dist/*'
+      - name: Sign with Sigstore
+        uses: sigstore/gh-action-sigstore-python@v3.0.0
+        with:
+          inputs: ./dist/*.whl ./dist/*.tar.gz
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-python-sdk:
+    name: Publish authgent (Python SDK) to PyPI
+    needs: build-python-sdk
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi-sdk
+      url: https://pypi.org/project/authgent/
+    permissions:
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: authgent-python-sdk-dist
+          path: dist/
+      - name: Generate build provenance attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: 'dist/*'
+      - name: Sign with Sigstore
+        uses: sigstore/gh-action-sigstore-python@v3.0.0
+        with:
+          inputs: ./dist/*.whl ./dist/*.tar.gz
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-typescript-sdk:
+    name: Publish authgent (TypeScript SDK) to npm
+    needs: build-typescript-sdk
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - working-directory: sdks/typescript
+        run: |
+          npm ci
+          npm run build
+          npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  github-release:
+    name: GitHub Release with artifacts + SBOMs
+    needs:
+      - publish-server
+      - publish-python-sdk
+      - publish-typescript-sdk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/authgent-server-dist/*
+            artifacts/authgent-python-sdk-dist/*
+            artifacts/authgent-typescript-sdk-pack/*
+            artifacts/authgent-server-sbom.cyclonedx.json/*
+            artifacts/authgent-pysdk-sbom.cyclonedx.json/*

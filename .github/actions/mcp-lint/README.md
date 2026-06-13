@@ -1,10 +1,11 @@
-# authgent MCP-Lint — GitHub Action
+# authgent MCP-OAuth Lint -- GitHub Action
 
-Lint your MCP server's OAuth conformance on every PR. Composite action
-that lives in the main authgent repo; reference it with the published
-release tag.
+Grade your MCP server's OAuth conformance on every PR. Composite action;
+reference it from the main authgent repo at a release tag, or use the
+mirrored standalone repo at `authgent/mcp-lint-action` once it is
+published to GitHub Marketplace.
 
-## Usage
+## Quick start
 
 ```yaml
 name: MCP auth lint
@@ -18,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Audit my MCP server
-        uses: authgent/authgent/.github/actions/mcp-lint@v0.2.1
+        uses: authgent/authgent/.github/actions/mcp-lint@v0.3.4
         with:
           url: https://staging.mcp.example.com
           fail-on: error    # info | warning | error | critical
@@ -27,6 +28,41 @@ jobs:
 The action installs `authgent-server` from PyPI, runs the same scanner
 exposed as `authgent-server lint`, and emits findings as workflow-command
 annotations so they appear inline in the PR's "Files changed" tab.
+
+## Gate on regressions only
+
+For a server that already has known findings you do not want to fix
+right now, commit a baseline file and only fail CI when NEW findings
+appear (the recommended mode):
+
+```yaml
+- uses: authgent/authgent/.github/actions/mcp-lint@v0.3.4
+  with:
+    url: https://staging.mcp.example.com
+    baseline: .authgent/baseline.json
+```
+
+Seed the baseline file once with a manual workflow_dispatch run:
+
+```yaml
+- uses: authgent/authgent/.github/actions/mcp-lint@v0.3.4
+  with:
+    url: https://staging.mcp.example.com
+    save-baseline: 'true'
+    baseline: .authgent/baseline.json
+```
+
+Download the `authgent-lint-findings` artifact from that run, commit it
+to the path above, and from then on every PR is gated on regressions.
+
+## Pin a specific scanner version
+
+```yaml
+- uses: authgent/authgent/.github/actions/mcp-lint@v0.3.4
+  with:
+    url: https://staging.mcp.example.com
+    scanner-version: 0.3.4
+```
 
 ## What it checks
 

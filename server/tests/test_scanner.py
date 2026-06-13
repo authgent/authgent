@@ -264,8 +264,14 @@ async def test_dcr_mirror_cached_across_calls(scanner_client):
     Without this, a motivated user pasting the same URL into /api/scan in
     a loop can pollute the vendor's registration table indefinitely."""
     import authgent_server.scanner as scanner_mod
+    from authgent_server.cache import get_cache, reset_cache
 
     scanner_mod._dcr_mirror_cache.clear()
+    # Clear the shared cache too. With AUTHGENT_REDIS_URL unset, this
+    # is the in-process fallback; without clearing it across tests, a
+    # previous test's DCR-mirror result hides the fresh probe.
+    reset_cache()
+    await get_cache().clear()
 
     register_calls = {"count": 0}
 
