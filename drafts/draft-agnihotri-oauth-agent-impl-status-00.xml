@@ -25,526 +25,702 @@
     <keyword>identity chaining</keyword>
     <keyword>transaction tokens</keyword>
     <keyword>implementation status</keyword>
-    <keyword>AI agent</keyword>
+    <keyword>running code</keyword>
     <abstract>
-      <t>This document reports an open-source implementation of two WG-track OAuth
-drafts on cross-domain identity chaining and transaction tokens. It maps
-every normative section of each draft to the corresponding source location
-in the implementation, identifies one ambiguity surfaced during
-implementation, and offers the implementation as an interop partner for
-any WG-adopted draft revision.</t>
-      <t>The intent is to give the editors of both drafts material they can
-publish under RFC 7942 guidelines without further work on their part.</t>
+      <t>This document reports an open-source implementation of two OAuth Working
+Group draft specifications: cross-domain identity chaining and
+transaction tokens. For each draft, this report maps every normative
+section to the corresponding source location in the implementation
+under test, summarises the test surface that exercises the section,
+and records one open-issue candidate per parent draft. The report is
+prepared in accordance with RFC 7942 and is intended for use by the
+editors of the two parent drafts.</t>
     </abstract>
   </front>
   <middle>
+    <section anchor="conventions">
+      <name>Conventions</name>
+      <t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+"SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+"OPTIONAL" in this document are to be interpreted as described in
+BCP 14 <xref target="RFC2119"/> <xref target="RFC8174"/> when, and only when, they appear in
+all capitals, as shown here. They appear here only within quoted
+proposed text addressed to the editors of the parent drafts. This
+document itself is descriptive (Informational) and imposes no
+normative requirements.</t>
+    </section>
     <section anchor="introduction">
       <name>Introduction</name>
-      <section anchor="implementation-status-note">
-        <name>Implementation Status Note</name>
-        <t>This section, and the per-draft Implementation sections that follow,
-are to be removed before publishing as an RFC.</t>
-        <t>This document records the status of known implementations of the
+      <t>This document reports the implementation status of two Working Group
+drafts of the OAuth Working Group at the IETF, prepared in accordance
+with the guidelines in RFC 7942 ("Improving Awareness of Running Code:
+The Implementation Status Section"). The two reported drafts are
+identified in <xref target="reported-drafts"/>.</t>
+      <t>The intent of this report is to provide the editors of the two parent
+drafts with material that can, at the editors' discretion, be
+incorporated into the parent draft as an Implementation Status
+section, used to inform Working Group Last Call discussions, or
+otherwise referenced during progression of the parent drafts to RFC.</t>
+      <t>The implementation reported in this document is in production
+deployment under the name "authgent" (see <xref target="implementation"/>), and
+is offered as an interoperability partner for any other implementation
+of either parent draft.</t>
+    </section>
+    <section anchor="reported-drafts">
+      <name>Reported Drafts</name>
+      <t>This document reports the implementation status of:</t>
+      <ol spacing="normal" type="1"><li>
+          <t>The Internet-Draft "OAuth Identity and Authorization Chaining Across
+Domains," version -14
+(<xref target="I-D.ietf-oauth-identity-chaining"/>). At the time of writing,
+this draft has been approved by the IESG with a request for a
+revised Internet-Draft.</t>
+        </li>
+        <li>
+          <t>The Internet-Draft "Transaction Tokens," version -08
+(<xref target="I-D.ietf-oauth-transaction-tokens"/>). At the time of writing,
+this draft is in Working Group Last Call.</t>
+        </li>
+      </ol>
+      <t>Subsequent revisions of either parent draft may necessitate revision
+of this report.</t>
+    </section>
+    <section anchor="implementation">
+      <name>Implementation: authgent</name>
+      <t>This section provides per-implementation metadata in the format
+recommended by Section 2 of RFC 7942.</t>
+      <dl>
+        <dt>Organisation:</dt>
+        <dd>
+          <t>Independent. Author of record: Dhruv Agnihotri.</t>
+        </dd>
+        <dt>Name and URL:</dt>
+        <dd>
+          <t>authgent (<eref target="https://github.com/authgent/authgent">https://github.com/authgent/authgent</eref>).</t>
+        </dd>
+        <dt>Description:</dt>
+        <dd>
+          <t>An open-source OAuth 2.1 authorisation server implemented in Python,
+with both cross-domain identity chaining (per the first reported
+draft) and transaction-token issuance (per the second reported
+draft) as first-class flows on the token endpoint.</t>
+        </dd>
+        <dt>Maturity:</dt>
+        <dd>
+          <t>Production. The implementation is published as the
+authgent-server distribution on PyPI and as the authgent
+distribution on PyPI and npm. Continuous-integration test surface:
+476 tests with 83 percent line coverage as of the date of this
+document. A live demo deployment of the implementation is published
+via the repository above.</t>
+        </dd>
+        <dt>Coverage:</dt>
+        <dd>
+          <t>All normative sections of both reported drafts that this
+implementation could realistically exercise from a single-organisation
+test harness. See <xref target="cov-chaining"/> and <xref target="cov-txn"/> for per-section
+detail. One open issue per draft is recorded in <xref target="open-issues"/>.</t>
+        </dd>
+        <dt>Version compatibility:</dt>
+        <dd>
+          <t>identity-chaining: tracks revision -14. transaction-tokens: tracks
+revision -08.</t>
+        </dd>
+        <dt>Licensing:</dt>
+        <dd>
+          <t>Apache License, Version 2.0.</t>
+        </dd>
+        <dt>Implementation experience:</dt>
+        <dd>
+          <t>Roughly six months of implementation effort by a single author. No
+unworkable spec text was encountered; the open issues recorded in
+<xref target="open-issues"/> were resolved by local interpretation but interop
+testing has not yet been performed against a second implementation.</t>
+        </dd>
+        <dt>Contact:</dt>
+        <dd>
+          <t><eref target="mailto:dagni@umich.edu">dagni@umich.edu</eref>.</t>
+        </dd>
+        <dt>Last updated:</dt>
+        <dd>
+          <t>The date of this Internet-Draft.</t>
+        </dd>
+      </dl>
+    </section>
+    <section anchor="cov-chaining">
+      <name>Coverage of identity-chaining-14</name>
+      <t>This section maps each normative requirement of
+<xref target="I-D.ietf-oauth-identity-chaining"/> to the source location in the
+authgent implementation that fulfils it. Source paths are relative to
+the repository root.</t>
+      <dl>
+        <dt>Section 2.1 (Overview / sequence):</dt>
+        <dd>
+          <t>Implemented across two functions in <tt>services/token_service.py</tt>:
+<tt>_issue_chaining_grant</tt> (Domain A) and <tt>_handle_jwt_bearer</tt>
+(Domain B).</t>
+        </dd>
+        <dt>Section 2.2 (Discovery via Protected Resource Metadata):</dt>
+        <dd>
+          <t>Discovery is served by <tt>endpoints/wellknown.py</tt>, conforming to
+<xref target="RFC9728"/>.</t>
+        </dd>
+        <dt>Section 2.3.1 (Token Exchange request):</dt>
+        <dd>
+          <t><tt>_handle_token_exchange</tt> in <tt>services/token_service.py</tt> branches
+on <tt>requested_token_type=urn:ietf:params:oauth:token-type:jwt</tt>.</t>
+        </dd>
+        <dt>Section 2.3.1 (audience or resource REQUIRED):</dt>
+        <dd>
+          <t>Enforced. The token endpoint raises an error of type
+<tt>InvalidRequest</tt> when neither parameter is present.</t>
+        </dd>
+        <dt>Section 2.3.2 (policy and claims transformation):</dt>
+        <dd>
+          <t>Trust-domain policy is applied via a configurable
+<tt>trusted_chaining_targets</tt> allowlist. Claim transformation is
+delegated to <tt>services/claims_transcription.py</tt>, which exposes a
+pluggable Protocol so that operators can provide their own
+transformation policy without modifying core code.</t>
+        </dd>
+        <dt>Section 2.3.3 (<tt>aud</tt> MUST identify Domain B):</dt>
+        <dd>
+          <t>The audience claim of the issued JWT authorisation grant is
+populated from the <tt>audience_target</tt> derived from the inbound
+<tt>audience</tt> or <tt>resource</tt> parameter.</t>
+        </dd>
+        <dt>Section 2.4.1 (<tt>urn:ietf:params:oauth:grant-type:jwt-bearer</tt>):</dt>
+        <dd>
+          <t>The grant type is recognised by the token endpoint and dispatched
+to <tt>_handle_jwt_bearer</tt>.</t>
+        </dd>
+        <dt>Section 2.4.2 (assertion validation per RFC 7523):</dt>
+        <dd>
+          <t>Implemented in <tt>services/chaining_verifier.py</tt> function
+<tt>verify_assertion</tt>, which applies the validation steps of Sections 3
+and 3.1 of <xref target="RFC7523"/>.</t>
+        </dd>
+        <dt>Section 2.5 (claims transcription):</dt>
+        <dd>
+          <t><tt>services/claims_transcription.py</tt> ships two transformation
+policies: <tt>preserve_sub</tt> (default), which copies the parent <tt>sub</tt>
+through; and <tt>minimize</tt>, which carries only <tt>idp_iss</tt> and
+<tt>idp_sub</tt>. See <xref target="open-issue-chaining"/> for an interpretation
+question encountered while implementing this section.</t>
+        </dd>
+        <dt>Section 3 (metadata field</dt>
+        <dd>
+          <t/>
+        </dd>
+        <dt><tt>identity_chaining_requested_token_types_supported</tt>):</dt>
+        <dd>
+          <t>Advertised by <tt>endpoints/wellknown.py</tt>, conforming to <xref target="RFC8414"/>.</t>
+        </dd>
+        <dt>Section 5.1 (client authentication):</dt>
+        <dd>
+          <t>Inherited from the OAuth 2.1 framework support in the implementation.
+Both <tt>client_secret_post</tt> and <tt>client_secret_basic</tt> are supported.</t>
+        </dd>
+        <dt>Section 5.2 (sender constraining via DPoP):</dt>
+        <dd>
+          <t>When the inbound subject token is DPoP-bound, the <tt>cnf.jkt</tt>
+thumbprint is propagated into the Domain-B access token, in
+conformance with <xref target="RFC9449"/>.</t>
+        </dd>
+        <dt>Section 5.3 (authorised use of subject_token):</dt>
+        <dd>
+          <t>Revocation is checked via <tt>verify_and_check_blocklist</tt> before any
+Domain-B token is minted.</t>
+        </dd>
+        <dt>Section 5.4 (no refresh tokens for chaining):</dt>
+        <dd>
+          <t>The <tt>_handle_jwt_bearer</tt> function omits refresh-token issuance,
+matching the spec recommendation.</t>
+        </dd>
+        <dt>Section 5.5 (short-lived; single-use):</dt>
+        <dd>
+          <t>The chaining grant time-to-live (parameter <tt>chaining_grant_ttl</tt>)
+defaults to 60 seconds. The <tt>jti</tt> claim of each consumed assertion
+is added to the token blocklist with reason
+<tt>chaining_grant_consumed</tt>, and any subsequent attempt to consume
+the same assertion is rejected.</t>
+        </dd>
+      </dl>
+      <t>Test surface for identity-chaining: <tt>server/tests/test_identity_chaining.py</tt>,
+17 tests, named after the spec sections they exercise.</t>
+    </section>
+    <section anchor="cov-txn">
+      <name>Coverage of transaction-tokens-08</name>
+      <dl>
+        <dt>Section 3 (token type URN):</dt>
+        <dd>
+          <t>The constant <tt>TXN_TOKEN_TYPE</tt> is the value
+<tt>urn:ietf:params:oauth:token-type:txn_token</tt>.</t>
+        </dd>
+        <dt>Section 3 (<tt>typ</tt> header <tt>txntoken+jwt</tt>):</dt>
+        <dd>
+          <t>The signing helper sets the JWT header <tt>typ</tt> field via
+<tt>_jwks.sign_jwt(claims, headers={"typ": "txntoken+jwt"})</tt>.</t>
+        </dd>
+        <dt>Section 3 (required claims):</dt>
+        <dd>
+          <t>The claims <tt>iat</tt>, <tt>aud</tt>, <tt>exp</tt>, <tt>txn</tt>, <tt>sub</tt>, <tt>scope</tt>, and <tt>req_wl</tt>
+are constructed in <tt>_issue_transaction_token</tt> for every issued
+Txn-Token.</t>
+        </dd>
+        <dt>Section 3 (optional <tt>tctx</tt>, immutable transaction context):</dt>
+        <dd>
+          <t>Carried verbatim from the <tt>request_details</tt> form parameter on the
+token endpoint when present.</t>
+        </dd>
+        <dt>Section 3 (optional <tt>rctx</tt>, requester context):</dt>
+        <dd>
+          <t>Composed in <tt>_issue_transaction_token</tt> with auto-derived <tt>req_ip</tt>
+and <tt>authn</tt> values.</t>
+        </dd>
+        <dt>Section 3 (response shape):</dt>
+        <dd>
+          <t><tt>issued_token_type</tt> is set to the value
+<tt>urn:ietf:params:oauth:token-type:txn_token</tt>; <tt>token_type</tt> is set
+to <tt>N_A</tt>.</t>
+        </dd>
+        <dt>Section 7 (short-lived tokens):</dt>
+        <dd>
+          <t>The Txn-Token time-to-live (parameter <tt>txn_token_ttl</tt>) defaults to
+120 seconds.</t>
+        </dd>
+        <dt>Section 7.2 (scope MUST NOT exceed subject_token):</dt>
+        <dd>
+          <t>An inline subset check (<tt>requested.issubset(parent_scopes)</tt>) is
+applied before issuance; on violation, the implementation raises an
+<tt>AccessDenied</tt> error.</t>
+        </dd>
+        <dt>Section 11 (no refresh tokens):</dt>
+        <dd>
+          <t>The token-endpoint response omits the <tt>refresh_token</tt> field for
+Txn-Token issuance.</t>
+        </dd>
+      </dl>
+      <t>Test surface for transaction-tokens:
+<tt>server/tests/test_transaction_tokens.py</tt>, 8 tests.</t>
+    </section>
+    <section anchor="open-issues">
+      <name>Open Issues Surfaced During Implementation</name>
+      <t>This section records ambiguities encountered while implementing the
+two parent drafts, and proposes specific text the editors may wish to
+consider for a subsequent revision.</t>
+      <section anchor="open-issue-chaining">
+        <name>identity-chaining: missing-<tt>sub</tt> handling in claims transcription</name>
+        <t>Section 2.5 of <xref target="I-D.ietf-oauth-identity-chaining"/> permits the
+Domain-A authorisation server to add, remove, or change claims when
+issuing the cross-domain JWT authorisation grant. The text is silent
+on the case in which the inbound subject token carries no <tt>sub</tt> claim
+(for example, a federated assertion that conveys only <tt>idp_iss</tt> and
+<tt>idp_sub</tt>).</t>
+        <t>Two reasonable interpretations exist:</t>
+        <ol spacing="normal" type="1"><li>
+            <t>The transcribed grant inherits the absence of <tt>sub</tt>, and Domain B
+resolves identity from <tt>idp_iss</tt> and <tt>idp_sub</tt> (or refuses).</t>
+          </li>
+          <li>
+            <t>The transcription policy is required to produce a <tt>sub</tt> value, for
+example by deterministically deriving one from <tt>idp_iss</tt> and
+<tt>idp_sub</tt>, so that Domain B has a stable subject identifier.</t>
+          </li>
+        </ol>
+        <t>The authgent implementation currently follows interpretation 1: when
+<tt>sub</tt> cannot be resolved, the chaining flow is refused with an
+<tt>InvalidGrant</tt> error. Interpretation 2 is also defensible.</t>
+        <t>Suggested editorial clarification: a sentence in Section 2.5 making
+the choice explicit, for example: "If the subject token does not
+contain a <tt>sub</tt> claim, the authorisation server MAY synthesise one
+from other identity claims, or MAY refuse the request; the latter
+behaviour is recommended unless the synthesis algorithm is documented
+in the trust-domain policy."</t>
+      </section>
+      <section anchor="open-issue-txn">
+        <name>transaction-tokens: scope subset check semantics on missing parent scope</name>
+        <t>Section 7.2 of <xref target="I-D.ietf-oauth-transaction-tokens"/> requires that the
+scope of an issued Txn-Token MUST NOT exceed that of the subject token.
+The text presupposes the presence of a <tt>scope</tt> claim on the subject
+token. The handling of the case where the subject token has no <tt>scope</tt>
+claim at all (for example, a JWT that conveys identity but expresses
+authorisation through other claims) is not specified.</t>
+        <t>Two interpretations:</t>
+        <ol spacing="normal" type="1"><li>
+            <t>Treat absent parent scope as the empty set, requiring any explicit
+<tt>scope</tt> parameter on the Txn-Token request to also be empty or
+absent.</t>
+          </li>
+          <li>
+            <t>Treat absent parent scope as unconstrained, allowing the
+Txn-Token request to set any <tt>scope</tt> value.</t>
+          </li>
+        </ol>
+        <t>The authgent implementation follows interpretation 1, which is the
+more conservative behaviour. A clarifying sentence in Section 7.2 of
+the next revision would aid interoperability.</t>
+      </section>
+    </section>
+    <section anchor="impl-status">
+      <name>Implementation Status</name>
+      <t>This section records the status of known implementations of the
 protocols defined by <xref target="I-D.ietf-oauth-identity-chaining"/> and
-<xref target="I-D.ietf-oauth-transaction-tokens"/> at the time of posting of
-this Internet-Draft, in accordance with the guidelines in <xref target="RFC7942"/>.
-The description of implementations in this section is intended to
-assist the IETF in its decision processes in progressing drafts to
-RFCs. Please note that the listing of any individual implementation
-here does not imply endorsement by the IETF. Furthermore, no effort
-has been spent to verify the information presented here that was
-supplied by IETF contributors. This is not intended as, and must not
-be construed to be, a catalog of available implementations or their
+<xref target="I-D.ietf-oauth-transaction-tokens"/> at the time of posting of this
+Internet-Draft, in accordance with the guidelines in <xref target="RFC7942"/>. The
+description of implementations in this section is intended to assist
+the IETF in its decision processes in progressing drafts to RFCs.
+Please note that the listing of any individual implementation here
+does not imply endorsement by the IETF. Furthermore, no effort has
+been spent to verify the information presented here that was supplied
+by IETF contributors. This is not intended as, and must not be
+construed to be, a catalog of available implementations or their
 features. Readers are advised to note that other implementations may
 exist.</t>
-        <t>According to <xref target="RFC7942"/>, "this will allow reviewers and working
+      <t>According to <xref target="RFC7942"/>, "this will allow reviewers and working
 groups to assign due consideration to documents that have the benefit
 of running code, which may serve as evidence of valuable
 experimentation and feedback that have made the implemented protocols
 more mature. It is up to the individual working groups to use this
 information as they see fit".</t>
-      </section>
-      <section anchor="background">
-        <name>Background</name>
-        <t>Two WG-track OAuth drafts that currently lack listed implementations:</t>
-        <ul spacing="normal">
-          <li>
-            <t><tt>draft-ietf-oauth-identity-chaining-14</tt> (state: Approved-announcement
-to be sent / Revised I-D Needed)</t>
-          </li>
-          <li>
-            <t><tt>draft-ietf-oauth-transaction-tokens-08</tt> (state: WG Last Call)</t>
-          </li>
-        </ul>
-        <t>This document reports an Apache-2.0 implementation of both, suitable for
-inclusion in an Implementation Status appendix per RFC 7942. The
-implementation is in production use at <eref target="https://authgent.github.io/authgent/">https://authgent.github.io/authgent/</eref>
-and is published as <tt>authgent-server</tt> on PyPI.</t>
-        <t>The implementation tracks the drafts at the revision in the title; this
-document will be revised when a successor draft of either is published.</t>
-      </section>
+      <t>The single implementation reported here is described in
+<xref target="implementation"/>, with per-section conformance maps in
+<xref target="cov-chaining"/> and <xref target="cov-txn"/>, and open-issue candidates in
+<xref target="open-issues"/>.</t>
+      <t>Note to RFC Editor: this section, and the per-section conformance maps
+referenced from it, are to be removed before publication of any
+parent draft as an RFC. The reference to RFC 7942 may also be removed
+at that time.</t>
     </section>
-    <section anchor="conventions-and-definitions">
-      <name>Conventions and Definitions</name>
-      <t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
-"SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
-"OPTIONAL" in this document are to be interpreted as described in
-BCP 14 <xref target="BCP14"/> when, and only when, they appear in
-all capitals, as shown here.</t>
-    </section>
-    <section anchor="implementation-identity-chaining">
-      <name>Implementation: identity-chaining</name>
-      <section anchor="implementer">
-        <name>Implementer</name>
-        <ul spacing="normal">
-          <li>
-            <t>Project: authgent</t>
-          </li>
-          <li>
-            <t>Repository: <eref target="https://github.com/authgent/authgent">https://github.com/authgent/authgent</eref></t>
-          </li>
-          <li>
-            <t>License: Apache 2.0</t>
-          </li>
-          <li>
-            <t>Maturity: production-deployed; 476 tests; 83% coverage. A live
-demo URL is published at the repository link above.</t>
-          </li>
-          <li>
-            <t>Contact: <eref target="mailto:dagni@umich.edu">dagni@umich.edu</eref></t>
-          </li>
-        </ul>
-      </section>
-      <section anchor="coverage-map">
-        <name>Coverage map</name>
-        <dl>
-          <dt>Section 2.1 (Overview / sequence)</dt>
-          <dd>
-            <t>Implemented in <tt>services/token_service.py</tt> functions
-<tt>_issue_chaining_grant</tt> and <tt>_handle_jwt_bearer</tt>.</t>
-          </dd>
-          <dt>Section 2.2 (Discovery via RFC 9728 PRM)</dt>
-          <dd>
-            <t>Implemented in <tt>endpoints/wellknown.py</tt>.</t>
-          </dd>
-          <dt>Section 2.3.1 (Token Exchange request)</dt>
-          <dd>
-            <t>Implemented in <tt>services/token_service.py</tt> function
-<tt>_handle_token_exchange</tt>, which branches on
-<tt>requested_token_type=jwt</tt>.</t>
-          </dd>
-          <dt>Section 2.3.1 (audience or resource REQUIRED)</dt>
-          <dd>
-            <t>Enforced; raises <tt>InvalidRequest</tt> when neither is present.</t>
-          </dd>
-          <dt>Section 2.3.2 (Policy and claims transformation)</dt>
-          <dd>
-            <t>Trust-domain policy via <tt>trusted_chaining_targets</tt> allowlist;
-claim transformation in <tt>services/claims_transcription.py</tt>
-(pluggable Protocol).</t>
-          </dd>
-          <dt>Section 2.3.3 (<tt>aud</tt> MUST identify Domain B)</dt>
-          <dd>
-            <t>The audience claim is built directly from <tt>audience_target</tt>.</t>
-          </dd>
-          <dt>Section 2.4.1 (<tt>jwt-bearer</tt> grant type URN)</dt>
-          <dd>
-            <t><tt>JWT_BEARER_GRANT</tt> constant plus handler dispatch.</t>
-          </dd>
-          <dt>Section 2.4.2 (RFC 7523 Sections 3 and 3.1 validation)</dt>
-          <dd>
-            <t>Implemented in <tt>services/chaining_verifier.py</tt> function
-<tt>verify_assertion</tt>.</t>
-          </dd>
-          <dt>Section 2.5 (Claims transcription)</dt>
-          <dd>
-            <t><tt>services/claims_transcription.py</tt> ships <tt>preserve_sub</tt> (default)
-and <tt>minimize</tt> policies via a pluggable Protocol.</t>
-          </dd>
-          <dt>Section 3 (Metadata field <tt>identity_chaining_requested_token_types_supported</tt>)</dt>
-          <dd>
-            <t>Advertised by <tt>endpoints/wellknown.py</tt>.</t>
-          </dd>
-          <dt>Section 5.1 (Client authentication)</dt>
-          <dd>
-            <t>Inherited; supports <tt>client_secret_post</tt> and <tt>client_secret_basic</tt>.</t>
-          </dd>
-          <dt>Section 5.2 (Sender constraining via DPoP)</dt>
-          <dd>
-            <t>The DPoP <tt>cnf.jkt</tt> value is preserved into the Domain-B access
-token.</t>
-          </dd>
-          <dt>Section 5.3 (Authorized use of subject_token)</dt>
-          <dd>
-            <t>Revocation check via <tt>verify_and_check_blocklist</tt> before mint.</t>
-          </dd>
-          <dt>Section 5.4 (SHOULD NOT issue refresh tokens)</dt>
-          <dd>
-            <t><tt>_handle_jwt_bearer</tt> deliberately omits refresh issuance.</t>
-          </dd>
-          <dt>Section 5.5 (short-lived; single-use)</dt>
-          <dd>
-            <t><tt>chaining_grant_ttl</tt> defaults to 60 seconds; the assertion <tt>jti</tt>
-is added to <tt>token_blocklist</tt> with reason
-<tt>chaining_grant_consumed</tt> on consumption; replay is rejected.</t>
-          </dd>
-        </dl>
-        <t>Test surface: <tt>server/tests/test_identity_chaining.py</tt> (17 tests, named
-after the spec sections they exercise).</t>
-      </section>
-      <section anchor="editorial-observation">
-        <name>Editorial observation</name>
-        <t>Section 2.5 ("Claims Transcription") permits the Domain-A authorization server
-to add, remove, or change claims, but is silent on the case where the
-incoming <tt>subject_token</tt> carries no <tt>sub</tt> claim. Two reasonable
-interpretations exist:</t>
-        <ol spacing="normal" type="1"><li>
-            <t>The transcribed grant inherits the absence of <tt>sub</tt> and Domain B
-resolves identity from <tt>idp_iss</tt>/<tt>idp_sub</tt> (or refuses).</t>
-          </li>
-          <li>
-            <t>The transcription policy is required to produce a <tt>sub</tt> (e.g. by
-synthesising one from the IdP claims) so Domain B has a stable
-subject identifier.</t>
-          </li>
-        </ol>
-        <t>The implementation currently picks (1) and refuses the chaining flow when
-<tt>sub</tt> is unresolvable, but (2) is also defensible. Editorial guidance in
-a future revision would help interop.</t>
-      </section>
-    </section>
-    <section anchor="implementation-transaction-tokens">
-      <name>Implementation: transaction-tokens</name>
-      <section anchor="coverage-map-1">
-        <name>Coverage map</name>
-        <dl>
-          <dt>Section 3 (token type URN)</dt>
-          <dd>
-            <t><tt>TXN_TOKEN_TYPE</tt> constant.</t>
-          </dd>
-          <dt>Section 3 (<tt>typ</tt> header <tt>txntoken+jwt</tt>)</dt>
-          <dd>
-            <t>Set via <tt>_jwks.sign_jwt(claims, headers={"typ": "txntoken+jwt"})</tt>.</t>
-          </dd>
-          <dt>Section 3 (required claims)</dt>
-          <dd>
-            <t><tt>iat</tt>, <tt>aud</tt>, <tt>exp</tt>, <tt>txn</tt>, <tt>sub</tt>, <tt>scope</tt>, and <tt>req_wl</tt>
-are all built in <tt>_issue_transaction_token</tt>.</t>
-          </dd>
-          <dt>Section 3 (optional <tt>tctx</tt> immutable transaction context)</dt>
-          <dd>
-            <t>Carried from the <tt>request_details</tt> form parameter.</t>
-          </dd>
-          <dt>Section 3 (optional <tt>rctx</tt> requester context)</dt>
-          <dd>
-            <t>Composed in <tt>_issue_transaction_token</tt> with auto-derived
-<tt>req_ip</tt> and <tt>authn</tt>.</t>
-          </dd>
-          <dt>Section 3 (response <tt>issued_token_type=...:txn_token</tt>, <tt>token_type=N_A</tt>)</dt>
-          <dd>
-            <t>Hardcoded.</t>
-          </dd>
-          <dt>Section 7 (short-lived)</dt>
-          <dd>
-            <t><tt>txn_token_ttl</tt> defaults to 120 seconds.</t>
-          </dd>
-          <dt>Section 7.2 (scope MUST NOT exceed subject_token)</dt>
-          <dd>
-            <t>Inline <tt>requested.issubset(parent_scopes)</tt> check; raises
-<tt>AccessDenied</tt> on violation.</t>
-          </dd>
-          <dt>Section 11 (no refresh tokens)</dt>
-          <dd>
-            <t>Response omits <tt>refresh_token</tt>.</t>
-          </dd>
-        </dl>
-        <t>Test surface: <tt>server/tests/test_transaction_tokens.py</tt> (8 tests).</t>
-      </section>
-    </section>
-    <section anchor="implementation-notes">
-      <name>Implementation Notes</name>
-      <section anchor="scanner">
-        <name>Scanner</name>
-        <t>The implementation also publishes an open-source conformance scanner
-that audits any deployed MCP authorization server against the discovery
-metadata required by RFC 9728, RFC 8414, RFC 7591, RFC 7636, RFC 9207,
-RFC 8707, and the relevant MCP authorization spec sections. The scanner
-runs the same code path as the implementation's CI test suite, so
-"authgent passes the scanner" and "authgent passes its conformance
-tests" produce the same answer.</t>
-        <t>The scanner is available at <tt>&lt;https://authgent.github.io/authgent/scan/&gt;</tt>
-and as a CLI (<tt>authgent-server lint &lt;url&gt;</tt>). Scanner check <tt>MCP-PKCE-002</tt>
-operationalises the advertise-vs-enforce sub-variant of the known
-PKCE-downgrade family (OAuch BCP_4_8; Authentik CVE-2024-23647;
-Better-Auth GHSA-9h47-pqcx-hjr4) for MCP-OAuth deployments
-specifically; the scanner does not claim to originate the underlying
-attack class.</t>
-      </section>
-      <section anchor="calibration">
-        <name>Calibration</name>
-        <t>The implementation publishes a calibration set
-(<eref target="https://github.com/authgent/authgent/blob/main/docs/calibration.md">https://github.com/authgent/authgent/blob/main/docs/calibration.md</eref>)
-documenting the expected grade for six known shapes (perfect MCP-2026
-conformant; legacy IdP without MCP-only fields; PKCE-plain advertised;
-PRM missing; implicit grant advertised; DCR-mirror critical) so weight
-changes can't drift silently.</t>
-      </section>
-    </section>
-    <section anchor="interoperability">
-      <name>Interoperability</name>
-      <t>The implementer offers interop testing against any other implementation
-of either draft. Contact the address in the front matter, or open a
-GitHub issue at <eref target="https://github.com/authgent/authgent/issues">https://github.com/authgent/authgent/issues</eref>.</t>
+    <section anchor="interoperability-offer">
+      <name>Interoperability Offer</name>
+      <t>The implementer offers interoperability testing against any other
+implementation of either parent draft. Interested implementers may
+make contact at the address in the front matter of this document, or
+by opening an issue on the GitHub repository identified in
+<xref target="implementation"/>.</t>
     </section>
     <section anchor="iana-considerations">
       <name>IANA Considerations</name>
-      <t>This document requests no IANA actions.</t>
+      <t>This document has no IANA actions.</t>
     </section>
     <section anchor="security-considerations">
       <name>Security Considerations</name>
-      <t>This document is informational and reports the existence of an
-implementation. The security considerations of the protocols
-implemented are addressed in the respective specifications:
-<xref target="I-D.ietf-oauth-identity-chaining"/> Section 5 and
-<xref target="I-D.ietf-oauth-transaction-tokens"/> Section 11. In particular,
-implementers should review:</t>
-      <ul spacing="normal">
-        <li>
-          <t>Section 5.1-5.5 of identity-chaining-14: client authentication at both
-Domain A and Domain B, sender-constraining via DPoP <xref target="RFC9449"/>,
-authorized use of subject_token, and short-lived single-use
-semantics for the JWT authorization grant.</t>
-        </li>
-        <li>
-          <t>Section 11 of transaction-tokens-08: short-lived TT-tokens, scope
-reduction relative to the subject_token (Section 7.2), and the
-no-refresh-token requirement.</t>
-        </li>
-      </ul>
-      <t>The reporting implementation discussed here is open source and may
-be inspected for adherence to these considerations at the URLs given
-in the Implementation sections.</t>
+      <t>This document reports the existence of an implementation. The
+security considerations of the protocols implemented are addressed in
+the parent specifications:
+<xref target="I-D.ietf-oauth-identity-chaining"/>, Section 5; and
+<xref target="I-D.ietf-oauth-transaction-tokens"/>, Section 11. Implementers and
+reviewers are referred there.</t>
+      <t>The authgent implementation reported here is open source. Security
+properties relevant to the parent drafts (in particular, sender
+constraining of access tokens via DPoP <xref target="RFC9449"/>, blocklist-backed
+revocation, single-use semantics for the JWT authorisation grant, and
+scope-reduction enforcement on Txn-Tokens) may be inspected in the
+repository identified in <xref target="implementation"/>.</t>
     </section>
   </middle>
   <back>
-    <references anchor="sec-normative-references">
-      <name>Normative References</name>
-  <referencegroup anchor="BCP14" target="https://www.rfc-editor.org/info/bcp14">
-    <reference anchor="BCP14_RFC2119" target="https://www.rfc-editor.org/info/rfc2119">
-      <front>
-        <title>Key words for use in RFCs to Indicate Requirement Levels</title>
-        <author fullname="S. Bradner" initials="S." surname="Bradner"/>
-        <date month="March" year="1997"/>
-      </front>
-      <seriesInfo name="BCP" value="14"/>
-      <seriesInfo name="RFC" value="2119"/>
-    </reference>
-    <reference anchor="BCP14_RFC8174" target="https://www.rfc-editor.org/info/rfc8174">
-      <front>
-        <title>Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words</title>
-        <author fullname="B. Leiba" initials="B." surname="Leiba"/>
-        <date month="May" year="2017"/>
-      </front>
-      <seriesInfo name="BCP" value="14"/>
-      <seriesInfo name="RFC" value="8174"/>
-    </reference>
-  </referencegroup>
-
-      <reference anchor="I-D.ietf-oauth-identity-chaining" target="https://datatracker.ietf.org/doc/html/draft-ietf-oauth-identity-chaining-14" xml:base="https://bib.ietf.org/public/rfc/bibxml3/reference.I-D.draft-ietf-oauth-identity-chaining-14.xml">
-        <front>
-          <title>OAuth Identity and Authorization Chaining Across Domains</title>
-          <author fullname="Arndt Schwenkschuster" initials="A." surname="Schwenkschuster">
-            <organization>Defakto Security</organization>
-          </author>
-          <author fullname="Pieter Kasselman" initials="P." surname="Kasselman">
-            <organization>Defakto Security</organization>
-          </author>
-          <author fullname="Kelley Burgin" initials="K." surname="Burgin">
-            <organization>MITRE</organization>
-          </author>
-          <author fullname="Michael J. Jenkins" initials="M. J." surname="Jenkins">
-            <organization>NSA-CCSS</organization>
-          </author>
-          <author fullname="Brian Campbell" initials="B." surname="Campbell">
-            <organization>Ping Identity</organization>
-          </author>
-          <author fullname="Aaron Parecki" initials="A." surname="Parecki">
-            <organization>Okta</organization>
-          </author>
-          <date day="2" month="June" year="2026"/>
-          <abstract>
-            <t>This specification describes a mechanism for preserving identity and authorization information across trust domains that use the OAuth 2.0 Framework. A JSON Web Token (JWT) authorization grant, obtained through an intra-domain OAuth 2.0 Token Exchange, facilitates the cross-domain acquisition of an access token. The relevant identity and authorization information is chained throughout the flow by being conveyed in the respective artifacts exchanged at each step of the process. Chaining across multiple domains is achieved by using the same protocol every time a trust domain boundary is crossed.</t>
-          </abstract>
-        </front>
-        <seriesInfo name="Internet-Draft" value="draft-ietf-oauth-identity-chaining-14"/>
-      </reference>
-      <reference anchor="I-D.ietf-oauth-transaction-tokens" target="https://datatracker.ietf.org/doc/html/draft-ietf-oauth-transaction-tokens-08" xml:base="https://bib.ietf.org/public/rfc/bibxml3/reference.I-D.draft-ietf-oauth-transaction-tokens-08.xml">
-        <front>
-          <title>Transaction Tokens</title>
-          <author fullname="Atul Tulshibagwale" initials="A." surname="Tulshibagwale">
-            <organization>CrowdStrike</organization>
-          </author>
-          <author fullname="George Fletcher" initials="G." surname="Fletcher">
-            <organization>Practical Identity LLC</organization>
-          </author>
-          <author fullname="Pieter Kasselman" initials="P." surname="Kasselman">
-            <organization>Defakto Security</organization>
-          </author>
-          <date day="2" month="March" year="2026"/>
-          <abstract>
-            <t>Transaction Tokens (Txn-Tokens) are designed to maintain and propagate user identity, workload identity and authorization context throughout the Call Chain within a trusted domain during the processing of external requests (e.g. such as API calls) or requests initiated internally within the trust domain. Txn-Tokens ensure that this context is preserved throughout the Call Chain thereby enhancing security and consistency in complex, multi-service architectures.</t>
-          </abstract>
-        </front>
-        <seriesInfo name="Internet-Draft" value="draft-ietf-oauth-transaction-tokens-08"/>
-      </reference>
-      <reference anchor="RFC7942" target="https://www.rfc-editor.org/info/rfc7942" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.7942.xml">
-        <front>
-          <title>Improving Awareness of Running Code: The Implementation Status Section</title>
-          <author fullname="Y. Sheffer" initials="Y." surname="Sheffer"/>
-          <author fullname="A. Farrel" initials="A." surname="Farrel"/>
-          <date month="July" year="2016"/>
-          <abstract>
-            <t>This document describes a simple process that allows authors of Internet-Drafts to record the status of known implementations by including an Implementation Status section. This will allow reviewers and working groups to assign due consideration to documents that have the benefit of running code, which may serve as evidence of valuable experimentation and feedback that have made the implemented protocols more mature.</t>
-            <t>This process is not mandatory. Authors of Internet-Drafts are encouraged to consider using the process for their documents, and working groups are invited to think about applying the process to all of their protocol specifications. This document obsoletes RFC 6982, advancing it to a Best Current Practice.</t>
-          </abstract>
-        </front>
-        <seriesInfo name="BCP" value="205"/>
-        <seriesInfo name="RFC" value="7942"/>
-        <seriesInfo name="DOI" value="10.17487/RFC7942"/>
-      </reference>
-      <reference anchor="RFC9449" target="https://www.rfc-editor.org/info/rfc9449" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.9449.xml">
-        <front>
-          <title>OAuth 2.0 Demonstrating Proof of Possession (DPoP)</title>
-          <author fullname="D. Fett" initials="D." surname="Fett"/>
-          <author fullname="B. Campbell" initials="B." surname="Campbell"/>
-          <author fullname="J. Bradley" initials="J." surname="Bradley"/>
-          <author fullname="T. Lodderstedt" initials="T." surname="Lodderstedt"/>
-          <author fullname="M. Jones" initials="M." surname="Jones"/>
-          <author fullname="D. Waite" initials="D." surname="Waite"/>
-          <date month="September" year="2023"/>
-          <abstract>
-            <t>This document describes a mechanism for sender-constraining OAuth 2.0 tokens via a proof-of-possession mechanism on the application level. This mechanism allows for the detection of replay attacks with access and refresh tokens.</t>
-          </abstract>
-        </front>
-        <seriesInfo name="RFC" value="9449"/>
-        <seriesInfo name="DOI" value="10.17487/RFC9449"/>
-      </reference>
+    <references anchor="sec-combined-references">
+      <name>References</name>
+      <references anchor="sec-normative-references">
+        <name>Normative References</name>
+        <reference anchor="RFC2119" target="https://www.rfc-editor.org/info/rfc2119" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.2119.xml">
+          <front>
+            <title>Key words for use in RFCs to Indicate Requirement Levels</title>
+            <author fullname="S. Bradner" initials="S." surname="Bradner"/>
+            <date month="March" year="1997"/>
+            <abstract>
+              <t>In many standards track documents several words are used to signify the requirements in the specification. These words are often capitalized. This document defines these words as they should be interpreted in IETF documents. This document specifies an Internet Best Current Practices for the Internet Community, and requests discussion and suggestions for improvements.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="BCP" value="14"/>
+          <seriesInfo name="RFC" value="2119"/>
+          <seriesInfo name="DOI" value="10.17487/RFC2119"/>
+        </reference>
+        <reference anchor="RFC8174" target="https://www.rfc-editor.org/info/rfc8174" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8174.xml">
+          <front>
+            <title>Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words</title>
+            <author fullname="B. Leiba" initials="B." surname="Leiba"/>
+            <date month="May" year="2017"/>
+            <abstract>
+              <t>RFC 2119 specifies common key words that may be used in protocol specifications. This document aims to reduce the ambiguity by clarifying that only UPPERCASE usage of the key words have the defined special meanings.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="BCP" value="14"/>
+          <seriesInfo name="RFC" value="8174"/>
+          <seriesInfo name="DOI" value="10.17487/RFC8174"/>
+        </reference>
+      </references>
+      <references anchor="sec-informative-references">
+        <name>Informative References</name>
+        <reference anchor="I-D.ietf-oauth-identity-chaining" target="https://datatracker.ietf.org/doc/html/draft-ietf-oauth-identity-chaining-14" xml:base="https://bib.ietf.org/public/rfc/bibxml3/reference.I-D.ietf-oauth-identity-chaining.xml">
+          <front>
+            <title>OAuth Identity and Authorization Chaining Across Domains</title>
+            <author fullname="Arndt Schwenkschuster" initials="A." surname="Schwenkschuster">
+              <organization>Defakto Security</organization>
+            </author>
+            <author fullname="Pieter Kasselman" initials="P." surname="Kasselman">
+              <organization>Defakto Security</organization>
+            </author>
+            <author fullname="Kelley Burgin" initials="K." surname="Burgin">
+              <organization>MITRE</organization>
+            </author>
+            <author fullname="Michael J. Jenkins" initials="M. J." surname="Jenkins">
+              <organization>NSA-CCSS</organization>
+            </author>
+            <author fullname="Brian Campbell" initials="B." surname="Campbell">
+              <organization>Ping Identity</organization>
+            </author>
+            <author fullname="Aaron Parecki" initials="A." surname="Parecki">
+              <organization>Okta</organization>
+            </author>
+            <date day="2" month="June" year="2026"/>
+            <abstract>
+              <t>This specification describes a mechanism for preserving identity and authorization information across trust domains that use the OAuth 2.0 Framework. A JSON Web Token (JWT) authorization grant, obtained through an intra-domain OAuth 2.0 Token Exchange, facilitates the cross-domain acquisition of an access token. The relevant identity and authorization information is chained throughout the flow by being conveyed in the respective artifacts exchanged at each step of the process. Chaining across multiple domains is achieved by using the same protocol every time a trust domain boundary is crossed.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="Internet-Draft" value="draft-ietf-oauth-identity-chaining-14"/>
+        </reference>
+        <reference anchor="I-D.ietf-oauth-transaction-tokens" target="https://datatracker.ietf.org/doc/html/draft-ietf-oauth-transaction-tokens-08" xml:base="https://bib.ietf.org/public/rfc/bibxml3/reference.I-D.ietf-oauth-transaction-tokens.xml">
+          <front>
+            <title>Transaction Tokens</title>
+            <author fullname="Atul Tulshibagwale" initials="A." surname="Tulshibagwale">
+              <organization>CrowdStrike</organization>
+            </author>
+            <author fullname="George Fletcher" initials="G." surname="Fletcher">
+              <organization>Practical Identity LLC</organization>
+            </author>
+            <author fullname="Pieter Kasselman" initials="P." surname="Kasselman">
+              <organization>Defakto Security</organization>
+            </author>
+            <date day="2" month="March" year="2026"/>
+            <abstract>
+              <t>Transaction Tokens (Txn-Tokens) are designed to maintain and propagate user identity, workload identity and authorization context throughout the Call Chain within a trusted domain during the processing of external requests (e.g. such as API calls) or requests initiated internally within the trust domain. Txn-Tokens ensure that this context is preserved throughout the Call Chain thereby enhancing security and consistency in complex, multi-service architectures.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="Internet-Draft" value="draft-ietf-oauth-transaction-tokens-08"/>
+        </reference>
+        <reference anchor="RFC7942" target="https://www.rfc-editor.org/info/rfc7942" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.7942.xml">
+          <front>
+            <title>Improving Awareness of Running Code: The Implementation Status Section</title>
+            <author fullname="Y. Sheffer" initials="Y." surname="Sheffer"/>
+            <author fullname="A. Farrel" initials="A." surname="Farrel"/>
+            <date month="July" year="2016"/>
+            <abstract>
+              <t>This document describes a simple process that allows authors of Internet-Drafts to record the status of known implementations by including an Implementation Status section. This will allow reviewers and working groups to assign due consideration to documents that have the benefit of running code, which may serve as evidence of valuable experimentation and feedback that have made the implemented protocols more mature.</t>
+              <t>This process is not mandatory. Authors of Internet-Drafts are encouraged to consider using the process for their documents, and working groups are invited to think about applying the process to all of their protocol specifications. This document obsoletes RFC 6982, advancing it to a Best Current Practice.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="BCP" value="205"/>
+          <seriesInfo name="RFC" value="7942"/>
+          <seriesInfo name="DOI" value="10.17487/RFC7942"/>
+        </reference>
+        <reference anchor="RFC7523" target="https://www.rfc-editor.org/info/rfc7523" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.7523.xml">
+          <front>
+            <title>JSON Web Token (JWT) Profile for OAuth 2.0 Client Authentication and Authorization Grants</title>
+            <author fullname="M. Jones" initials="M." surname="Jones"/>
+            <author fullname="B. Campbell" initials="B." surname="Campbell"/>
+            <author fullname="C. Mortimore" initials="C." surname="Mortimore"/>
+            <date month="May" year="2015"/>
+            <abstract>
+              <t>This specification defines the use of a JSON Web Token (JWT) Bearer Token as a means for requesting an OAuth 2.0 access token as well as for client authentication.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="RFC" value="7523"/>
+          <seriesInfo name="DOI" value="10.17487/RFC7523"/>
+        </reference>
+        <reference anchor="RFC9449" target="https://www.rfc-editor.org/info/rfc9449" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.9449.xml">
+          <front>
+            <title>OAuth 2.0 Demonstrating Proof of Possession (DPoP)</title>
+            <author fullname="D. Fett" initials="D." surname="Fett"/>
+            <author fullname="B. Campbell" initials="B." surname="Campbell"/>
+            <author fullname="J. Bradley" initials="J." surname="Bradley"/>
+            <author fullname="T. Lodderstedt" initials="T." surname="Lodderstedt"/>
+            <author fullname="M. Jones" initials="M." surname="Jones"/>
+            <author fullname="D. Waite" initials="D." surname="Waite"/>
+            <date month="September" year="2023"/>
+            <abstract>
+              <t>This document describes a mechanism for sender-constraining OAuth 2.0 tokens via a proof-of-possession mechanism on the application level. This mechanism allows for the detection of replay attacks with access and refresh tokens.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="RFC" value="9449"/>
+          <seriesInfo name="DOI" value="10.17487/RFC9449"/>
+        </reference>
+        <reference anchor="RFC9728" target="https://www.rfc-editor.org/info/rfc9728" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.9728.xml">
+          <front>
+            <title>OAuth 2.0 Protected Resource Metadata</title>
+            <author fullname="M.B. Jones" initials="M.B." surname="Jones"/>
+            <author fullname="P. Hunt" initials="P." surname="Hunt"/>
+            <author fullname="A. Parecki" initials="A." surname="Parecki"/>
+            <date month="April" year="2025"/>
+            <abstract>
+              <t>This specification defines a metadata format that an OAuth 2.0 client or authorization server can use to obtain the information needed to interact with an OAuth 2.0 protected resource.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="RFC" value="9728"/>
+          <seriesInfo name="DOI" value="10.17487/RFC9728"/>
+        </reference>
+        <reference anchor="RFC8414" target="https://www.rfc-editor.org/info/rfc8414" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8414.xml">
+          <front>
+            <title>OAuth 2.0 Authorization Server Metadata</title>
+            <author fullname="M. Jones" initials="M." surname="Jones"/>
+            <author fullname="N. Sakimura" initials="N." surname="Sakimura"/>
+            <author fullname="J. Bradley" initials="J." surname="Bradley"/>
+            <date month="June" year="2018"/>
+            <abstract>
+              <t>This specification defines a metadata format that an OAuth 2.0 client can use to obtain the information needed to interact with an OAuth 2.0 authorization server, including its endpoint locations and authorization server capabilities.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="RFC" value="8414"/>
+          <seriesInfo name="DOI" value="10.17487/RFC8414"/>
+        </reference>
+      </references>
     </references>
     <section anchor="acknowledgments">
       <name>Acknowledgments</name>
-      <t>Thanks to the editors of <tt>draft-ietf-oauth-identity-chaining-14</tt> -
-Arndt Schwenkschuster (Defakto Security), Pieter Kasselman (Defakto
-Security), Kelley Burgin (MITRE), Michael Jenkins (NSA-CCSS), Brian
-Campbell (Ping Identity), and Aaron Parecki (Okta) - and the editors
-of <tt>draft-ietf-oauth-transaction-tokens-08</tt> - Atul Tulshibagwale
-(CrowdStrike), George Fletcher (Practical Identity LLC), and Pieter
-Kasselman (Defakto Security) - for the specifications this document
+      <t>The author thanks the editors of <xref target="I-D.ietf-oauth-identity-chaining"/>
+(Arndt Schwenkschuster of Defakto Security, Pieter Kasselman of
+Defakto Security, Kelley Burgin of MITRE, Michael Jenkins of NSA-CCSS,
+Brian Campbell of Ping Identity, and Aaron Parecki of Okta) and the
+editors of <xref target="I-D.ietf-oauth-transaction-tokens"/> (Atul Tulshibagwale
+of CrowdStrike, George Fletcher of Practical Identity LLC, and Pieter
+Kasselman of Defakto Security) for the specifications this document
 reports on.</t>
     </section>
   </back>
   <!-- ##markdown-source:
-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
-BdXeIK2oKQAA
+H4sIAAAAAAAAA51bXXvTSpK+16/oDRebPGsbEsIAOTPzrEmAyRwg2SRnz56r
+qC21bRFZ8qilmAwP/33fqupufdgBZi4gtiV1V1dXvfVWdWk8Hkd1VufmRO2d
+r9a5WZmi1nVWFuoafxuryrm6mDb1Up2nuJTVD+p0qbMiKxZKF6m6qXRhdcJP
+3JR3prB7kZ7NKnOPEacLPOIfx+huzL0oLZNCrzBpWul5PdaLIluWdZWNS417
+8R3PjTM8Mbb8xPjZsyjRtVmU1cOJyop5GWXr6kTVVWPro2fPXj87imwzW2XW
+QpCbhzWGPn978y7SldEn6tokTQXRo01Z3S2qslmfOKl+xw+0lPf0Y3RnHnBH
+ehIpNZYb+FPmV564lfOvdWflNa9cbu5rUeTnK1VTsNqSMjURrbOseCb8U2re
+5Lmo5GxZNfdq6lXCV8tqoYvsnzwkVlakZm0KkoqvmpXOcuiS1PjfzSpLlhOT
+NhGpqVrhmXtD85yPzyaZqedOx35RY7+oHfd0ljiWJdJNV+9OX74+PvIfXxw9
+dx9fHx+/9h9fHr1yH18dHx6fRNF4PFZ6ZjFkUkfRzTKzClbQkKZUZdZlVVsY
+lCqxsLEtmyoxQ1XCEutN2d+4iDdOzEjZtUmyeZbw7fZEJVVp7TgtoZ5iexPJ
+fKPtTZyod2WljE6WMupI1SSriKhWem2VuTfVgyq8ciNr/AC412B/q8rYdVmk
+NItbS16KWDBevqm/tqjBblaqNhbz2Wa10lVmjeU76Uf8Vs01hqmXulbmi6mS
+cN3NPorIHSuD2VN4bWFElfCIBiLhWpbCgdQa06zhFdA6L2+ibjCGW11mozU+
+4nJKcuqEBtMF5t1k0Dk2U9HOs+NDJ1lRkxWmCnamGmvU7IEkikya1WXF0MEL
+wKZ1p7QTsYZVlqa5iaIn6rQs7ml3sGtkGkbBEdWGF7L38bfrm72R/FWfLvjz
+1dv/+e386u0Zfb7+2/TDh/BB7ojw5eK3D+46fWqfPL34+PHtpzN5GL+qwU8f
+p3/gD9nG3sXlzfnFp+mHPdm0rsViObTdM8NKqKC1GnrQuMPYpMpmrMDozeml
+OjxWX7/+B1R3dHj4+ts39+XV4ctjfNksTcGTYcPyB/cVOntQer02uqJBdJ5j
+/9ZZrXM7oinsstwUamkqw5sX7qVf3DjYLYj8j6aEVNjScl1aSFSbL5A8TWGd
+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
+bX0Y6INr5EGKKrj/D28l1eMNPQAA
 
 -->
 
