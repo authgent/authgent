@@ -460,12 +460,27 @@ async def check_passthrough(client: httpx.AsyncClient, base_url: str) -> list[Fi
     return findings
 
 
-# Module-level cache: registration_endpoint URL -> (last_probed_epoch, findings).
-# Lets us run the DCR-mirror probe at most once per hour per target regardless
-# of how many users invoke /api/scan, so a motivated visitor can't pollute a
-# vendor's registration table by hitting the public scanner in a loop.
+# DCR-mirror probe rate limit. The probe makes two unsolicited POST
+# /register calls against a target registration endpoint; without a
+# rate limit, /api/scan visitors could pollute a vendor's registration
+# table by replaying the same target. Cache key is the registration
+# endpoint URL; the value is a JSON-encoded list of finding dicts.
 _DCR_MIRROR_TTL_SECONDS = 3600
+
+# Process-local fallback used in tests and when the Redis backend is
+# unavailable. Mirrors the cache.AsyncCache shape but keyed slightly
+# differently so existing tests that introspect _dcr_mirror_cache keep
+# working without a Redis container. Production deployments with
+# AUTHGENT_REDIS_URL set bypass this entirely.
 _dcr_mirror_cache: dict[str, tuple[float, list[Finding]]] = {}
+
+
+def _findings_to_json(findings: list[Finding]) -> str:
+    return json.dumps([asdict(f) for f in findings])
+
+
+def _findings_from_json(payload: str) -> list[Finding]:
+    return [Finding(**item) for item in json.loads(payload)]
 
 
 async def check_dcr_mirror(client: httpx.AsyncClient, as_meta: dict) -> list[Finding]:
@@ -474,10 +489,10 @@ async def check_dcr_mirror(client: httpx.AsyncClient, as_meta: dict) -> list[Fin
     consent-cache-bypass pattern.
 
     Process-wide rate-limited: at most one probe per registration endpoint
-    per ``_DCR_MIRROR_TTL_SECONDS``. Cached findings are returned to all
-    callers within the window. Required so the public ``/api/scan``
-    endpoint can run with ``probe_registrations=True`` without becoming
-    an abuse vector.
+    per ``_DCR_MIRROR_TTL_SECONDS``. When ``AUTHGENT_REDIS_URL`` is set
+    the rate limit is shared across uvicorn workers; otherwise it is
+    process-local. Either way, the public ``/api/scan`` endpoint can run
+    with ``probe_registrations=True`` without becoming an abuse vector.
     """
     import time as _time
 
@@ -485,9 +500,21 @@ async def check_dcr_mirror(client: httpx.AsyncClient, as_meta: dict) -> list[Fin
     if not reg:
         return []
 
+    # L1: in-process cache (fast path for hot keys within one worker)
     cached = _dcr_mirror_cache.get(reg)
     if cached and (_time.time() - cached[0]) < _DCR_MIRROR_TTL_SECONDS:
         return list(cached[1])
+
+    # L2: Redis (or in-process fallback) for cross-worker sharing.
+    from authgent_server.cache import get_cache
+
+    cache = get_cache()
+    cache_key = f"dcr-mirror:{reg}"
+    serialized = await cache.get(cache_key)
+    if serialized is not None:
+        findings_cached = _findings_from_json(serialized)
+        _dcr_mirror_cache[reg] = (_time.time(), findings_cached)
+        return findings_cached
 
     payload = {
         "client_name": "authgent-lint-probe",
@@ -526,6 +553,7 @@ async def check_dcr_mirror(client: httpx.AsyncClient, as_meta: dict) -> list[Fin
                 )
             )
     _dcr_mirror_cache[reg] = (_time.time(), list(findings))
+    await cache.set(cache_key, _findings_to_json(findings), ttl=_DCR_MIRROR_TTL_SECONDS)
     return findings
 
 
@@ -635,13 +663,109 @@ def has_blocking(findings: list[Finding]) -> bool:
     return any(f.severity in ("error", "critical") for f in findings)
 
 
-def main_cli(url: str, fmt: str = "human") -> int:
-    """Entry point used by the CLI subcommand."""
+def _finding_signature(f: Finding) -> tuple[str, str, str]:
+    """Stable identity tuple for diff comparison.
+
+    The (check_id, severity, title) triple is sufficient: a finding's
+    detail string contains run-specific data (URLs, status codes,
+    response excerpts) and would produce noisy diffs. The triple is what
+    a CI gate cares about: "is this a new TYPE of problem?"
+    """
+    return (f.check_id, f.severity, f.title)
+
+
+def diff_findings(
+    current: list[Finding], baseline: list[Finding]
+) -> tuple[list[Finding], list[Finding]]:
+    """Return (new_findings, resolved_findings) relative to baseline.
+
+    new_findings: in current but not in baseline (signature-equal).
+    resolved_findings: in baseline but not in current.
+    """
+    baseline_sigs = {_finding_signature(f) for f in baseline}
+    current_sigs = {_finding_signature(f) for f in current}
+    new = [f for f in current if _finding_signature(f) not in baseline_sigs]
+    resolved = [f for f in baseline if _finding_signature(f) not in current_sigs]
+    return new, resolved
+
+
+def _load_baseline(path: str) -> list[Finding]:
+    """Parse a baseline JSON file produced by ``--save-baseline`` (or any
+    prior ``-f json`` run). Returns an empty list if the file is absent so
+    the first CI run does not need a pre-seeded baseline."""
+    import os
+    from pathlib import Path as _Path
+
+    if not os.path.exists(path):
+        return []
+    raw = _Path(path).read_text()
+    return [Finding(**item) for item in json.loads(raw)]
+
+
+def main_cli(
+    url: str,
+    fmt: str = "human",
+    diff_baseline: str | None = None,
+    save_baseline: str | None = None,
+) -> int:
+    """Entry point used by the CLI subcommand.
+
+    Modes:
+
+    - default: print findings, exit non-zero if any are blocking.
+    - ``save_baseline``: also write the JSON of all findings to that
+      path. Returned status code follows the default mode.
+    - ``diff_baseline``: load the baseline from the given path, compute
+      new vs. resolved findings, print only the new ones, and exit
+      non-zero only when the new set contains a blocking finding. The
+      resolved set is shown as informational at the end. CI-friendly
+      gate-on-regression mode.
+    """
     findings = asyncio.run(scan(url))
+
+    if save_baseline is not None:
+        from pathlib import Path as _Path
+
+        _Path(save_baseline).write_text(format_json(findings) + "\n")
+        sys.stderr.write(f"baseline written to {save_baseline}\n")
+
+    if diff_baseline is not None:
+        baseline = _load_baseline(diff_baseline)
+        new, resolved = diff_findings(findings, baseline)
+        # Output only the new findings in the requested format.
+        if fmt == "json":
+            sys.stdout.write(format_json(new) + "\n")
+        elif fmt == "github":
+            sys.stdout.write(format_github(new) + "\n")
+        else:
+            sys.stdout.write(format_human(new) + "\n")
+        if resolved:
+            sys.stderr.write(
+                f"\n{len(resolved)} previously-reported finding(s) resolved "
+                "since baseline (not blocking):\n"
+            )
+            for f in resolved:
+                sys.stderr.write(f"  resolved: [{f.severity}] {f.check_id}: {f.title}\n")
+        rc = 1 if has_blocking(new) else 0
+        try:
+            from authgent_server.telemetry import emit_lint_event
+
+            emit_lint_event(findings, rc)
+        except Exception:  # noqa: BLE001
+            pass
+        return rc
+
     if fmt == "json":
         sys.stdout.write(format_json(findings) + "\n")
     elif fmt == "github":
         sys.stdout.write(format_github(findings) + "\n")
     else:
         sys.stdout.write(format_human(findings) + "\n")
-    return 1 if has_blocking(findings) else 0
+    rc = 1 if has_blocking(findings) else 0
+    try:
+        from authgent_server.telemetry import emit_lint_event
+
+        emit_lint_event(findings, rc)
+    except Exception:  # noqa: BLE001 — telemetry must never break a real scan
+        pass
+    return rc
