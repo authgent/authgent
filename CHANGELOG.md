@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2026-06-13
+
+### Added -- adoption-tier hardening
+
+- **`authgent-server lint --diff <baseline.json>`** plus
+  `--save-baseline=<path>`. Regression-only CI gate: only fails when
+  findings appear that were not in the committed baseline. The single
+  feature that lets a real project add the scanner to a PR pipeline
+  without first achieving zero findings.
+- **Anonymous, opt-out CLI telemetry** (`authgent_server.telemetry`).
+  When `AUTHGENT_TELEMETRY_URL` is set, sends scanner version, exit
+  code, and per-`check_id` finding counts. Never transmits the
+  scanned URL or the user's IP. Opt out with `AUTHGENT_TELEMETRY=0`,
+  `DO_NOT_TRACK=1`, or unset endpoint. First-run notice prints once
+  per machine.
+- **Shared cache backend** (`authgent_server.cache`). When
+  `AUTHGENT_REDIS_URL` (or plain `REDIS_URL`) is set, the DCR-mirror
+  probe and per-target scan caches share state via Redis so
+  multi-worker uvicorn deployments stay consistent. Falls back to
+  in-process dicts when unset.
+- **GitHub Actions release pipeline** (`.github/workflows/release.yml`).
+  Tag `v*.*.*` triggers PyPI Trusted Publishing (no API token in repo)
+  + Sigstore signature + CycloneDX SBOM + npm publish + GitHub Release
+  with all artifacts.
+- **GitHub Marketplace Action repo content** in
+  `marketplace/mcp-lint-action/`. Self-contained `action.yml`,
+  `README.md`, `LICENSE`, plus `PUBLISH.md` with the exact UI-click
+  sequence to publish.
+- **Public-demo housekeeping**: opt-in `AUTHGENT_DEMO_CLEANUP_ENABLED`
+  prunes anonymous test clients (`audit-test*`, `lint-probe*`, etc)
+  older than 24h. Production deployments leave it off so real
+  customer records are never touched.
+
+### Changed
+
+- **GitHub Action** hardened against workflow injection: user-controlled
+  inputs feed through env vars, never interpolated into `run:` bodies.
+  New `baseline` and `save-baseline` inputs surface `--diff` mode.
+- **Dockerfile** now installs `[redis]` extra so `cache.py` connects
+  to Redis without an extra step.
+- **Demo deployment** (Oracle Cloud): bumped to 1 CPU + 512MB RAM
+  (was 0.5 / 256m); SQLite moved off tmpfs to a bind-mounted persistent
+  volume; joined database network; injects `REDIS_URL` for shared
+  cache. Signing keys + tokens now survive container restarts.
+
+### Tests
+
+- 495 tests, up from 476. New: `tests/test_diff_baseline.py` (8 tests),
+  `tests/test_telemetry.py` (8 tests), updated DCR-mirror cache test to
+  cover the Redis-or-memory backend.
+
 ## [0.2.1] - 2026-06-10
 
 ### Added — IETF reference implementation + MCP-spec hardening

@@ -40,6 +40,20 @@ _CLEANUP_QUERIES = {
     ),
     "audit_log": text("DELETE FROM audit_log WHERE timestamp < :now"),
     "delegation_receipts": text("DELETE FROM delegation_receipts WHERE created_at < :now"),
+    # Public-demo housekeeping: prune anonymous test clients (audit-test,
+    # lint-probe, etc) older than the retention window. ONLY runs when
+    # AUTHGENT_DEMO_CLEANUP_ENABLED=true. Disabled by default so
+    # production deployments never lose real customer records to a
+    # mis-read env var.
+    "demo_clients": text(
+        "DELETE FROM oauth_clients WHERE created_at < :now AND ("
+        "  client_name LIKE 'audit-test%' "
+        "  OR client_name LIKE 'authgent-lint-probe%' "
+        "  OR client_name LIKE 'wk-%' "
+        "  OR client_name LIKE 'registration-test%' "
+        "  OR client_name LIKE 'test-%'"
+        ")"
+    ),
 }
 
 # Cleanup intervals in seconds
@@ -51,12 +65,15 @@ _CLEANUP_INTERVALS = {
     "stepup_requests": 60,
     "audit_log": 86400,  # daily — retains 90 days
     "delegation_receipts": 86400,  # daily — retains 30 days
+    "demo_clients": 3600,  # hourly when enabled; opt-in
 }
 
 # Retention offsets for tables without an expires_at column (seconds before :now)
 _CLEANUP_RETENTION = {
     "audit_log": 90 * 86400,  # 90 days
     "delegation_receipts": 30 * 86400,  # 30 days
+    # demo_clients retention is per-deployment; loaded at task start
+    # from settings.demo_client_retention_seconds.
 }
 
 
@@ -111,11 +128,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # type: ignore[
     async with session_factory() as session:
         await jwks.get_active_key(session)
 
-    # Start background cleanup tasks
+    # Start background cleanup tasks. demo_clients is opt-in via
+    # AUTHGENT_DEMO_CLEANUP_ENABLED so production deployments never
+    # auto-prune real customer records.
     shutdown_event = asyncio.Event()
+    cleanup_tables = list(_CLEANUP_INTERVALS.items())
+    if settings.demo_cleanup_enabled:
+        # Set the retention offset from settings so the loop can apply
+        # it via _CLEANUP_RETENTION lookup.
+        _CLEANUP_RETENTION["demo_clients"] = settings.demo_client_retention_seconds
+    else:
+        cleanup_tables = [(t, i) for t, i in cleanup_tables if t != "demo_clients"]
     cleanup_tasks = [
         asyncio.create_task(_cleanup_loop(table, interval, shutdown_event, session_factory))
-        for table, interval in _CLEANUP_INTERVALS.items()
+        for table, interval in cleanup_tables
     ]
 
     logger.info(

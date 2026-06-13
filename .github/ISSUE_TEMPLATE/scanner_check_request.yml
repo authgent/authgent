@@ -1,0 +1,58 @@
+name: Scanner check request
+description: Suggest a new conformance check for the scanner (new MCP-XXX-NNN id).
+labels: ['scanner', 'enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a check. To keep the scanner credible we
+        require every check to be normative-grounded: it must trace
+        back to a numbered RFC or MCP spec section, or to a published
+        disclosure (Obsidian, OAuch, CVE, GHSA).
+
+  - type: input
+    id: proposed_id
+    attributes:
+      label: Proposed check ID
+      description: Format MCP-CATEGORY-NNN. We will assign the final number.
+      placeholder: 'MCP-DPOP-002'
+    validations:
+      required: true
+
+  - type: textarea
+    id: spec_anchor
+    attributes:
+      label: Normative spec anchor
+      description: Link to the RFC section or MCP spec paragraph that defines the requirement.
+      placeholder: |
+        https://datatracker.ietf.org/doc/html/rfc9449#section-4.3
+        or
+        https://modelcontextprotocol.io/specification/2025-11-25/...
+    validations:
+      required: true
+
+  - type: textarea
+    id: heuristic
+    attributes:
+      label: Heuristic
+      description: How does the scanner detect the violation from public, unauthenticated metadata? Include false-positive suppression rules.
+    validations:
+      required: true
+
+  - type: textarea
+    id: severity
+    attributes:
+      label: Severity tier
+      description: |
+        - `spec_required` (drives letter grade) for normative MUST/SHALL violations.
+        - `advisory` (informational) for SHOULD/RECOMMENDED.
+    validations:
+      required: true
+
+  - type: textarea
+    id: prior_art
+    attributes:
+      label: Prior art
+      description: Cite any existing scanner that already implements this check (OAuch, Snyk, Cisco, Tencent). We do not duplicate without value-add.
+    validations:
+      required: false

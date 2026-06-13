@@ -85,6 +85,16 @@ class Settings(BaseSettings):
     # registry cache uses today (1 hour). Tunable for ops.
     scan_cache_ttl_seconds: int = 3600
 
+    # Public-demo housekeeping. When true, the cleanup loop also prunes
+    # OAuth clients older than `demo_client_retention_seconds` whose
+    # client_name matches one of the well-known demo / probe patterns
+    # (audit-test, lint-probe, registration-tester, etc). Production
+    # deployments (where every registered client is a real customer)
+    # MUST leave this off. Default off so a misread env var never
+    # destroys real client records.
+    demo_cleanup_enabled: bool = False
+    demo_client_retention_seconds: int = 86400  # 24h
+
     # Webhook delivery (HITL step-up notifications)
     webhook_url: str | None = None
     webhook_hmac_secret: str | None = None
