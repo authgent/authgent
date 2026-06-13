@@ -126,28 +126,63 @@ async def check_protected_resource_metadata(
 async def check_as_metadata(
     client: httpx.AsyncClient, as_url: str
 ) -> tuple[list[Finding], dict | None]:
-    """MCP-AS-001: RFC 8414 AS metadata MUST exist."""
+    """MCP-AS-001: RFC 8414 AS metadata MUST exist.
+
+    Tries two locations, in order:
+
+    1. Default RFC 8414 path: ``<as_url>/.well-known/oauth-authorization-server``.
+    2. MCP SEP-2351 / RFC 8414 §3.1 path-suffixed variant: when the AS
+       URL has a non-empty path segment, the metadata may live at
+       ``<host>/.well-known/oauth-authorization-server/<path>``.
+
+    The path-suffixed variant is required for any multi-tenant MCP
+    gateway deployment. Datadog, Grafana, and Stripe use it (verified
+    2026-06-13). Without checking both, a scanner reports a false
+    negative on those vendors.
+    """
+    parsed = urlparse(as_url)
+    scheme_host = f"{parsed.scheme}://{parsed.netloc}"
+    path_suffix = parsed.path.strip("/")
+
+    # 1. Default RFC 8414 path.
     url = urljoin(as_url.rstrip("/") + "/", ".well-known/oauth-authorization-server")
     status, body, _ = await _get_json(client, url)
-    findings: list[Finding] = []
-    if status != 200 or not isinstance(body, dict):
-        findings.append(
-            Finding(
-                check_id="MCP-AS-001",
-                severity="error",
-                title="Missing Authorization Server Metadata",
-                detail=f"GET {url} returned {status}.",
-                spec_link="https://datatracker.ietf.org/doc/html/rfc8414",
-                remediation=(
-                    "Expose /.well-known/oauth-authorization-server with "
-                    "issuer, token_endpoint, authorization_endpoint, "
-                    "jwks_uri, code_challenge_methods_supported."
-                ),
-            )
-        )
-        return findings, None
+    if status == 200 and isinstance(body, dict):
+        return [], body
 
-    return findings, body
+    # 2. MCP SEP-2351 path-suffix variant. Only attempted when the AS
+    # URL had a non-empty path; otherwise it duplicates step 1.
+    if path_suffix:
+        suffix_url = f"{scheme_host}/.well-known/oauth-authorization-server/{path_suffix}"
+        suffix_status, suffix_body, _ = await _get_json(client, suffix_url)
+        if suffix_status == 200 and isinstance(suffix_body, dict):
+            return [], suffix_body
+
+    # Neither location returned valid metadata.
+    return [
+        Finding(
+            check_id="MCP-AS-001",
+            severity="error",
+            title="Missing Authorization Server Metadata",
+            detail=(
+                f"GET {url} returned {status}; "
+                + (
+                    f"GET {scheme_host}/.well-known/oauth-authorization-server/"
+                    f"{path_suffix} also failed."
+                    if path_suffix
+                    else "no path-suffix variant to try."
+                )
+            ),
+            spec_link="https://datatracker.ietf.org/doc/html/rfc8414",
+            remediation=(
+                "Expose /.well-known/oauth-authorization-server with "
+                "issuer, token_endpoint, authorization_endpoint, "
+                "jwks_uri, code_challenge_methods_supported. For "
+                "multi-tenant deployments, RFC 8414 Section 3.1 / MCP "
+                "SEP-2351 also accepts the path-suffix variant."
+            ),
+        )
+    ], None
 
 
 def check_pkce(as_meta: dict) -> list[Finding]:
