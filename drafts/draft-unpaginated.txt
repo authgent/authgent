@@ -50,14 +50,6 @@ Copyright Notice
    Provisions Relating to IETF Documents (https://trustee.ietf.org/
    license-info) in effect on the date of publication of this document.
    Please review these documents carefully, as they describe your rights
-
-
-
-Agnihotri               Expires 14 December 2026                [Page 1]
-
-Internet-Draft           Agent OAuth Impl Status               June 2026
-
-
    and restrictions with respect to this document.  Code Components
    extracted from this document must include Revised BSD License text as
    described in Section 4.e of the Trust Legal Provisions and are
@@ -65,25 +57,25 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
 
 Table of Contents
 
-   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   2
-     1.1.  Implementation Status Note  . . . . . . . . . . . . . . .   2
-     1.2.  Background  . . . . . . . . . . . . . . . . . . . . . . .   3
-   2.  Conventions and Definitions . . . . . . . . . . . . . . . . .   3
-   3.  Implementation: identity-chaining . . . . . . . . . . . . . .   3
-     3.1.  Implementer . . . . . . . . . . . . . . . . . . . . . . .   3
-     3.2.  Coverage map  . . . . . . . . . . . . . . . . . . . . . .   4
-     3.3.  Editorial observation . . . . . . . . . . . . . . . . . .   5
-   4.  Implementation: transaction-tokens  . . . . . . . . . . . . .   5
-     4.1.  Coverage map  . . . . . . . . . . . . . . . . . . . . . .   5
-   5.  Implementation Notes  . . . . . . . . . . . . . . . . . . . .   6
-     5.1.  Scanner . . . . . . . . . . . . . . . . . . . . . . . . .   6
-     5.2.  Calibration . . . . . . . . . . . . . . . . . . . . . . .   6
-   6.  Interoperability  . . . . . . . . . . . . . . . . . . . . . .   6
-   7.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .   7
-   8.  Security Considerations . . . . . . . . . . . . . . . . . . .   7
-   9.  Normative References  . . . . . . . . . . . . . . . . . . . .   7
-   Appendix A.  Acknowledgments  . . . . . . . . . . . . . . . . . .   8
-   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .   8
+   1.  Introduction
+     1.1.  Implementation Status Note
+     1.2.  Background
+   2.  Conventions and Definitions
+   3.  Implementation: identity-chaining
+     3.1.  Implementer
+     3.2.  Coverage map
+     3.3.  Editorial observation
+   4.  Implementation: transaction-tokens
+     4.1.  Coverage map
+   5.  Implementation Notes
+     5.1.  Scanner
+     5.2.  Calibration
+   6.  Interoperability
+   7.  IANA Considerations
+   8.  Security Considerations
+   9.  Normative References
+   Appendix A.  Acknowledgments
+   Author's Address
 
 1.  Introduction
 
@@ -105,14 +97,6 @@ Table of Contents
    construed to be, a catalog of available implementations or their
    features.  Readers are advised to note that other implementations may
    exist.
-
-
-
-
-Agnihotri               Expires 14 December 2026                [Page 2]
-
-Internet-Draft           Agent OAuth Impl Status               June 2026
-
 
    According to [RFC7942], "this will allow reviewers and working groups
    to assign due consideration to documents that have the benefit of
@@ -145,8 +129,8 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
    The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
    "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
    "OPTIONAL" in this document are to be interpreted as described in BCP
-   14 [BCP14] when, and only when, they appear in all capitals, as shown
-   here.
+   14 [RFC2119] [RFC8174] when, and only when, they appear in all
+   capitals, as shown here.
 
 3.  Implementation: identity-chaining
 
@@ -161,14 +145,6 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
 
    *  Maturity: production-deployed; 476 tests; 83% coverage.  A live
       demo URL is published at the repository link above.
-
-
-
-
-Agnihotri               Expires 14 December 2026                [Page 3]
-
-Internet-Draft           Agent OAuth Impl Status               June 2026
-
 
    *  Contact: dagni@umich.edu (mailto:dagni@umich.edu)
 
@@ -217,14 +193,6 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
 
    Section 5.3 (Authorized use of subject_token)  Revocation check via
       verify_and_check_blocklist before mint.
-
-
-
-
-Agnihotri               Expires 14 December 2026                [Page 4]
-
-Internet-Draft           Agent OAuth Impl Status               June 2026
-
 
    Section 5.4 (SHOULD NOT issue refresh tokens)  _handle_jwt_bearer
       deliberately omits refresh issuance.
@@ -275,13 +243,6 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
    Section 3 (response issued_token_type=...:txn_token,
    token_type=N_A)  Hardcoded.
 
-
-
-Agnihotri               Expires 14 December 2026                [Page 5]
-
-Internet-Draft           Agent OAuth Impl Status               June 2026
-
-
    Section 7 (short-lived)  txn_token_ttl defaults to 120 seconds.
 
    Section 7.2 (scope MUST NOT exceed subject_token)  Inline
@@ -330,14 +291,6 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
    https://github.com/authgent/authgent/issues
    (https://github.com/authgent/authgent/issues).
 
-
-
-
-Agnihotri               Expires 14 December 2026                [Page 6]
-
-Internet-Draft           Agent OAuth Impl Status               June 2026
-
-
 7.  IANA Considerations
 
    This document requests no IANA actions.
@@ -366,18 +319,6 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
 
 9.  Normative References
 
-   [BCP14]    Best Current Practice 14,
-              <https://www.rfc-editor.org/info/bcp14>.
-              At the time of writing, this BCP comprises the following:
-
-              Bradner, S., "Key words for use in RFCs to Indicate
-              Requirement Levels", BCP 14, RFC 2119, March 1997,
-              <https://www.rfc-editor.org/info/rfc2119>.
-
-              Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
-              2119 Key Words", BCP 14, RFC 8174, May 2017,
-              <https://www.rfc-editor.org/info/rfc8174>.
-
    [I-D.ietf-oauth-identity-chaining]
               Schwenkschuster, A., Kasselman, P., Burgin, K., Jenkins,
               M. J., Campbell, B., and A. Parecki, "OAuth Identity and
@@ -385,14 +326,6 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
               Internet-Draft, draft-ietf-oauth-identity-chaining-14, 2
               June 2026, <https://datatracker.ietf.org/doc/html/draft-
               ietf-oauth-identity-chaining-14>.
-
-
-
-
-Agnihotri               Expires 14 December 2026                [Page 7]
-
-Internet-Draft           Agent OAuth Impl Status               June 2026
-
 
    [I-D.ietf-oauth-transaction-tokens]
               Tulshibagwale, A., Fletcher, G., and P. Kasselman,
@@ -405,6 +338,15 @@ Internet-Draft           Agent OAuth Impl Status               June 2026
               Code: The Implementation Status Section", BCP 205,
               RFC 7942, DOI 10.17487/RFC7942, July 2016,
               <https://www.rfc-editor.org/info/rfc7942>.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
+              <https://www.rfc-editor.org/info/rfc2119>.
+
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
+              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
+              May 2017, <https://www.rfc-editor.org/info/rfc8174>.
 
    [RFC9449]  Fett, D., Campbell, B., Bradley, J., Lodderstedt, T.,
               Jones, M., and D. Waite, "OAuth 2.0 Demonstrating Proof of
@@ -427,22 +369,3 @@ Author's Address
    Dhruv Agnihotri
    Independent
    Email: dagni@umich.edu
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Agnihotri               Expires 14 December 2026                [Page 8]
