@@ -1,11 +1,17 @@
-# Standards Implementation Report — authgent
+# Standards Implementation Report -- authgent
 
 **This document is the authoritative map between IETF/RFC specifications
 and authgent's source code.** It is written for spec authors, implementers,
 auditors, and reviewers evaluating authgent as a reference implementation.
 
-Last updated: 2026-06-11. authgent version: 0.3.x (see [CHANGELOG.md](CHANGELOG.md)).
-Test count: **469**, all passing. Coverage: **82%**. Lint/format/type: clean.
+Last updated: 2026-06-12. authgent version: 0.3.x (see [CHANGELOG.md](CHANGELOG.md)).
+Test count: **476**, all passing. Coverage: **83%**. Lint/format/type: clean.
+
+**IETF Internet-Draft (canonical citation)**: `draft-agnihotri-oauth-agent-impl-status-00`,
+posted 2026-06-12, available at <https://datatracker.ietf.org/doc/draft-agnihotri-oauth-agent-impl-status/>.
+Editors of `draft-ietf-oauth-identity-chaining` and `draft-ietf-oauth-transaction-tokens`
+considering an Implementation Status section may reference the I-D directly,
+or cite the per-section maps below.
 
 ---
 
