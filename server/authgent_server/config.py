@@ -6,7 +6,7 @@ import secrets
 from functools import cached_property
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from authgent_server.crypto import derive_subkey
@@ -72,10 +72,15 @@ class Settings(BaseSettings):
     badge_rate_limit: int = 120
 
     # Optional shared cache for multi-worker / multi-replica deployments.
-    # When set (e.g. AUTHGENT_REDIS_URL=redis://...:6379/2), scanner caches
-    # use Redis. When unset, scanner caches fall back to in-process dicts
-    # which is fine for single-worker dev / CI / small deployments.
-    redis_url: str | None = None
+    # When set, scanner caches use Redis. When unset, scanner caches
+    # fall back to in-process dicts (fine for single-worker dev / CI).
+    # Reads AUTHGENT_REDIS_URL first, then plain REDIS_URL so the
+    # standard 12-factor convention used by the deploy infrastructure
+    # works without an extra alias step.
+    redis_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("AUTHGENT_REDIS_URL", "REDIS_URL"),
+    )
     # Default TTL for shared scan-result entries. Same value the in-process
     # registry cache uses today (1 hour). Tunable for ops.
     scan_cache_ttl_seconds: int = 3600
