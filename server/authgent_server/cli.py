@@ -1134,8 +1134,11 @@ def quickstart() -> None:
 
 @app.command()
 def lint(
-    url: str = typer.Argument(
-        ..., help="MCP server base URL to audit, e.g. https://mcp.example.com"
+    url: str | None = typer.Argument(
+        None,
+        help=(
+            "MCP server base URL to audit. May be omitted when `url:` is set in the --config file."
+        ),
     ),
     fmt: str = typer.Option(
         "human",
@@ -1161,6 +1164,16 @@ def lint(
             "then on every PR run with --diff=baseline.json."
         ),
     ),
+    config: str | None = typer.Option(
+        None,
+        "--config",
+        "-c",
+        help=(
+            "Path to a YAML config file (e.g. .authgent.yml) with target "
+            "url, suppressions, severity_overrides, and fail_on threshold. "
+            "Convention follows ESLint / hadolint."
+        ),
+    ),
 ) -> None:
     """MCP-OAuth conformance scanner.
 
@@ -1178,7 +1191,13 @@ def lint(
     """
     from authgent_server.scanner import main_cli
 
-    rc = main_cli(url, fmt=fmt, diff_baseline=diff, save_baseline=save_baseline)
+    rc = main_cli(
+        url,
+        fmt=fmt,
+        diff_baseline=diff,
+        save_baseline=save_baseline,
+        config_path=config,
+    )
     raise typer.Exit(code=rc)
 
 
