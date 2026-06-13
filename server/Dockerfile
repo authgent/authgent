@@ -5,7 +5,7 @@ WORKDIR /app
 # Install dependencies first (layer caching)
 COPY pyproject.toml README.md ./
 COPY authgent_server/__init__.py authgent_server/__init__.py
-RUN pip install --no-cache-dir .[postgres]
+RUN pip install --no-cache-dir ".[postgres,redis]"
 
 # Copy full source
 COPY authgent_server/ authgent_server/
