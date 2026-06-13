@@ -28,15 +28,12 @@ echo "==> strip line PIs"
 sed '/<?line [0-9]*?>/d' "${NAME}.raw.xml" > "${NAME}.stripped.xml"
 
 echo "==> xml2rfc --v2v3 (inline bibxml entities)"
-xml2rfc --no-network --v2v3 "${NAME}.stripped.xml" -o "${NAME}.unref.xml" 2>&1 | tail -3
-
-echo "==> inject BCP14 referencegroup"
-python3 inject_bcp14.py "${NAME}.unref.xml" "${NAME}.xml"
+xml2rfc --no-network --v2v3 "${NAME}.stripped.xml" -o "${NAME}.xml" 2>&1 | tail -3
 
 echo "==> xml2rfc --text"
 xml2rfc --text "${NAME}.xml" -o "${NAME}.txt" 2>&1 | tail -3
 
-rm -f "${NAME}.raw.xml" "${NAME}.stripped.xml" "${NAME}.unref.xml"
+rm -f "${NAME}.raw.xml" "${NAME}.stripped.xml"
 
 if command -v idnits >/dev/null 2>&1; then
     echo "==> idnits submission mode"
