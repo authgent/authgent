@@ -702,11 +702,105 @@ def _load_baseline(path: str) -> list[Finding]:
     return [Finding(**item) for item in json.loads(raw)]
 
 
+@dataclass
+class LintConfig:
+    """Per-project scanner configuration.
+
+    Loaded from ``.authgent.yml`` (or the path given to ``--config``).
+    Lets a project pin scanner behavior in source control alongside the
+    CI workflow. Convention follows ESLint, hadolint, gitleaks.
+
+    Field semantics:
+
+    - ``url``: target to scan when not given on the command line.
+    - ``suppressions``: list of check_ids that, when matched, are
+      filtered out of the result set entirely. Use sparingly; prefer
+      ``--diff`` baseline mode for ongoing technical debt.
+    - ``severity_overrides``: mapping from check_id to a forced
+      severity. Drops a check from blocking to advisory or vice
+      versa. Same caveat: ``--diff`` baseline is usually better.
+    - ``fail_on``: minimum severity that fails the run. Default
+      'error'. Setting to 'warning' is stricter; setting to 'critical'
+      is more lenient.
+    """
+
+    url: str | None = None
+    suppressions: list[str] = field(default_factory=list)
+    severity_overrides: dict[str, str] = field(default_factory=dict)
+    fail_on: str = "error"
+
+
+def _load_lint_config(path: str) -> LintConfig:
+    """Parse a YAML config file. PyYAML is dynamically imported so
+    projects that do not use ``--config`` need not install it.
+
+    Raises FileNotFoundError if the path does not exist (intentional;
+    a ``--config`` path the user typed must resolve, otherwise the user
+    has a typo and silent fallback would mask it)."""
+    from pathlib import Path as _Path
+
+    p = _Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"--config: file not found at {path}")
+    raw = p.read_text()
+    try:
+        import yaml
+    except ImportError as exc:
+        raise RuntimeError(
+            "PyYAML is required to use --config. Install with: pip install pyyaml"
+        ) from exc
+    data = yaml.safe_load(raw) or {}
+    return LintConfig(
+        url=data.get("url"),
+        suppressions=list(data.get("suppressions") or []),
+        severity_overrides=dict(data.get("severity_overrides") or {}),
+        fail_on=data.get("fail_on", "error"),
+    )
+
+
+def _apply_config(findings: list[Finding], config: LintConfig) -> list[Finding]:
+    """Apply suppressions + severity overrides from the config file."""
+    if not config.suppressions and not config.severity_overrides:
+        return findings
+    suppressions = set(config.suppressions)
+    out: list[Finding] = []
+    for f in findings:
+        if f.check_id in suppressions:
+            continue
+        new_sev = config.severity_overrides.get(f.check_id)
+        if new_sev:
+            # Build a new Finding with the overridden severity. Cast
+            # to the Severity literal type via type: ignore because
+            # the YAML value is a plain str at runtime; the validation
+            # of allowed values happens implicitly via has_blocking()
+            # which only treats 'error'/'critical' as blocking.
+            f = Finding(
+                check_id=f.check_id,
+                severity=new_sev,  # type: ignore[arg-type]
+                title=f.title,
+                detail=f.detail,
+                spec_link=f.spec_link,
+                remediation=f.remediation,
+                tier=f.tier,
+                extra=f.extra,
+            )
+        out.append(f)
+    return out
+
+
+def _has_blocking_at(findings: list[Finding], threshold: str) -> bool:
+    """Return True iff any finding meets-or-exceeds the threshold severity."""
+    rank = {"info": 0, "warning": 1, "error": 2, "critical": 3}
+    cutoff = rank.get(threshold, 2)
+    return any(rank.get(f.severity, 1) >= cutoff for f in findings)
+
+
 def main_cli(
-    url: str,
+    url: str | None = None,
     fmt: str = "human",
     diff_baseline: str | None = None,
     save_baseline: str | None = None,
+    config_path: str | None = None,
 ) -> int:
     """Entry point used by the CLI subcommand.
 
@@ -717,11 +811,20 @@ def main_cli(
       path. Returned status code follows the default mode.
     - ``diff_baseline``: load the baseline from the given path, compute
       new vs. resolved findings, print only the new ones, and exit
-      non-zero only when the new set contains a blocking finding. The
-      resolved set is shown as informational at the end. CI-friendly
-      gate-on-regression mode.
+      non-zero only when the new set contains a blocking finding.
+    - ``config_path``: load .authgent.yml; applies suppressions, severity
+      overrides, and fail_on threshold. URL on CLI overrides config.
     """
-    findings = asyncio.run(scan(url))
+    config = LintConfig()
+    if config_path is not None:
+        config = _load_lint_config(config_path)
+    target = url or config.url
+    if not target:
+        sys.stderr.write("ERROR: target URL not provided on CLI and no `url:` in config file.\n")
+        return 2
+
+    findings = asyncio.run(scan(target))
+    findings = _apply_config(findings, config)
 
     if save_baseline is not None:
         from pathlib import Path as _Path
@@ -746,7 +849,7 @@ def main_cli(
             )
             for f in resolved:
                 sys.stderr.write(f"  resolved: [{f.severity}] {f.check_id}: {f.title}\n")
-        rc = 1 if has_blocking(new) else 0
+        rc = 1 if _has_blocking_at(new, config.fail_on) else 0
         try:
             from authgent_server.telemetry import emit_lint_event
 
@@ -761,7 +864,7 @@ def main_cli(
         sys.stdout.write(format_github(findings) + "\n")
     else:
         sys.stdout.write(format_human(findings) + "\n")
-    rc = 1 if has_blocking(findings) else 0
+    rc = 1 if _has_blocking_at(findings, config.fail_on) else 0
     try:
         from authgent_server.telemetry import emit_lint_event
 

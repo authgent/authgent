@@ -1,0 +1,40 @@
+# authgent lint config (example)
+#
+# Drop this file at the root of your repo as `.authgent.yml` and the
+# scanner will pick it up automatically. Convention follows ESLint /
+# hadolint / gitleaks. Run with:
+#
+#   authgent-server lint --config .authgent.yml
+#
+# Or in CI:
+#
+#   - uses: authgent/mcp-lint-action@v1
+#     with:
+#       config: .authgent.yml
+#
+# All keys are optional; an empty file is a valid no-op config.
+
+# Default target URL. A positional CLI argument overrides this.
+url: https://staging.mcp.example.com
+
+# Minimum severity that fails the CI run.
+#   info     -- alert on anything (very strict)
+#   warning  -- error/critical/warning all block
+#   error    -- error/critical block (default)
+#   critical -- only critical blocks (most lenient)
+fail_on: error
+
+# Drop matching check IDs entirely. Use sparingly; prefer the
+# --diff baseline workflow for ongoing technical debt rather than
+# permanently silencing a check.
+suppressions:
+  # MCP-PASSTHROUGH-001 is heuristic-only and false-positives on
+  # servers that legitimately host a public landing page.
+  - MCP-PASSTHROUGH-001
+
+# Force a check to a different severity. Use to demote a check
+# below your fail_on threshold rather than suppressing it; you
+# still see the finding in the report but it does not block CI.
+severity_overrides:
+  # We accept refresh-token-without-DPoP for now; tracked in JIRA.
+  MCP-REFRESH-001: warning

@@ -27,7 +27,7 @@ to fix what it found — a reference OAuth 2.1 server implementing
 [`draft-ietf-oauth-identity-chaining-14`][icn] and
 [`draft-ietf-oauth-transaction-tokens-08`][txntok].
 
-Apache 2.0 · 476 tests · 3 published packages.
+Apache 2.0 · 508 tests · 3 published packages · IETF Internet-Draft on datatracker.
 
 [icn]: https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/
 [txntok]: https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/
@@ -35,9 +35,12 @@ Apache 2.0 · 476 tests · 3 published packages.
 [rfc9449]: https://datatracker.ietf.org/doc/html/rfc9449
 
 [![CI](https://github.com/authgent/authgent/actions/workflows/ci.yml/badge.svg)](https://github.com/authgent/authgent/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/authgent/authgent/badge)](https://securityscorecards.dev/viewer/?uri=github.com/authgent/authgent)
 [![PyPI - Server](https://img.shields.io/pypi/v/authgent-server?label=authgent-server&color=blue)](https://pypi.org/project/authgent-server/)
 [![PyPI - SDK](https://img.shields.io/pypi/v/authgent?label=authgent%20SDK&color=blue)](https://pypi.org/project/authgent/)
 [![npm](https://img.shields.io/npm/v/authgent?label=authgent%20npm&color=CB3837)](https://www.npmjs.com/package/authgent)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/authgent-server?label=monthly%20downloads&color=10b981)](https://pypistats.org/packages/authgent-server)
+[![IETF Draft](https://img.shields.io/badge/IETF-draft--agnihotri--oauth--agent--impl--status-orange)](https://datatracker.ietf.org/doc/draft-agnihotri-oauth-agent-impl-status/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Cite](https://img.shields.io/badge/cite-CITATION.cff-9cf.svg)](CITATION.cff)
 

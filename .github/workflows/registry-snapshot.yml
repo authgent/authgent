@@ -1,0 +1,59 @@
+name: Registry snapshot
+
+# Daily JSON snapshot of /api/registry committed to gh-pages so the
+# static frontend has a fallback when the Oracle backend is down.
+# https://authgent.github.io/authgent/registry-snapshot.json
+
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY_URL: https://authgent-demo.dhruvagnihotri.com/api/registry
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+      - name: Fetch live registry
+        run: |
+          set -e
+          for attempt in 1 2 3; do
+            if curl -fsSL --max-time 30 "$REGISTRY_URL" -o /tmp/registry.json; then
+              break
+            fi
+            if [ "$attempt" = "3" ]; then
+              echo "ERROR: live registry unreachable after 3 attempts"
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
+          python3 -c "
+          import json
+          d = json.load(open('/tmp/registry.json'))
+          assert 'rows' in d and isinstance(d['rows'], list), 'missing rows'
+          assert 'generated_at' in d, 'missing generated_at'
+          assert d.get('total', 0) > 0, 'empty registry'
+          print(f'snapshot ok: {d[\"total\"]} targets, {d[\"scanned\"]} scanned')
+          "
+      - name: Move snapshot into gh-pages
+        run: mv /tmp/registry.json registry-snapshot.json
+      - name: Commit snapshot if changed
+        run: |
+          git config user.name 'authgent-bot'
+          git config user.email 'security@authgent.dev'
+          if git diff --quiet registry-snapshot.json; then
+            echo "no changes to snapshot"
+            exit 0
+          fi
+          git add registry-snapshot.json
+          git commit -m "chore: registry snapshot $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push origin gh-pages
