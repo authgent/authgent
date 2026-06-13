@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/authgent/authgent/security/advisories/new
+    about: Report a security issue privately. Do NOT open a public issue.
+  - name: Disclosure to a vendor scanned by the registry
+    url: https://github.com/authgent/authgent/blob/main/docs/disclosure-policy.md
+    about: How responsible disclosure works for vendors in the registry.
+  - name: Spec questions for the IETF Internet-Draft
+    url: https://mailarchive.ietf.org/arch/browse/oauth/
+    about: OAuth Working Group mailing list. Spec-level discussion belongs there, not in GitHub issues.

@@ -1,0 +1,84 @@
+name: Bug report
+description: Something is wrong with the scanner, the OAuth server, the SDKs, or the docs.
+labels: ['bug', 'needs-triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for filing a bug. Before submitting, please confirm
+        the issue is not already covered by an existing issue and is
+        reproducible against the latest published version.
+
+  - type: input
+    id: version
+    attributes:
+      label: authgent-server version
+      description: Output of `authgent-server --version`. Or the SDK version.
+      placeholder: '0.3.4'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - Scanner CLI (authgent-server lint)
+        - OAuth server (token / authorize / register / etc)
+        - GitHub Action (.github/actions/mcp-lint or marketplace)
+        - Hosted scanner (authgent-demo.dhruvagnihotri.com)
+        - Public registry
+        - Python SDK (authgent on PyPI)
+        - TypeScript SDK (authgent on npm)
+        - Docs / README
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Minimal commands or code that reproduces the bug.
+      placeholder: |
+        $ authgent-server lint https://mcp.example.com
+        ... unexpected output ...
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python or Node version, install method.
+      placeholder: |
+        - OS: macOS 15.4 / Ubuntu 24.04 / Windows 11
+        - Python: 3.12.3
+        - Install: pip install authgent-server, or git clone + editable
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have read the Code of Conduct.
+          required: true
+        - label: I confirmed this is reproducible on the latest published version, not just on a fork or older release.
+          required: true
