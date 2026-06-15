@@ -18,11 +18,43 @@ jobs:
     env:
       REGISTRY_URL: https://authgent-demo.dhruvagnihotri.com/api/registry
     steps:
-      - name: Checkout gh-pages branch
+      - name: Checkout repository (default branch)
         uses: actions/checkout@v4
         with:
-          ref: gh-pages
           fetch-depth: 1
+      - name: Bootstrap or fetch gh-pages branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          git config user.name 'authgent-bot'
+          git config user.email 'security@authgent.dev'
+          # Try to fetch existing gh-pages branch.
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch origin gh-pages:gh-pages
+            git checkout gh-pages
+          else
+            # First run: create an orphan gh-pages branch with a
+            # minimal README explaining what lives here. Follow-up
+            # commits in this workflow add registry-snapshot.json.
+            git checkout --orphan gh-pages
+            git rm -rf . 2>/dev/null || true
+            cat > README.md <<'EOF'
+          # gh-pages
+
+          This branch hosts static artifacts the GitHub Pages site
+          serves under <https://authgent.github.io/authgent/>, plus
+          read-only fallbacks for the API endpoints (used when the
+          Oracle backend is unreachable).
+
+          - `registry-snapshot.json` -- automated snapshot of
+            `/api/registry` updated every 6 hours by
+            `.github/workflows/registry-snapshot.yml`.
+          EOF
+            git add README.md
+            git commit -m "chore: bootstrap gh-pages branch"
+            git push --set-upstream "$REPO_URL" gh-pages
+          fi
       - name: Fetch live registry
         run: |
           set -e
@@ -48,9 +80,14 @@ jobs:
         run: mv /tmp/registry.json registry-snapshot.json
       - name: Commit snapshot if changed
         run: |
+          # Identity already set in the bootstrap step; harmless to repeat.
           git config user.name 'authgent-bot'
           git config user.email 'security@authgent.dev'
-          if git diff --quiet registry-snapshot.json; then
+          # On first run the file is new; `git diff --quiet` would
+          # report no changes (since git doesn't track it yet). Use
+          # `git status --porcelain` instead to detect both new files
+          # and modifications.
+          if [ -z "$(git status --porcelain registry-snapshot.json)" ]; then
             echo "no changes to snapshot"
             exit 0
           fi

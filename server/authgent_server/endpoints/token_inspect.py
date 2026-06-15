@@ -59,7 +59,7 @@ def _extract_delegation_chain(claims: dict) -> DelegationChainInfo | None:
         return None
 
     actors: list[str] = []
-    current = act
+    current: Any = act
     while current and isinstance(current, dict):
         actors.append(current.get("sub", "unknown"))
         current = current.get("act")
