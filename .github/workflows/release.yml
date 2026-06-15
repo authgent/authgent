@@ -125,7 +125,7 @@ jobs:
           name: authgent-server-dist
           path: dist/
       - name: Generate build provenance attestation
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: 'dist/*'
       - name: Sign with Sigstore
@@ -153,7 +153,7 @@ jobs:
           name: authgent-python-sdk-dist
           path: dist/
       - name: Generate build provenance attestation
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: 'dist/*'
       - name: Sign with Sigstore
