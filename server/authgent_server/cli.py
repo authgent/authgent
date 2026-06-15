@@ -649,7 +649,7 @@ def inspect_token(
 
         # Count hops
         depth = 0
-        a = act
+        a: Any = act
         while a and isinstance(a, dict):
             depth += 1
             a = a.get("act")
