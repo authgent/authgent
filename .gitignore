@@ -69,3 +69,4 @@ docs/internal/
 # docs/attacks/*.md after the window closes.
 tools/disclosure-targets.json
 tools/scan-results/
+tools/disclosure-emails/

@@ -44,6 +44,17 @@ def _format_finding(finding: dict) -> str:
     )
 
 
+EMA_LAUNCH_PARTNERS = {
+    "Asana",
+    "Atlassian",
+    "Canva",
+    "Figma",
+    "Granola",
+    "Linear",
+    "Supabase",
+}
+
+
 def _draft_email(target: dict, findings: list[dict], embargo_date: str) -> str:
     blocking = [f for f in findings if f["severity"] in ("error", "critical")]
     advisory = [f for f in findings if f["severity"] in ("info", "warning")]
@@ -51,24 +62,68 @@ def _draft_email(target: dict, findings: list[dict], embargo_date: str) -> str:
     contact = target.get("security_contact") or "<security@vendor>"
     vendor = target["vendor"]
     url = target["url"]
+    vendor_short = vendor.split(" (")[0]
+    is_ema_partner = vendor_short in EMA_LAUNCH_PARTNERS
 
     if not blocking:
         return _draft_clean_email(target, advisory)
+
+    # News-cycle framing. The 2026-06-18 Enterprise-Managed Authorization
+    # launch put OAuth on every MCP vendor's security inbox the same week
+    # we send these emails. Riding that context lifts open + reply rates
+    # materially. Two variants: launch partners get the direct
+    # "congratulations + we re-scanned in light of EMA" hook; everyone
+    # else gets the "following the EMA announcement" framing.
+    if is_ema_partner:
+        opener = [
+            f"Hi {vendor_short} security team,",
+            "",
+            f"Congratulations on being a launch partner for the Model",
+            "Context Protocol's Enterprise-Managed Authorization (EMA)",
+            "extension on 2026-06-18. While reviewing the published OAuth",
+            f"metadata for {url} in light of the EMA announcement, the",
+            "open-source authgent MCP-OAuth conformance scanner (Apache",
+            "2.0; IETF Internet-Draft on datatracker) flagged the items",
+            "below.",
+            "",
+            "These findings are independent of EMA. EMA / ID-JAG",
+            "(draft-ietf-oauth-identity-assertion-authz-grant) replaces",
+            "the per-app consent screen but does not touch PKCE methods",
+            "or RFC 8707 resource-indicator handling, so the items below",
+            "remain actionable regardless of EMA rollout state.",
+            "",
+            "  https://github.com/authgent/authgent",
+            "  https://datatracker.ietf.org/doc/draft-agnihotri-oauth-agent-impl-status/",
+            "  https://thenewstack.io/mcp-gets-its-missing-enterprise-authorization-layer/",
+            "",
+        ]
+    else:
+        opener = [
+            f"Hi {vendor_short} security team,",
+            "",
+            "Following the 2026-06-18 announcement of MCP",
+            "Enterprise-Managed Authorization (EMA) by Anthropic /",
+            "Microsoft / Okta, the open-source authgent MCP-OAuth",
+            "conformance scanner (Apache 2.0; IETF Internet-Draft on",
+            f"datatracker) re-scanned a set of public MCP servers. {url}",
+            "surfaced the items below. EMA replaces the consent screen",
+            "but does not touch PKCE methods or RFC 8707 resource",
+            "indicators, so these findings remain actionable",
+            "independently of any EMA rollout you may be planning.",
+            "",
+            "  https://github.com/authgent/authgent",
+            "  https://datatracker.ietf.org/doc/draft-agnihotri-oauth-agent-impl-status/",
+            "  https://thenewstack.io/mcp-gets-its-missing-enterprise-authorization-layer/",
+            "",
+        ]
 
     parts = [
         f"To: {contact}",
         f"Subject: Responsible disclosure: MCP-OAuth conformance findings on {url}",
         "",
-        f"Hi {vendor} security team,",
-        "",
-        "I maintain authgent, an open-source MCP-OAuth conformance",
-        "scanner (Apache 2.0, IETF Internet-Draft on datatracker):",
-        "",
-        "  https://github.com/authgent/authgent",
-        "  https://datatracker.ietf.org/doc/draft-agnihotri-oauth-agent-impl-status/",
-        "",
-        f"A scan of {url} on {datetime.now(UTC).strftime('%Y-%m-%d')} surfaced",
-        f"the following blocking finding(s) you may want to review:",
+        *opener,
+        f"A scan on {datetime.now(UTC).strftime('%Y-%m-%d')} surfaced",
+        "the following blocking finding(s) you may want to review:",
         "",
     ]
     for f in blocking:
@@ -127,7 +182,7 @@ def _draft_email(target: dict, findings: list[dict], embargo_date: str) -> str:
             "",
             "Thanks,",
             "Dhruv Agnihotri",
-            "dagni@umich.edu",
+            "security@authgent.dev",
             "https://github.com/authgent/authgent",
         ]
     )
@@ -171,7 +226,7 @@ def _draft_clean_email(target: dict, advisory: list[dict]) -> str:
             "",
             "Thanks,",
             "Dhruv Agnihotri",
-            "dagni@umich.edu",
+            "security@authgent.dev",
             "https://github.com/authgent/authgent",
         ]
     )

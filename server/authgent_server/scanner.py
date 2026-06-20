@@ -458,6 +458,158 @@ def check_refresh_for_public_clients(as_meta: dict) -> list[Finding]:
     return []
 
 
+# MCP Enterprise-Managed Authorization (EMA) readiness
+# https://modelcontextprotocol.io/extensions/auth/enterprise-managed-authorization
+# https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-assertion-authz-grant/
+#
+# EMA shipped 2026-06-18 with launch partners Anthropic / Microsoft / Okta /
+# Asana / Atlassian / Canva / Figma / Granola / Linear / Supabase. The
+# extension uses ID-JAG (Identity Assertion JWT Authorization Grant) for
+# cross-app SSO without per-app consent screens. ID-JAG is profiled on top
+# of RFC 8693 (token exchange) and RFC 7521/7523 (JWT bearer assertion).
+#
+# These checks ship as ``tier="advisory"`` because (a) ID-JAG is a WG draft,
+# not yet RFC, and (b) EMA is an opt-in MCP extension, not a normative
+# spec requirement. They surface ID-JAG readiness in scanner output without
+# affecting the letter grade so a non-EMA MCP server is not penalised.
+
+ID_JAG_GRANT_PROFILE = "urn:ietf:params:oauth:grant-profile:id-jag"
+JWT_BEARER_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+
+
+def check_ema_id_jag_profile(as_meta: dict) -> list[Finding]:
+    """MCP-EMA-001: id-jag profile advertised in
+    ``authorization_grant_profiles_supported``.
+
+    EMA flow: an enterprise IdP issues an ID-JAG assertion that the MCP
+    server's AS exchanges for an access token. Vendors who want to be on
+    the EMA fast path advertise this profile. Linear, Canva, and Figma
+    do as of 2026-06-19. Surfaced as advisory so non-EMA servers are
+    not penalised.
+    """
+    profiles = as_meta.get("authorization_grant_profiles_supported", []) or []
+    if ID_JAG_GRANT_PROFILE in profiles:
+        return []
+    return [
+        Finding(
+            check_id="MCP-EMA-001",
+            severity="info",
+            tier="advisory",
+            title="ID-JAG grant profile not advertised",
+            detail=(
+                "AS metadata does not list "
+                f"{ID_JAG_GRANT_PROFILE} in "
+                "authorization_grant_profiles_supported. Without it, MCP "
+                "clients cannot use the Enterprise-Managed Authorization "
+                "(EMA) flow that skips per-app consent for enterprise "
+                "users. Informational; not required by the MCP spec yet."
+            ),
+            spec_link=(
+                "https://modelcontextprotocol.io/extensions/auth/enterprise-managed-authorization"
+            ),
+            remediation=(
+                "Implement ID-JAG (draft-ietf-oauth-identity-assertion-authz-grant) "
+                f"and advertise '{ID_JAG_GRANT_PROFILE}' in "
+                "authorization_grant_profiles_supported."
+            ),
+        )
+    ]
+
+
+def check_ema_jwt_bearer_grant(as_meta: dict) -> list[Finding]:
+    """MCP-EMA-002: jwt-bearer grant in ``grant_types_supported``.
+
+    ID-JAG profiles RFC 7521/7523 jwt-bearer. An AS that advertises the
+    EMA id-jag profile but not the underlying jwt-bearer grant cannot
+    actually consume an ID-JAG assertion. Catches inconsistency between
+    the two metadata fields.
+    """
+    profiles = as_meta.get("authorization_grant_profiles_supported", []) or []
+    grant_types = as_meta.get("grant_types_supported", []) or []
+    if ID_JAG_GRANT_PROFILE not in profiles:
+        return []
+    if JWT_BEARER_GRANT in grant_types:
+        return []
+    return [
+        Finding(
+            check_id="MCP-EMA-002",
+            severity="warning",
+            tier="advisory",
+            title="ID-JAG advertised without jwt-bearer grant_type",
+            detail=(
+                "AS metadata advertises the id-jag grant profile but "
+                f"omits '{JWT_BEARER_GRANT}' from grant_types_supported. "
+                "ID-JAG is a profile of RFC 7521 jwt-bearer; without the "
+                "grant type, MCP clients cannot complete the EMA flow."
+            ),
+            spec_link="https://datatracker.ietf.org/doc/html/rfc7523",
+            remediation=(f"Add '{JWT_BEARER_GRANT}' to grant_types_supported."),
+        )
+    ]
+
+
+def check_ema_jwks_reachable(as_meta: dict) -> list[Finding]:
+    """MCP-EMA-003: jwks_uri must be advertised so MCP clients can verify
+    the ID-JAG assertion signature against the IdP's public keys.
+
+    Surfaced even when ID-JAG profile is not advertised, because an AS
+    that one day adds ID-JAG without jwks_uri will silently fail
+    signature verification at the client. Advisory tier.
+    """
+    if as_meta.get("jwks_uri"):
+        return []
+    return [
+        Finding(
+            check_id="MCP-EMA-003",
+            severity="warning",
+            tier="advisory",
+            title="jwks_uri not advertised; ID-JAG signature verification not possible",
+            detail=(
+                "AS metadata lacks jwks_uri. Required by RFC 8414 and by "
+                "any future ID-JAG (EMA) deployment for clients to fetch "
+                "public keys and verify the IdP-issued assertion."
+            ),
+            spec_link="https://datatracker.ietf.org/doc/html/rfc8414#section-2",
+            remediation=("Set jwks_uri to a public JSON Web Key Set endpoint."),
+        )
+    ]
+
+
+def check_ema_pkce_strict_when_id_jag(as_meta: dict) -> list[Finding]:
+    """MCP-EMA-004: an EMA-advertising server MUST be PKCE-S256-only.
+
+    EMA is enterprise-grade auth. An EMA-advertising AS that *also*
+    advertises PKCE 'plain' is a worse signal than a non-EMA server with
+    the same flaw, because the EMA narrative implies a hardened security
+    posture. Catches the Asana / Canva / Atlassian launch-day pattern.
+    """
+    profiles = as_meta.get("authorization_grant_profiles_supported", []) or []
+    methods = as_meta.get("code_challenge_methods_supported", []) or []
+    if ID_JAG_GRANT_PROFILE not in profiles:
+        return []
+    if "plain" not in methods and "S256" in methods:
+        return []
+    return [
+        Finding(
+            check_id="MCP-EMA-004",
+            severity="warning",
+            tier="advisory",
+            title="EMA-advertising server has PKCE method weaker than S256-only",
+            detail=(
+                "AS advertises the id-jag (EMA) grant profile while "
+                f"code_challenge_methods_supported = {methods}. EMA is "
+                "enterprise auth; PKCE 'plain' or missing S256 is "
+                "inconsistent with that posture and signals an "
+                "incomplete security review of the metadata."
+            ),
+            spec_link=(
+                "https://modelcontextprotocol.io/extensions/auth/enterprise-managed-authorization"
+            ),
+            remediation=("Set code_challenge_methods_supported: ['S256'] exactly. Remove 'plain'."),
+        )
+    ]
+
+
 async def check_passthrough(client: httpx.AsyncClient, base_url: str) -> list[Finding]:
     """MCP-PASSTHROUGH-001: detect anonymous tool execution.
 
@@ -650,6 +802,12 @@ async def scan(
         findings.extend(check_dcr_redirect_validation(as_meta))
         findings.extend(check_state_csrf_advertised(as_meta))
         findings.extend(check_refresh_for_public_clients(as_meta))
+        # MCP Enterprise-Managed Authorization (EMA) readiness checks.
+        # All advisory tier; do not affect the letter grade.
+        findings.extend(check_ema_id_jag_profile(as_meta))
+        findings.extend(check_ema_jwt_bearer_grant(as_meta))
+        findings.extend(check_ema_jwks_reachable(as_meta))
+        findings.extend(check_ema_pkce_strict_when_id_jag(as_meta))
         findings.extend(await check_passthrough(client, base_url))
         if probe_registrations:
             findings.extend(await check_dcr_mirror(client, as_meta))
