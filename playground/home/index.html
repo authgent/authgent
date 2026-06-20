@@ -229,6 +229,7 @@ const escHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 
 const backend = (() => {
   const h = location.hostname;
+  if (h === 'authgent.dev' || h === 'www.authgent.dev') return 'https://authgent-demo.dhruvagnihotri.com';
   if (h.endsWith('.github.io')) return 'https://authgent-demo.dhruvagnihotri.com';
   if (!h || h === 'localhost' || h === '127.0.0.1' || location.protocol === 'file:') return 'http://localhost:8000';
   return location.origin;
