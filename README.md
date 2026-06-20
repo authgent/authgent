@@ -2,16 +2,24 @@
 
 # authgent
 
-### Grade your MCP server's OAuth posture against the RFCs that actually matter.
+### Did your MCP server ship EMA correctly?
 
-An open-source MCP-OAuth conformance scanner — and a public registry of how
-the major vendors (Notion, Cloudflare, Linear, Descope, Asana, Square, Box,
-HubSpot) grade today against [RFC 7636](https://datatracker.ietf.org/doc/html/rfc7636),
-[RFC 8414](https://datatracker.ietf.org/doc/html/rfc8414),
-[RFC 8707](https://datatracker.ietf.org/doc/html/rfc8707),
-[RFC 9207](https://datatracker.ietf.org/doc/html/rfc9207),
-[RFC 9728](https://datatracker.ietf.org/doc/html/rfc9728),
-and the [MCP 2025-11-25 authorization spec](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization).
+[Enterprise-Managed Authorization (EMA) shipped 2026-06-18][ema] with launch
+partners Asana, Atlassian, Canva, Figma, Granola, Linear, and Supabase.
+Three ship the new `id-jag` profile in their OAuth metadata; two ship it
+alongside the OAuth-2.1-forbidden `plain` PKCE method. authgent is the
+open-source scanner that catches both — plus 10 more RFC-mapped checks
+([RFC 7591](https://datatracker.ietf.org/doc/html/rfc7591),
+[7636](https://datatracker.ietf.org/doc/html/rfc7636),
+[8414](https://datatracker.ietf.org/doc/html/rfc8414),
+[8707](https://datatracker.ietf.org/doc/html/rfc8707),
+[9207](https://datatracker.ietf.org/doc/html/rfc9207),
+[9449](https://datatracker.ietf.org/doc/html/rfc9449),
+[9728](https://datatracker.ietf.org/doc/html/rfc9728)) plus the
+[MCP 2025-11-25 authorization spec](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)
+and [MCP-EMA-001..004](docs/blog/2026-06-19-ema-launch-partner-pkce.md) ID-JAG readiness.
+
+[ema]: https://thenewstack.io/mcp-gets-its-missing-enterprise-authorization-layer/
 
 - **`authgent-server lint <mcp-url>`** — 10 RFC-mapped checks, A–F grade,
   embeddable badge. CLI + GitHub Action + hosted at
