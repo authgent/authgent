@@ -42,11 +42,15 @@ jobs:
         if: matrix.python-version == '3.12'
         working-directory: server
         run: |
+          # Files we expect to carry the canonical test count. OUTREACH.md
+          # was gitignored after the IETF I-D submission (it's the
+          # maintainer-private outreach drafts); do not include it here.
+          docs="../README.md ../STANDARDS.md"
           actual=$(pytest tests/ --ignore=tests/simulation_test.py --ignore=tests/agent_to_agent_simulation.py --ignore=tests/adversarial_live_test.py --collect-only -q 2>&1 | tail -1 | awk '{print $1}')
           echo "Collected ${actual} tests."
-          if ! grep -q "${actual} tests" ../README.md ../STANDARDS.md ../OUTREACH.md; then
+          if ! grep -q "${actual} tests" $docs; then
             echo "::error::Test count drift. Docs do not match ${actual}."
-            grep -nE "[0-9]+ tests" ../README.md ../STANDARDS.md ../OUTREACH.md | head -10
+            grep -nE "[0-9]+ tests" $docs | head -10
             exit 1
           fi
 
