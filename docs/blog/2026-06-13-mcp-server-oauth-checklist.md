@@ -113,6 +113,6 @@ authgent-server lint https://your-mcp.example.com
 
 Output is human-readable by default, with `--format json` for CI pipelines and `--format github` for inline `::error` annotations on pull requests. There's also a [GitHub Action](https://github.com/authgent/authgent/blob/main/.github/actions/mcp-lint/README.md) that runs the same code path on every PR, with a `--diff <baseline>` mode that gates only on regressions.
 
-The same scanner powers a [public registry](https://authgent.github.io/authgent/registry/) of how named MCP vendors (Notion, Cloudflare, Linear, Descope, Asana, Square, Box, HubSpot) grade today against the same 10 checks.
+The same scanner powers a [public registry](https://authgent.dev/registry/) of how named MCP vendors (Notion, Cloudflare, Linear, Descope, Asana, Square, Box, HubSpot) grade today against the same 10 checks.
 
 If you find your server failing one of these, the [authgent-server](https://pypi.org/project/authgent-server/) package itself is an open-source reference implementation that passes all 10 by default. It is documented as the IETF Internet-Draft [draft-agnihotri-oauth-agent-impl-status-00](https://datatracker.ietf.org/doc/draft-agnihotri-oauth-agent-impl-status/).

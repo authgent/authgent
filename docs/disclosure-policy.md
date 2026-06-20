@@ -1,6 +1,6 @@
 # Disclosure Policy — authgent MCP-OAuth Registry
 
-The MCP-OAuth Registry at <https://authgent.github.io/authgent/registry/>
+The MCP-OAuth Registry at <https://authgent.dev/registry/>
 publishes scan results for public MCP servers. This page documents the
 ground rules so vendors, security teams, and the project itself can
 operate from the same playbook.

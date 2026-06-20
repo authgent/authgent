@@ -15,8 +15,8 @@ and the [MCP 2025-11-25 authorization spec](https://modelcontextprotocol.io/spec
 
 - **`authgent-server lint <mcp-url>`** — 10 RFC-mapped checks, A–F grade,
   embeddable badge. CLI + GitHub Action + hosted at
-  [authgent.github.io/authgent/scan/](https://authgent.github.io/authgent/scan/).
-- **Public registry**: [authgent.github.io/authgent/registry/](https://authgent.github.io/authgent/registry/).
+  [authgent.dev/scan/](https://authgent.dev/scan/).
+- **Public registry**: [authgent.dev/registry/](https://authgent.dev/registry/).
 - **MCP-PKCE-002 — PKCE advertise-drift**: a public-scanner heuristic for
   the discovery-vs-`/authorize` sub-variant of the known [PKCE-downgrade family](docs/attacks/pkce-drift.md)
   (builds on [OAuch BCP_4_8](https://oauch.io/Threats/Info/BCP_4_8) and
@@ -44,7 +44,7 @@ Apache 2.0 · 508 tests · 3 published packages · IETF Internet-Draft on datatr
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Cite](https://img.shields.io/badge/cite-CITATION.cff-9cf.svg)](CITATION.cff)
 
-[Home](https://authgent.github.io/authgent/home/) · [Scanner](https://authgent.github.io/authgent/scan/) · [Registry](https://authgent.github.io/authgent/registry/) · [PKCE Advertise-Drift](docs/attacks/pkce-drift.md) · [Standards Report](STANDARDS.md) · [MCP Quickstart](docs/mcp-quickstart.md) · [Architecture](ARCHITECTURE.md)
+[Home](https://authgent.dev/home/) · [Scanner](https://authgent.dev/scan/) · [Registry](https://authgent.dev/registry/) · [PKCE Advertise-Drift](docs/attacks/pkce-drift.md) · [Standards Report](STANDARDS.md) · [MCP Quickstart](docs/mcp-quickstart.md) · [Architecture](ARCHITECTURE.md)
 
 </div>
 
@@ -63,7 +63,7 @@ authgent-server lint https://your-mcp-server.example.com
 [ERROR]    MCP-AUD-001: RFC 8707 resource indicators not supported
 ```
 
-Or paste a URL into the [hosted scanner](https://authgent.github.io/authgent/scan/),
+Or paste a URL into the [hosted scanner](https://authgent.dev/scan/),
 embed an [SVG badge](https://authgent-demo.dhruvagnihotri.com/api/badge?url=https://mcp.example.com)
 in your README, or wire the [GitHub Action](.github/actions/mcp-lint/README.md) into CI.
 
@@ -80,7 +80,7 @@ grades for known-good and known-bad shapes (asserted in CI), and the
 | Persona | What you get | Where to start |
 |---|---|---|
 | **MCP-server developer** — *"is my OAuth right?"* | A 10-check audit + an embeddable A–F grade badge. Run in CI on every PR. | [`authgent-server lint`](#audit-any-mcp-server-in-10-seconds) |
-| **Security engineer** — *"how does the MCP ecosystem grade against the RFCs?"* | Public registry of how named MCP vendors score. Named-finding catalog with prior-art citations. | [Registry](https://authgent.github.io/authgent/registry/) · [PKCE Advertise-Drift](docs/attacks/pkce-drift.md) |
+| **Security engineer** — *"how does the MCP ecosystem grade against the RFCs?"* | Public registry of how named MCP vendors score. Named-finding catalog with prior-art citations. | [Registry](https://authgent.dev/registry/) · [PKCE Advertise-Drift](docs/attacks/pkce-drift.md) |
 | **MCP-server operator who failed the scan** — *"how do I fix this?"* | A drop-in OAuth 2.1 AS designed not to fail its own scanner. | [Run the server](#run-the-server) |
 | **IETF / spec implementer** — *"a free reference impl to test against."* | Apache-2.0 implementation of identity-chaining-14 + transaction-tokens-08, section-by-section conformance map. | [Standards Report](STANDARDS.md) |
 
