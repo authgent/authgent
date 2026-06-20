@@ -39,7 +39,7 @@ def _fake_entry(grade: str = "A", score: int = 100) -> registry_module._CacheEnt
 
 
 def _async_returning(value):
-    async def _f(_url: str):
+    async def _f(*_args, **_kwargs):
         return value
 
     return _f
@@ -71,7 +71,7 @@ def test_registry_includes_grade_counts(test_client, monkeypatch):
 def test_registry_skips_re_scan_when_cached(test_client, monkeypatch):
     counter = {"calls": 0}
 
-    async def counting(url: str):
+    async def counting(*_args, **_kwargs):
         counter["calls"] += 1
         return _fake_entry("A", 100)
 
@@ -84,7 +84,7 @@ def test_registry_skips_re_scan_when_cached(test_client, monkeypatch):
 
 
 def test_registry_failed_scan_returns_pending_status(test_client, monkeypatch):
-    async def always_none(_url: str):
+    async def always_none(*_args, **_kwargs):
         return None
 
     monkeypatch.setattr(registry_module, "_scan_one", always_none)

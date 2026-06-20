@@ -51,7 +51,7 @@ body{background:#08080c;color:#e4e4e7;font-family:'Inter',system-ui,sans-serif;m
     <nav class="flex items-center gap-5 text-sm text-zinc-400">
       <a href="../scan/" class="hover:text-zinc-100">Scan</a>
       <a href="../registry/" class="hover:text-zinc-100">Registry</a>
-      <a href="../" class="hover:text-zinc-100">Playground</a>
+      <a href="../playground/" class="hover:text-zinc-100">Playground</a>
       <a href="https://github.com/authgent/authgent" class="hover:text-zinc-100">GitHub</a>
       <a href="https://github.com/authgent/authgent/blob/main/STANDARDS.md" class="hidden sm:inline hover:text-zinc-100">Standards</a>
     </nav>
@@ -61,20 +61,23 @@ body{background:#08080c;color:#e4e4e7;font-family:'Inter',system-ui,sans-serif;m
 <main>
   <!-- HERO -->
   <section class="max-w-6xl mx-auto px-5 pt-14 pb-10 sm:pt-20 sm:pb-14 fade-in">
-    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/70 border border-zinc-800 text-[11px] text-em font-mono mb-6">
-      <span class="w-1.5 h-1.5 rounded-full bg-em"></span>
-      Apache 2.0 · IETF reference impl · production demo
-    </div>
+    <a href="https://thenewstack.io/mcp-gets-its-missing-enterprise-authorization-layer/" class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-em/10 border border-em/30 text-[11px] text-em font-mono mb-6 hover:bg-em/15 transition">
+      <span class="w-1.5 h-1.5 rounded-full bg-em animate-pulse"></span>
+      EMA shipped 2026-06-18 · live tracker below
+    </a>
 
     <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-zinc-50 max-w-4xl glow leading-[1.05]">
-      Most MCP servers fail their own&nbsp;OAuth&nbsp;spec.
+      Did your MCP server ship&nbsp;EMA correctly?
     </h1>
     <p class="mt-5 text-lg sm:text-xl text-zinc-400 max-w-3xl">
-      authgent is an open-source MCP-OAuth scanner — and a full
-      OAuth 2.1 server you can run if you want to fix what it finds.
-      Reference implementation of
-      <a class="text-em hover:underline" href="https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/">draft-ietf-oauth-identity-chaining-14</a>
-      and <a class="text-em hover:underline" href="https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/">draft-ietf-oauth-transaction-tokens-08</a>.
+      MCP Enterprise-Managed Authorization (EMA / ID-JAG) shipped on
+      2026-06-18 with launch partners Asana, Atlassian, Canva, Figma,
+      Granola, Linear, and Supabase. Three ship the new <code class="text-em text-base">id-jag</code>
+      profile in their OAuth metadata; two of them ship it alongside
+      the <em>OAuth-2.1-forbidden</em> <code class="text-rd text-base">plain</code> PKCE method.
+      authgent scans your MCP server in 10 seconds and grades it
+      against the RFCs that actually matter — including 4 new EMA
+      readiness checks (MCP-EMA-001..004).
     </p>
 
     <div class="mt-9 flex flex-col sm:flex-row gap-3">
@@ -93,11 +96,11 @@ body{background:#08080c;color:#e4e4e7;font-family:'Inter',system-ui,sans-serif;m
     </div>
 
     <div class="mt-10 max-w-3xl">
-      <pre class="card border border-zinc-800 rounded-xl p-5 text-[13px] font-mono text-zinc-200 code-glow overflow-x-auto"><code><span class="text-zinc-500"># Audit any MCP server's OAuth posture against 10 RFC checks.</span>
+      <pre class="card border border-zinc-800 rounded-xl p-5 text-[13px] font-mono text-zinc-200 code-glow overflow-x-auto"><code><span class="text-zinc-500"># 14 RFC-mapped checks, including 4 new EMA / ID-JAG readiness checks.</span>
 $ pip install authgent-server
 $ authgent-server lint https://your-mcp-server.example.com
 
-<span class="text-zinc-500"># Or run a complete OAuth 2.1 server in 60 seconds.</span>
+<span class="text-zinc-500"># Same package ships an OAuth 2.1 reference server we grade ourselves against.</span>
 $ authgent-server run</code></pre>
     </div>
   </section>
@@ -137,31 +140,31 @@ $ authgent-server run</code></pre>
     </div>
   </section>
 
-  <!-- WHO IS THIS FOR -->
+  <!-- HOW IT WORKS -->
   <section class="max-w-6xl mx-auto px-5 py-12 border-t border-zinc-900">
-    <h2 class="text-2xl sm:text-3xl font-extrabold text-zinc-100 tracking-tight">Two products, one repo</h2>
-    <p class="text-zinc-400 mt-2 max-w-3xl">authgent is unusual: it's <span class="text-zinc-200">a scanner you can use without installing anything</span>, plus <span class="text-zinc-200">a full OAuth 2.1 server you can self-host if you want</span>. Pick the side that fits your job.</p>
+    <h2 class="text-2xl sm:text-3xl font-extrabold text-zinc-100 tracking-tight">One scanner. Built on the spec it grades.</h2>
+    <p class="text-zinc-400 mt-2 max-w-3xl">
+      <code class="text-em">pip install authgent-server</code> is the open-source MCP-OAuth scanner. The same package also ships a reference OAuth 2.1 server — the one we grade <em>ourselves</em> against, so every check the scanner makes is one we already pass. <span class="text-zinc-300">No opinion-based scoring; every finding maps to a numbered RFC clause or a public attack class.</span>
+    </p>
 
-    <div class="mt-7 grid md:grid-cols-2 gap-4">
+    <div class="mt-7 grid md:grid-cols-3 gap-4">
       <div class="card border border-zinc-800 rounded-xl p-6">
-        <div class="text-em mb-2 font-mono text-[11px]">FOR AUDITORS · BUILDERS · MCP DEVS</div>
-        <div class="text-2xl font-extrabold text-zinc-100">The scanner</div>
-        <p class="text-zinc-400 text-[14px] mt-2">Paste any MCP URL. Get an A–F grade against RFC 7591, 7636, 8414, 8707, 9207, 9449, 9728. Embed the badge in your README. Wire <code class="text-em">authgent-server lint</code> into CI.</p>
-        <div class="mt-4 flex flex-wrap gap-2 text-[12px]">
-          <a href="../scan/" class="bg-zinc-950 border border-zinc-800 hover:border-em px-3 py-1.5 rounded-md font-mono text-zinc-300">scan a URL →</a>
-          <a href="../registry/" class="bg-zinc-950 border border-zinc-800 hover:border-em px-3 py-1.5 rounded-md font-mono text-zinc-300">see the registry →</a>
-          <a href="https://github.com/authgent/authgent/blob/main/.github/actions/mcp-lint/README.md" class="bg-zinc-950 border border-zinc-800 hover:border-em px-3 py-1.5 rounded-md font-mono text-zinc-300">github action →</a>
-        </div>
+        <div class="text-em mb-2 font-mono text-[11px]">10 SECONDS · NO INSTALL</div>
+        <div class="text-xl font-extrabold text-zinc-100">Hosted scanner</div>
+        <p class="text-zinc-400 text-[14px] mt-2">Paste an MCP URL. Get an A–F grade against 14 RFC checks. Embed the badge in your README.</p>
+        <a href="../scan/" class="mt-4 inline-flex items-center gap-1.5 text-em text-[13px] font-bold">scan a URL →</a>
       </div>
       <div class="card border border-zinc-800 rounded-xl p-6">
-        <div class="text-em mb-2 font-mono text-[11px]">FOR PLATFORMS · ENTERPRISES · IETF IMPLEMENTERS</div>
-        <div class="text-2xl font-extrabold text-zinc-100">The OAuth 2.1 server</div>
-        <p class="text-zinc-400 text-[14px] mt-2">Run your own. Multi-hop nested-<code>act</code> chains, signed delegation receipts, DPoP supported (opt-in). Reference impl of two WG-track IETF drafts. Bridges to Auth0/Okta via id_token exchange.</p>
-        <div class="mt-4 flex flex-wrap gap-2 text-[12px]">
-          <a href="../" class="bg-zinc-950 border border-zinc-800 hover:border-em px-3 py-1.5 rounded-md font-mono text-zinc-300">interactive playground →</a>
-          <a href="https://github.com/authgent/authgent/blob/main/docs/mcp-quickstart.md" class="bg-zinc-950 border border-zinc-800 hover:border-em px-3 py-1.5 rounded-md font-mono text-zinc-300">MCP client quickstart →</a>
-          <a href="https://github.com/authgent/authgent/blob/main/STANDARDS.md" class="bg-zinc-950 border border-zinc-800 hover:border-em px-3 py-1.5 rounded-md font-mono text-zinc-300">standards report →</a>
-        </div>
+        <div class="text-em mb-2 font-mono text-[11px]">CI · PR ANNOTATIONS</div>
+        <div class="text-xl font-extrabold text-zinc-100">GitHub Action</div>
+        <p class="text-zinc-400 text-[14px] mt-2">Drop the action into <code>.github/workflows/security.yml</code>. <code>--diff</code> mode gates on regressions only.</p>
+        <a href="https://github.com/authgent/authgent/blob/main/.github/actions/mcp-lint/README.md" class="mt-4 inline-flex items-center gap-1.5 text-em text-[13px] font-bold">github action →</a>
+      </div>
+      <div class="card border border-zinc-800 rounded-xl p-6">
+        <div class="text-em mb-2 font-mono text-[11px]">REFERENCE IMPL · IETF I-D</div>
+        <div class="text-xl font-extrabold text-zinc-100">Run the server</div>
+        <p class="text-zinc-400 text-[14px] mt-2">If you fail the scanner, install the same package and run an OAuth 2.1 server that doesn't. Cited in <code>draft-agnihotri-oauth-agent-impl-status</code>.</p>
+        <a href="../playground/" class="mt-4 inline-flex items-center gap-1.5 text-em text-[13px] font-bold">see it live →</a>
       </div>
     </div>
   </section>

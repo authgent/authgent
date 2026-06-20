@@ -105,6 +105,13 @@ class _CacheEntry:
     headline_finding: dict[str, Any] | None
     last_scanned: float
     findings: list[dict[str, Any]] = field(default_factory=list)
+    # MCP Enterprise-Managed Authorization (EMA / ID-JAG) readiness
+    # signals derived from the existing scanner findings. Surfaced on
+    # the public registry as a separate column so visitors can see
+    # EMA rollout state without parsing the full findings list.
+    ema_id_jag_advertised: bool = False
+    ema_inconsistent_pkce: bool = False
+    ema_launch_partner: bool = False
 
 
 _cache: dict[str, _CacheEntry] = {}
@@ -115,7 +122,22 @@ _CACHE_TTL_SECONDS = 3600
 _PER_TARGET_TIMEOUT = 12.0
 
 
-async def _scan_one(url: str) -> _CacheEntry | None:
+# MCP Enterprise-Managed Authorization (EMA) launch partners,
+# announced 2026-06-18 by Anthropic / Microsoft / Okta. Used to mark
+# the registry column so visitors can distinguish "vendor that committed
+# to EMA day-one" from "vendor that hasn't".
+_EMA_LAUNCH_PARTNERS = {
+    "Asana",
+    "Atlassian",
+    "Canva",
+    "Figma",
+    "Granola",
+    "Linear",
+    "Supabase",
+}
+
+
+async def _scan_one(url: str, vendor: str | None = None) -> _CacheEntry | None:
     """Scan a single target with a tight timeout. Returns None on failure.
 
     Goes through the global ``_bounded_scan`` semaphore so an 8-target
@@ -142,6 +164,17 @@ async def _scan_one(url: str) -> _CacheEntry | None:
                 "title": match.title,
             }
             break
+
+    # EMA readiness derived from scanner check IDs:
+    #   - MCP-EMA-001 absent  -> id-jag profile IS advertised (good)
+    #   - MCP-EMA-004 present -> id-jag advertised AND PKCE has 'plain'
+    #                            or lacks S256 (the launch-day pattern)
+    finding_ids = {f.check_id for f in findings}
+    ema_id_jag = "MCP-EMA-001" not in finding_ids
+    ema_inconsistent_pkce = "MCP-EMA-004" in finding_ids
+    vendor_short = (vendor or "").split(" (")[0]
+    ema_launch_partner = vendor_short in _EMA_LAUNCH_PARTNERS
+
     return _CacheEntry(
         grade=grade,
         score=score,
@@ -150,6 +183,9 @@ async def _scan_one(url: str) -> _CacheEntry | None:
         headline_finding=headline,
         last_scanned=time.time(),
         findings=[_finding_dict(f) for f in findings],
+        ema_id_jag_advertised=ema_id_jag,
+        ema_inconsistent_pkce=ema_inconsistent_pkce,
+        ema_launch_partner=ema_launch_partner,
     )
 
 
@@ -219,8 +255,23 @@ def _serialize_entry(target: dict[str, object], entry: _CacheEntry | None) -> di
                 "last_scanned": int(entry.last_scanned),
                 "last_scanned_iso": datetime.fromtimestamp(entry.last_scanned, tz=UTC).isoformat(),
                 "status": "ok",
+                "ema": {
+                    "id_jag_advertised": entry.ema_id_jag_advertised,
+                    "inconsistent_pkce": entry.ema_inconsistent_pkce,
+                    "launch_partner": entry.ema_launch_partner,
+                },
             }
         )
+    # Even for embargoed/pending entries, surface launch-partner status
+    # so the frontend can flag which rows are EMA-relevant before scan.
+    base.setdefault("ema", {}).setdefault(
+        "launch_partner",
+        target.get("vendor", "").split(" (")[0] in _EMA_LAUNCH_PARTNERS
+        if isinstance(target.get("vendor"), str)
+        else False,
+    )
+    base["ema"].setdefault("id_jag_advertised", False)
+    base["ema"].setdefault("inconsistent_pkce", False)
     return base
 
 
@@ -248,7 +299,7 @@ async def registry_endpoint(
     ]
 
     if targets_to_scan:
-        tasks = [_scan_one(str(t["url"])) for t in targets_to_scan]
+        tasks = [_scan_one(str(t["url"]), str(t.get("vendor", ""))) for t in targets_to_scan]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for target, result in zip(targets_to_scan, results, strict=True):
             if isinstance(result, _CacheEntry):
