@@ -18,7 +18,7 @@ identifiers:
 abstract: >
   authgent is a self-hosted OAuth 2.1 authorization server for AI agents.
   It is the open-source reference implementation of
-  draft-ietf-oauth-identity-chaining-14 (cross-domain delegation) and
+  draft-ietf-oauth-identity-chaining-15 (cross-domain delegation) and
   draft-ietf-oauth-transaction-tokens-08 (intra-domain transaction
   context propagation), in addition to RFC 8693 nested-act delegation
   chains, RFC 9449 DPoP, RFC 9728 Protected Resource Metadata, RFC 7591

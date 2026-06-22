@@ -40,10 +40,12 @@ metadata:
 
 - **Stripe MCP — D / 50.** PRM is missing entirely (one critical
   spec_required finding). 100 − 50 = 50 = D.
-- **Notion MCP — D / 60.** PKCE advertises `plain` (error, −15) +
-  no RFC 8707 (error, −15) + no DCR endpoint (warning, −5; advisory) +
-  PKCE-002 drift (error, −15) → 100 − 15 − 15 − 15 = 55 → D. (DCR is
-  warning; warning ≠ −5; the visible breakdown sums to 55.)
+- **Notion MCP — D / 55.** PKCE advertises `plain` (error, −15) +
+  no RFC 8707 (error, −15) + PKCE-002 drift (error, −15) →
+  100 − 15 − 15 − 15 = 55 → D. The scanner also reports "no DCR
+  endpoint" (`MCP-DCR-001`, warning) but that finding is **advisory**
+  and is **not** subtracted: DCR was demoted from SHOULD to MAY in MCP
+  2025-11-25, so missing DCR is informational, never grade-affecting.
 - **authgent demo — A / 100.** Implements every spec_required check.
   No advisory failures either, but those don't affect the grade.
 
