@@ -107,7 +107,7 @@ findings drive the letter grade; `advisory` findings are informational.
 | `MCP-PKCE-001` | `code_challenge_methods_supported` lacks `S256` or includes `plain` | [RFC 7636](https://datatracker.ietf.org/doc/html/rfc7636) |
 | `MCP-PKCE-002` | **PKCE advertise-drift** — `S256`-only in metadata, `plain` accepted at `/authorize` (sub-variant of [PKCE downgrade](https://oauch.io/Threats/Info/BCP_4_8)) | [pkce-drift.md](docs/attacks/pkce-drift.md) |
 | `MCP-AUD-001` | RFC 8707 resource indicators not supported | [RFC 8707](https://datatracker.ietf.org/doc/html/rfc8707) |
-| `MCP-DCR-001` | Dynamic Client Registration not advertised | [RFC 7591](https://datatracker.ietf.org/doc/html/rfc7591) |
+| `MCP-DCR-001` | Dynamic Client Registration not advertised (advisory — DCR is OPTIONAL since MCP 2025-11-25, not grade-affecting) | [RFC 7591](https://datatracker.ietf.org/doc/html/rfc7591) |
 | `MCP-DCR-MIRROR-001` | DCR returns identical `client_id` for distinct registrations (Obsidian Jan 2026) | [Obsidian disclosure](https://www.obsidiansecurity.com/blog/when-mcp-meets-oauth-common-pitfalls-leading-to-one-click-account-takeover) |
 | `MCP-CSRF-001` | Implicit grant advertised (`response_type=token`) | OAuth 2.1 |
 | `MCP-ISS-001` | RFC 9207 `iss` parameter not advertised (advisory) | [RFC 9207](https://datatracker.ietf.org/doc/html/rfc9207) |

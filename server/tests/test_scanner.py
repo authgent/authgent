@@ -58,6 +58,13 @@ def test_dcr_missing_is_warning():
     assert any(f.check_id == "MCP-DCR-001" and f.severity == "warning" for f in findings)
 
 
+def test_dcr_missing_is_advisory_not_graded():
+    # DCR (RFC 7591) was demoted SHOULD->MAY in MCP 2025-11-25, so missing
+    # DCR is advisory and must NOT move the letter grade.
+    findings = check_dcr_redirect_validation({})
+    assert all(f.tier == "advisory" for f in findings if f.check_id == "MCP-DCR-001")
+
+
 def test_implicit_grant_advertised_is_critical():
     findings = check_state_csrf_advertised({"response_types_supported": ["code", "token"]})
     assert any(f.check_id == "MCP-CSRF-001" and f.severity == "critical" for f in findings)
@@ -254,6 +261,9 @@ async def test_scan_dcr_mirror_critical_when_clientid_repeats(scanner_client):
     client = scanner_client(routes)
     findings = await scan(base, http_client=client, probe_registrations=True)
     assert any(f.check_id == "MCP-DCR-MIRROR-001" and f.severity == "critical" for f in findings)
+    # "If you ship DCR it must not be broken" stays spec_required (grade-affecting),
+    # unlike MCP-DCR-001 ("you must ship DCR"), which is advisory.
+    assert all(f.tier == "spec_required" for f in findings if f.check_id == "MCP-DCR-MIRROR-001")
     assert has_blocking(findings)
 
 
