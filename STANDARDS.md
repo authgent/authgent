@@ -19,7 +19,7 @@ or cite the per-section maps below.
 
 | Status | Spec | Section coverage | Tests |
 |---|---|---|---|
-| **WG-track reference impl** | [draft-ietf-oauth-identity-chaining-14](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/) | §2.1, §2.2, §2.3, §2.4, §2.5, §3, §5.1–5.5 | [test_identity_chaining.py](server/tests/test_identity_chaining.py) — 17 tests |
+| **WG-track reference impl** | [draft-ietf-oauth-identity-chaining-15](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/) | §2.1, §2.2, §2.3, §2.4, §2.5, §3, §5.1–5.5 | [test_identity_chaining.py](server/tests/test_identity_chaining.py) — 17 tests |
 | **WG-track reference impl** | [draft-ietf-oauth-transaction-tokens-08](https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/) | §3, §7, §11 | [test_transaction_tokens.py](server/tests/test_transaction_tokens.py) — 8 tests |
 | **Production** | [RFC 8693](https://datatracker.ietf.org/doc/html/rfc8693) Token Exchange | Full + nested `act` chain extension | test_token_advanced.py, test_delegation.py |
 | **Production** | [RFC 7523](https://datatracker.ietf.org/doc/html/rfc7523) JWT Profile | §3, §3.1 (assertion validation) | test_identity_chaining.py |
@@ -37,7 +37,7 @@ or cite the per-section maps below.
 
 ---
 
-## draft-ietf-oauth-identity-chaining-14 — section by section
+## draft-ietf-oauth-identity-chaining-15 — section by section
 
 ### §2.1 Overview
 
