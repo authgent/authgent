@@ -53,12 +53,48 @@ rest of the spec doesn't matter.
 | **MCP-PKCE-001** | spec_required | critical / error | [RFC 7636](https://datatracker.ietf.org/doc/html/rfc7636), OAuth 2.1 | AS metadata advertises `S256`; does not advertise `plain`. |
 | **MCP-PKCE-002** | spec_required | error | OAuth 2.1, [Obsidian Jan 2026](https://www.obsidiansecurity.com/blog/when-mcp-meets-oauth-common-pitfalls-leading-to-one-click-account-takeover) | Drift probe: `code_challenge_method=plain` at `/authorize` is rejected with the method named in the error response. |
 | **MCP-AUD-001** | spec_required | error | [RFC 8707](https://datatracker.ietf.org/doc/html/rfc8707) | `resource_indicators_supported: true` advertised. |
-| **MCP-DCR-001** | spec_required | warning | [RFC 7591](https://datatracker.ietf.org/doc/html/rfc7591) | `registration_endpoint` advertised. |
+| **MCP-DCR-001** | **advisory** | warning | [RFC 7591](https://datatracker.ietf.org/doc/html/rfc7591) | `registration_endpoint` advertised. *DCR was demoted from SHOULD to MAY in MCP 2025-11-25 — it is now OPTIONAL, so missing DCR is informational and does not affect the letter grade.* |
 | **MCP-CSRF-001** | spec_required | critical | OAuth 2.1 | `response_types_supported` does **not** include `token` (implicit grant forbidden). |
 | **MCP-DCR-MIRROR-001** | spec_required | critical | [RFC 7591](https://datatracker.ietf.org/doc/html/rfc7591), Obsidian Jan 2026 | Two consecutive registrations with the same payload return distinct `client_id`s. |
 | **MCP-ISS-001** | **advisory** | warning | [RFC 9207](https://datatracker.ietf.org/doc/html/rfc9207) / MCP SEP-2468 | `authorization_response_iss_parameter_supported: true` advertised. *Mandatory only in MCP 2026-07-28; pre-spec IdPs get a pass.* |
 | **MCP-REFRESH-001** | **advisory** | warning | [RFC 9449](https://datatracker.ietf.org/doc/html/rfc9449) | DPoP advertised when refresh tokens are issued to public clients. *Best practice; not currently MCP-mandatory.* |
 | **MCP-PASSTHROUGH-001** | **advisory** | info | MCP authorization spec | Heuristic: GET / returns 200 unauthenticated. *May be a legitimate landing page; surfaced for review.* |
+
+## What drives the grade vs. what doesn't
+
+The rubric's authority rests on grading only against what the MCP
+authorization spec (and the RFCs it normatively cites) actually
+**mandates**. Everything else is surfaced as advice, never as a grade
+penalty. The two buckets are explicit:
+
+**MCP-spec-mandated — `spec_required`, drives the letter grade:**
+
+- `MCP-PRM-001` (RFC 9728 PRM)
+- `MCP-AS-001` (RFC 8414 AS metadata)
+- `MCP-PKCE-001` (RFC 7636 / OAuth 2.1 — S256, no `plain`)
+- `MCP-PKCE-002` (OAuth 2.1 — advertise-vs-enforce drift)
+- `MCP-AUD-001` (RFC 8707 resource indicators)
+- `MCP-CSRF-001` (OAuth 2.1 — implicit grant forbidden)
+- `MCP-DCR-MIRROR-001` (RFC 7591 — *if* a server ships DCR, distinct
+  registrations must yield distinct `client_id`s; a static `client_id`
+  is the Obsidian consent-cache-bypass flaw). Note this is *conditional*:
+  it only fires against servers that actually expose DCR, and it grades
+  "DCR shipped broken," not "DCR not shipped."
+
+**OAuth best-practice / beyond-spec — `advisory`, informational only:**
+
+- `MCP-DCR-001` (RFC 7591 — DCR was demoted from SHOULD to MAY in MCP
+  2025-11-25; DCR is now OPTIONAL, so missing DCR never moves the grade)
+- `MCP-ISS-001` (RFC 9207 — mandatory only in MCP 2026-07-28)
+- `MCP-REFRESH-001` (RFC 9449 DPoP — best practice, not MCP-mandatory)
+- `MCP-PASSTHROUGH-001` (heuristic; may be a legitimate landing page)
+- `MCP-EMA-001` … `MCP-EMA-004` (Enterprise-Managed Authorization /
+  ID-JAG — an opt-in MCP extension built on a WG draft, not the spec)
+
+The distinction that matters most for DCR: **"you must ship DCR"** is
+not a spec requirement (advisory), but **"if you ship DCR it must not
+be broken"** still is (spec_required). That is why `MCP-DCR-001` is
+advisory while `MCP-DCR-MIRROR-001` remains spec_required.
 
 ## What "passing" looks like
 

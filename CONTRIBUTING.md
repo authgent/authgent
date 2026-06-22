@@ -2,6 +2,13 @@
 
 Thank you for your interest in contributing to authgent!
 
+## Where to start
+
+New here? Look for issues labeled **`good first issue`** — these are
+well-scoped starter tasks (scanner checks, SDK parity, test coverage, docs).
+If none are open yet, browse the existing issues or open one describing what
+you'd like to work on before sending a large change.
+
 ## Development Setup
 
 ```bash
@@ -62,7 +69,7 @@ chore: bump cryptography to 43.0.1
 - **Providers** use Protocol interfaces — never import concrete implementations in services
 - **Fail-closed** for security-critical providers (Policy, Attestation)
 - **Fail-open** for audit/event providers
-- Never log secrets — check the redaction list in `app.py`
+- Never log secrets — check the redaction list (`_NEVER_LOG_KEYS`) in `logging.py`
 
 ## Security
 

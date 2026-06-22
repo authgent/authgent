@@ -70,6 +70,7 @@ runs:
         TARGET_URL: ${{ inputs.url }}
         BASELINE_PATH: ${{ inputs.baseline }}
         SAVE_BASELINE: ${{ inputs.save-baseline }}
+        FAIL_ON: ${{ inputs.fail-on }}
       run: |
         set +e
         diff_args=""
@@ -83,11 +84,20 @@ runs:
         elif [ -n "$BASELINE_PATH" ]; then
           diff_args="--diff=$BASELINE_PATH"
         fi
+        # The scanner reads its fail-on threshold from a --config file
+        # (the `fail_on:` key), not a flag. Materialise a minimal config
+        # so the `fail-on` input actually gates the run. printf avoids
+        # interpolating FAIL_ON into the script body (injection-safe).
+        config_args=""
+        if [ -n "$FAIL_ON" ]; then
+          printf 'fail_on: %s\n' "$FAIL_ON" > authgent-action-config.yml
+          config_args="--config=authgent-action-config.yml"
+        fi
         # Annotated pass for PR reviewers (inline ::error / ::warning lines).
-        authgent-server lint "$TARGET_URL" --format github $diff_args $save_args
+        authgent-server lint "$TARGET_URL" --format github $config_args $diff_args $save_args
         rc_annotated=$?
         # JSON pass produces the artifact uploaded below.
-        authgent-server lint "$TARGET_URL" --format json $diff_args > authgent-lint.json
+        authgent-server lint "$TARGET_URL" --format json $config_args $diff_args > authgent-lint.json
         exit "$rc_annotated"
 
     - name: Upload findings JSON

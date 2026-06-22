@@ -389,6 +389,7 @@ def check_dcr_redirect_validation(as_meta: dict) -> list[Finding]:
         Finding(
             check_id="MCP-DCR-001",
             severity="warning",
+            tier="advisory",  # DCR (RFC 7591) demoted SHOULD->MAY in MCP 2025-11-25; optional.
             title="Dynamic Client Registration not advertised",
             detail=(
                 "Without RFC 7591 DCR, MCP clients (Claude Desktop, Cursor, "
