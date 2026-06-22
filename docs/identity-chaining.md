@@ -1,8 +1,8 @@
 # Identity Chaining Across Trust Domains in authgent
 
 A walkthrough of how authgent implements
-[draft-ietf-oauth-identity-chaining-14](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/),
-the IETF OAuth WG specification (currently in IESG approval) for preserving
+[draft-ietf-oauth-identity-chaining-15](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/),
+the IETF OAuth WG specification (currently in the RFC Editor queue) for preserving
 identity and authorization context across organisational trust boundaries.
 
 This document is the deep dive. The summary table is in [STANDARDS.md](../STANDARDS.md).
