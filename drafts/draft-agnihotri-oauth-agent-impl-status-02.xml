@@ -1,0 +1,725 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rfc ipr="trust200902" docName="draft-agnihotri-oauth-agent-impl-status-02" category="info" submissionType="IETF" version="3">
+  
+  <front>
+    <title abbrev="OAuth Chaining/TxnTok Impl Status">Implementation Status of OAuth Identity Chaining and Transaction Tokens</title>
+    <seriesInfo name="Internet-Draft" value="draft-agnihotri-oauth-agent-impl-status-02" />
+    <author fullname="Dhruv Agnihotri">
+      <organization>Independent</organization>
+      <address>
+        <email>dagni@umich.edu</email>
+      </address>
+    </author>
+    <date year="2026" month="June" day="23" />
+    <area>Security</area>
+    <workgroup>OAuth Working Group</workgroup>
+    <keyword>OAuth</keyword>
+    <keyword>identity chaining</keyword>
+    <keyword>transaction tokens</keyword>
+    <keyword>implementation status</keyword>
+    <keyword>running code</keyword>
+    <abstract>
+      <t>This document reports an open-source implementation of two OAuth Working
+Group draft specifications: cross-domain identity chaining and
+transaction tokens. For each draft, this report maps every normative
+section to the corresponding source location in the implementation
+under test, summarises the test surface that exercises the section,
+and records one open-issue candidate per parent draft. The report is
+prepared in accordance with RFC 7942 and is intended for use by the
+editors of the two parent drafts.</t>
+    </abstract>
+  </front>
+  <middle>
+    <section anchor="conventions">
+      <name>Conventions</name>
+      <t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+"SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+"OPTIONAL" in this document are to be interpreted as described in
+BCP 14 <xref target="BCP14" /> when, and only when, they appear in
+all capitals, as shown here. This document is itself descriptive
+(Informational) and defines no protocol behaviour of its own. The
+BCP 14 key words appear in this document only inside text quoted from,
+or proposed as suggested wording to, the editors of the parent drafts;
+in those quotations the key words carry their BCP 14 meaning with
+respect to the parent protocol, not with respect to this report.</t>
+    </section>
+    <section anchor="introduction">
+      <name>Introduction</name>
+      <t>This document reports the implementation status of two Working Group
+drafts of the OAuth Working Group at the IETF, prepared in accordance
+with the guidelines in RFC 7942 ("Improving Awareness of Running Code:
+The Implementation Status Section"). The two reported drafts are
+identified in <xref target="reported-drafts" />.</t>
+      <t>The intent of this report is to provide the editors of the two parent
+drafts with material that can, at the editors' discretion, be
+incorporated into the parent draft as an Implementation Status
+section, used to inform Working Group Last Call discussions, or
+otherwise referenced during progression of the parent drafts to RFC.</t>
+      <t>The implementation reported in this document operates a live public
+demo deployment under the name "authgent" (see <xref target="implementation" />),
+and is offered as an interoperability partner for any other
+implementation of either parent draft.</t>
+    </section>
+    <section anchor="reported-drafts">
+      <name>Reported Drafts</name>
+      <t>This document reports the implementation status of:</t>
+      <ol spacing="normal" type="1"><li>
+          <t>The Internet-Draft "OAuth Identity and Authorization Chaining Across
+Domains," version -15
+(<xref target="I-D.ietf-oauth-identity-chaining" />). At the time of writing,
+this draft has been approved by the IESG and is in the RFC Editor
+queue.</t>
+        </li>
+        <li>
+          <t>The Internet-Draft "Transaction Tokens," version -08
+(<xref target="I-D.ietf-oauth-transaction-tokens" />). At the time of writing,
+this draft is in Working Group Last Call.</t>
+        </li>
+      </ol>
+      <t>Subsequent revisions of either parent draft may necessitate revision
+of this report.</t>
+    </section>
+    <section anchor="implementation">
+      <name>Implementation: authgent</name>
+      <t>This section provides per-implementation metadata in the format
+recommended by Section 2 of RFC 7942.</t>
+      <dl>
+        <dt>Organisation:</dt>
+        <dd>
+          <t>Independent. Author of record: Dhruv Agnihotri.</t>
+        </dd>
+        <dt>Name and URL:</dt>
+        <dd>
+          <t>authgent, https://github.com/authgent/authgent</t>
+        </dd>
+        <dt>Description:</dt>
+        <dd>
+          <t>An open-source OAuth 2.1 authorisation server implemented in Python,
+with both cross-domain identity chaining (per the first reported
+draft) and transaction-token issuance (per the second reported
+draft) as first-class flows on the token endpoint.</t>
+        </dd>
+        <dt>Maturity:</dt>
+        <dd>
+          <t>Experimental to operational. The implementation is published as the
+authgent-server distribution on PyPI and as the authgent
+distribution on PyPI and npm, and operates a live public demo
+deployment published via the repository above. Continuous-integration
+test surface: 522 tests with 84 percent line coverage as of the date
+of this document; the test and coverage figures are reproducible from
+the public continuous-integration workflow in the repository above
+(GitHub Actions).</t>
+        </dd>
+        <dt>Coverage:</dt>
+        <dd>
+          <t>All normative sections of both reported drafts that this
+implementation could realistically exercise from a single-organisation
+test harness. See <xref target="cov-chaining" /> and <xref target="cov-txn" /> for per-section
+detail. One open issue per draft is recorded in <xref target="open-issues" />. Of
+the 522 continuous-integration tests, 25 directly exercise the two
+reported drafts (17 for identity-chaining, 8 for transaction-tokens);
+the remainder cover the underlying OAuth 2.1 authorisation server and
+are not specific to either reported draft. Error and negative paths
+beyond those named in the per-section maps, and conformance points
+that require a second cooperating implementation, are out of scope of
+the present report.</t>
+        </dd>
+        <dt>Interoperability:</dt>
+        <dd>
+          <t>No interoperability testing against a second, independent
+implementation of either parent draft has been performed to date. The
+implementer offers to participate in interoperability testing (see
+Contact, below, and <xref target="implementation" />).</t>
+        </dd>
+        <dt>Version compatibility:</dt>
+        <dd>
+          <t>identity-chaining: tracks revision -15. transaction-tokens: tracks
+revision -08.</t>
+        </dd>
+        <dt>Licensing:</dt>
+        <dd>
+          <t>Apache License, Version 2.0.</t>
+        </dd>
+        <dt>Implementation experience:</dt>
+        <dd>
+          <t>Roughly six months of implementation effort by a single author. No
+unworkable spec text was encountered; the open issues recorded in
+<xref target="open-issues" /> were resolved by local interpretation but interop
+testing has not yet been performed against a second implementation.</t>
+        </dd>
+        <dt>Contact:</dt>
+        <dd>
+          <t>dagni@umich.edu</t>
+        </dd>
+        <dt>Last updated:</dt>
+        <dd>
+          <t>The date of this Internet-Draft.</t>
+        </dd>
+      </dl>
+    </section>
+    <section anchor="cov-chaining">
+      <name>Coverage of identity-chaining-15</name>
+      <t>This section maps each normative requirement of
+<xref target="I-D.ietf-oauth-identity-chaining" /> to the source location in the
+authgent implementation that fulfils it. Source paths are relative to
+the repository root.</t>
+      <dl>
+        <dt>Section 2.1 (Overview / sequence):</dt>
+        <dd>
+          <t>Implemented across two functions in <tt>services/token_service.py</tt>:
+<tt>_issue_chaining_grant</tt> (Domain A) and <tt>_handle_jwt_bearer</tt>
+(Domain B).</t>
+        </dd>
+        <dt>Section 2.2 (Discovery via Protected Resource Metadata):</dt>
+        <dd>
+          <t>Discovery is served by <tt>endpoints/wellknown.py</tt>, conforming to
+<xref target="RFC9728" />.</t>
+        </dd>
+        <dt>Section 2.3.1 (Token Exchange request):</dt>
+        <dd>
+          <t><tt>_handle_token_exchange</tt> in <tt>services/token_service.py</tt> branches
+on <tt>requested_token_type=urn:ietf:params:oauth:token-type:jwt</tt>.</t>
+        </dd>
+        <dt>Section 2.3.1 (audience or resource REQUIRED):</dt>
+        <dd>
+          <t>Enforced. The token endpoint raises an error of type
+<tt>InvalidRequest</tt> when neither parameter is present.</t>
+        </dd>
+        <dt>Section 2.3.2 (policy and claims transformation):</dt>
+        <dd>
+          <t>Trust-domain policy is applied via a configurable
+<tt>trusted_chaining_targets</tt> allowlist. Claim transformation is
+delegated to <tt>services/claims_transcription.py</tt>, which exposes a
+pluggable Protocol so that operators can provide their own
+transformation policy without modifying core code.</t>
+        </dd>
+        <dt>Section 2.3.3 (<tt>aud</tt> MUST identify Domain B):</dt>
+        <dd>
+          <t>The audience claim of the issued JWT authorisation grant is
+populated from the <tt>audience_target</tt> derived from the inbound
+<tt>audience</tt> or <tt>resource</tt> parameter.</t>
+        </dd>
+        <dt>Section 2.4.1 (<tt>urn:ietf:params:oauth:grant-type:jwt-bearer</tt>):</dt>
+        <dd>
+          <t>The grant type is recognised by the token endpoint and dispatched
+to <tt>_handle_jwt_bearer</tt>.</t>
+        </dd>
+        <dt>Section 2.4.2 (assertion validation per RFC 7523):</dt>
+        <dd>
+          <t>Implemented in <tt>services/chaining_verifier.py</tt> function
+<tt>verify_assertion</tt>, which applies the validation steps of Sections 3
+and 3.1 of <xref target="RFC7523" />.</t>
+        </dd>
+        <dt>Section 2.5 (claims transcription):</dt>
+        <dd>
+          <t><tt>services/claims_transcription.py</tt> ships two transformation
+policies: <tt>preserve_sub</tt> (default), which copies the parent <tt>sub</tt>
+through; and <tt>minimize</tt>, which carries only <tt>idp_iss</tt> and
+<tt>idp_sub</tt>. See <xref target="open-issue-chaining" /> for an interpretation
+question encountered while implementing this section.</t>
+        </dd>
+        <dt>Section 3 (metadata field</dt>
+        <dd>
+          <t />
+        </dd>
+        <dt><tt>identity_chaining_requested_token_types_supported</tt>):</dt>
+        <dd>
+          <t>Advertised by <tt>endpoints/wellknown.py</tt>, conforming to <xref target="RFC8414" />.</t>
+        </dd>
+        <dt>Section 5.1 (client authentication):</dt>
+        <dd>
+          <t>Inherited from the OAuth 2.1 framework support in the implementation.
+Both <tt>client_secret_post</tt> and <tt>client_secret_basic</tt> are supported.</t>
+        </dd>
+        <dt>Section 5.2 (sender constraining via DPoP):</dt>
+        <dd>
+          <t>When the inbound subject token is DPoP-bound, the <tt>cnf.jkt</tt>
+thumbprint is propagated into the Domain-B access token, in
+conformance with <xref target="RFC9449" />.</t>
+        </dd>
+        <dt>Section 5.3 (authorised use of subject_token):</dt>
+        <dd>
+          <t>Revocation is checked via <tt>verify_and_check_blocklist</tt> before any
+Domain-B token is minted.</t>
+        </dd>
+        <dt>Section 5.4 (no refresh tokens for chaining):</dt>
+        <dd>
+          <t>The <tt>_handle_jwt_bearer</tt> function omits refresh-token issuance,
+matching the spec recommendation.</t>
+        </dd>
+        <dt>Section 5.5 (short-lived; single-use):</dt>
+        <dd>
+          <t>The chaining grant time-to-live (parameter <tt>chaining_grant_ttl</tt>)
+defaults to 60 seconds. The <tt>jti</tt> claim of each consumed assertion
+is added to the token blocklist with reason
+<tt>chaining_grant_consumed</tt>, and any subsequent attempt to consume
+the same assertion is rejected.</t>
+        </dd>
+      </dl>
+      <t>Test surface for identity-chaining: <tt>server/tests/test_identity_chaining.py</tt>,
+17 tests, named after the spec sections they exercise.</t>
+    </section>
+    <section anchor="cov-txn">
+      <name>Coverage of transaction-tokens-08</name>
+      <dl>
+        <dt>Section 16.1 (token type URN, registered in IANA; used in Section 12):</dt>
+        <dd>
+          <t>The constant <tt>TXN_TOKEN_TYPE</tt> is the value
+<tt>urn:ietf:params:oauth:token-type:txn_token</tt>, the URN registered in
+Section 16.1 and used as the <tt>requested_token_type</tt> /
+<tt>issued_token_type</tt> value in the Section 12 request/response flow.</t>
+        </dd>
+        <dt>Section 10.1 (<tt>typ</tt> header <tt>txntoken+jwt</tt>):</dt>
+        <dd>
+          <t>The JWT Header requirement that "the typ Header Parameter MUST be
+present and MUST have the value txntoken+jwt" is met by the signing
+helper, which sets the header via
+<tt>_jwks.sign_jwt(claims, headers={"typ": "txntoken+jwt"})</tt>.</t>
+        </dd>
+        <dt>Section 10.2 (required JWT body claims):</dt>
+        <dd>
+          <t>The claims <tt>iat</tt>, <tt>aud</tt>, <tt>exp</tt>, <tt>txn</tt>, <tt>sub</tt>, <tt>scope</tt>, and <tt>req_wl</tt>
+(each marked REQUIRED in Section 10.2) are constructed in
+<tt>_issue_transaction_token</tt> for every issued Txn-Token.</t>
+        </dd>
+        <dt>Section 10.2.3 (optional <tt>tctx</tt>, immutable context):</dt>
+        <dd>
+          <t>Carried verbatim from the <tt>request_details</tt> form parameter on the
+token endpoint when present.</t>
+        </dd>
+        <dt>Section 10.2.2 (optional <tt>rctx</tt>, requester context):</dt>
+        <dd>
+          <t>Composed in <tt>_issue_transaction_token</tt> with auto-derived <tt>req_ip</tt>
+and <tt>authn</tt> values, the two members defined in Section 10.2.2.</t>
+        </dd>
+        <dt>Section 12.4 (Txn-Token Response shape):</dt>
+        <dd>
+          <t>Per Section 12.4, <tt>issued_token_type</tt> is set to the value
+<tt>urn:ietf:params:oauth:token-type:txn_token</tt> and <tt>token_type</tt> is set
+to <tt>N_A</tt>.</t>
+        </dd>
+        <dt>Section 7 (Txn-Token Lifetime; short-lived tokens):</dt>
+        <dd>
+          <t>The Txn-Token time-to-live (parameter <tt>txn_token_ttl</tt>) defaults to
+120 seconds, consistent with the Section 7 expectation that
+Txn-Tokens are short-lived (on the order of minutes or less).</t>
+        </dd>
+        <dt>Section 14.6 (Scope Processing; requested scope equal or less than</dt>
+        <dd>
+          <t />
+        </dd>
+        <dt>subject_token scope):</dt>
+        <dd>
+          <t>Section 14.6 requires that "the TTS MUST ensure that the requested
+scope of the Txn-Token is equal or less than the scope(s) identified
+in the subject_token." An inline subset check
+(<tt>requested.issubset(parent_scopes)</tt>) is applied before issuance; on
+violation, the implementation raises an <tt>AccessDenied</tt> error.</t>
+        </dd>
+        <dt>Sections 14.3 and 12.4 (no refresh tokens):</dt>
+        <dd>
+          <t>Section 14.3 states that "the Txn-Token response from the TTS MUST
+NOT include a refresh token" and Section 12.4 that "the Txn-Token
+Response MUST NOT include the refresh_token value." The
+token-endpoint response omits the <tt>refresh_token</tt> field for
+Txn-Token issuance.</t>
+        </dd>
+      </dl>
+      <t>Test surface for transaction-tokens:
+<tt>server/tests/test_transaction_tokens.py</tt>, 8 tests.</t>
+    </section>
+    <section anchor="open-issues">
+      <name>Open Issues Surfaced During Implementation</name>
+      <t>This section records ambiguities encountered while implementing the
+two parent drafts, and proposes specific text the editors may wish to
+consider for a subsequent revision.</t>
+      <section anchor="open-issue-chaining">
+        <name>identity-chaining: missing-<tt>sub</tt> handling in claims transcription</name>
+        <t>Section 2.5 of <xref target="I-D.ietf-oauth-identity-chaining" />, in its
+"Transcribing the subject identifier" case, describes mapping a
+subject identifier from one trust domain to another (its worked
+example maps "johndoe@a.example" to "doe.john@b.example") and states
+that "both authorization servers can add, change or remove claims."
+The text addresses the case in which the subject identifier differs
+between domains, but is silent on the case in which the inbound
+subject token carries no <tt>sub</tt> claim at all (for example, a federated
+assertion that conveys only <tt>idp_iss</tt> and <tt>idp_sub</tt>).</t>
+        <t>The editorial revision from -14 to -15 softened the scope-control
+language of Section 2.5 from a normative form to "Authorization
+Servers need to verify that the requested scopes are not higher
+privileged than the scopes of the presented subject_token." That
+change concerns scope control and does not bear on the missing-<tt>sub</tt>
+case; as of -15, the missing-<tt>sub</tt> handling described below remains
+underspecified.</t>
+        <t>Two reasonable interpretations exist:</t>
+        <ol spacing="normal" type="1"><li>
+            <t>Refuse at issuance: the Domain A authorisation server declines to
+mint a chaining grant when the subject token has no resolvable <tt>sub</tt>
+(and no documented policy for synthesising one).</t>
+          </li>
+          <li>
+            <t>Allow and defer: the Domain A authorisation server mints a grant
+that inherits the absence of <tt>sub</tt>, leaving the receiving Domain B
+to resolve identity from <tt>idp_iss</tt> and <tt>idp_sub</tt>, to synthesise a
+<tt>sub</tt>, or to refuse on consumption.</t>
+          </li>
+        </ol>
+        <t>A third, related question is whether the transcription policy itself
+ought to be required to produce a <tt>sub</tt> value (for example by
+deterministically deriving one from <tt>idp_iss</tt> and <tt>idp_sub</tt>) so that
+Domain B always has a stable subject identifier.</t>
+        <t>The authgent implementation effectively follows interpretation 2 (allow
+and defer). Concretely, its behaviour is as follows. On the Domain A
+issuance side, the grant-minting path (<tt>_issue_chaining_grant</tt> in
+<tt>services/token_service.py</tt>) performs no <tt>sub</tt> check: if the subject
+token carries no <tt>sub</tt>, a chaining grant is minted that simply lacks a
+<tt>sub</tt> claim; issuance is not refused. The claims-transcription policy
+discussed in <xref target="cov-chaining" /> is orthogonal to this question -- both
+shipped policies are pure claim filters (they copy a fixed set of
+claims forward when present) and neither adjudicates a missing <tt>sub</tt>.
+On the Domain B consumption side, by contrast, <tt>_handle_jwt_bearer</tt> in
+the same module applies a fixed (non-pluggable) check: consuming an
+assertion that lacks an identifiable subject is rejected with an
+<tt>InvalidGrant</tt> ("Assertion missing identifiable subject") error. The
+net effect is that a subject token without <tt>sub</tt> is not rejected when
+the grant is issued, but is rejected when the resulting assertion is
+consumed. This behaviour is not presently covered by an automated
+test.</t>
+        <t>Suggested editorial clarification: a sentence in Section 2.5 making the
+choice explicit, for example: "If the subject token does not contain a
+<tt>sub</tt> claim, the authorisation server MAY synthesise one from other
+identity claims, or MAY refuse the request; the latter behaviour is
+recommended unless the synthesis algorithm is documented in the
+trust-domain policy." Once the editors indicate a preferred direction,
+the implementation would follow it -- for instance, by adding a refusal
+at the Domain A issuance step if refuse-at-issuance is chosen.</t>
+      </section>
+      <section anchor="open-issue-txn">
+        <name>transaction-tokens: scope subset check semantics on missing parent scope</name>
+        <t>Section 14.6 ("Scope Processing") of
+<xref target="I-D.ietf-oauth-transaction-tokens" /> requires that "the TTS MUST
+ensure that the requested scope of the Txn-Token is equal or less than
+the scope(s) identified in the subject_token." The text presupposes
+the presence of a <tt>scope</tt> claim on the subject token. The handling of
+the case where the subject token has no <tt>scope</tt> claim at all (for
+example, a JWT that conveys identity but expresses authorisation
+through other claims) is not specified.</t>
+        <t>Two interpretations:</t>
+        <ol spacing="normal" type="1"><li>
+            <t>Treat absent parent scope as the empty set, requiring any explicit
+<tt>scope</tt> parameter on the Txn-Token request to also be empty or
+absent.</t>
+          </li>
+          <li>
+            <t>Treat absent parent scope as unconstrained, allowing the
+Txn-Token request to set any <tt>scope</tt> value.</t>
+          </li>
+        </ol>
+        <t>The authgent implementation effectively follows interpretation 2. Its
+scope-subset check (<tt>_issue_transaction_token</tt> in
+<tt>services/token_service.py</tt>) only fires when the parent scope is
+non-empty; when the subject token carries no <tt>scope</tt> claim the check is
+skipped, so any requested scope is currently allowed through. This is a
+literal reading of the Section 14.6 MUST, but it is arguably the
+unintentional-scope-increase case the section exists to prevent -- which
+is precisely why the absent-<tt>scope</tt> case warrants explicit text. A
+conscientious implementer can land on this permissive behaviour without
+realising it. This edge is not presently covered by an automated test.</t>
+        <t>Suggested editorial clarification: a sentence in Section 14.6 making
+the choice explicit, for example: "If the subject_token carries no
+<tt>scope</tt> claim, the Transaction Token Service MUST treat the available
+scope as the empty set for the purpose of this comparison (and so MUST
+NOT issue a Txn-Token bearing a non-empty scope)." Once the editors
+indicate a preferred direction, the implementation would follow it.</t>
+      </section>
+    </section>
+    <section anchor="impl-status">
+      <name>Implementation Status</name>
+      <t>This section records the status of known implementations of the
+protocols defined by <xref target="I-D.ietf-oauth-identity-chaining" /> and
+<xref target="I-D.ietf-oauth-transaction-tokens" /> at the time of posting of this
+Internet-Draft, in accordance with the guidelines in <xref target="RFC7942" />. The
+description of implementations in this section is intended to assist
+the IETF in its decision processes in progressing drafts to RFCs.
+Please note that the listing of any individual implementation here
+does not imply endorsement by the IETF. Furthermore, no effort has
+been spent to verify the information presented here that was supplied
+by IETF contributors. This is not intended as, and must not be
+construed to be, a catalog of available implementations or their
+features. Readers are advised to note that other implementations may
+exist.</t>
+      <t>According to <xref target="RFC7942" />, "this will allow reviewers and working
+groups to assign due consideration to documents that have the benefit
+of running code, which may serve as evidence of valuable
+experimentation and feedback that have made the implemented protocols
+more mature. It is up to the individual working groups to use this
+information as they see fit".</t>
+      <t>The single implementation reported here is described in
+<xref target="implementation" />, with per-section conformance maps in
+<xref target="cov-chaining" /> and <xref target="cov-txn" />, and open-issue candidates in
+<xref target="open-issues" />.</t>
+      <t>Note to RFC Editor: this section, and the per-section conformance maps
+referenced from it, are to be removed before publication of any
+parent draft as an RFC. The reference to RFC 7942 may also be removed
+at that time.</t>
+    </section>
+    <section anchor="interoperability-offer">
+      <name>Interoperability Offer</name>
+      <t>The implementer offers interoperability testing against any other
+implementation of either parent draft. Interested implementers may
+make contact at the address in the front matter of this document, or
+by opening an issue on the GitHub repository identified in
+<xref target="implementation" />.</t>
+    </section>
+    <section anchor="iana-considerations">
+      <name>IANA Considerations</name>
+      <t>This document has no IANA actions.</t>
+    </section>
+    <section anchor="security-considerations">
+      <name>Security Considerations</name>
+      <t>This document reports the existence of an implementation. The
+security considerations of the protocols implemented are addressed in
+the parent specifications:
+<xref target="I-D.ietf-oauth-identity-chaining" />, Section 5; and
+<xref target="I-D.ietf-oauth-transaction-tokens" />, Section 14. Implementers and
+reviewers are referred there.</t>
+      <t>The authgent implementation reported here is open source. Security
+properties relevant to the parent drafts (in particular, sender
+constraining of access tokens via DPoP <xref target="RFC9449" />, blocklist-backed
+revocation, single-use semantics for the JWT authorisation grant, and
+scope-reduction enforcement on Txn-Tokens) may be inspected in the
+repository identified in <xref target="implementation" />.</t>
+    </section>
+  </middle>
+  <back>
+    <references anchor="sec-normative-references">
+        <name>Normative References</name>
+        <referencegroup anchor="BCP14" target="https://www.rfc-editor.org/info/bcp14"><reference anchor="RFC2119" target="https://www.rfc-editor.org/info/rfc2119" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.2119.xml">
+          <front>
+            <title>Key words for use in RFCs to Indicate Requirement Levels</title>
+            <author fullname="S. Bradner" initials="S." surname="Bradner" />
+            <date month="March" year="1997" />
+            <abstract>
+              <t>In many standards track documents several words are used to signify the requirements in the specification. These words are often capitalized. This document defines these words as they should be interpreted in IETF documents. This document specifies an Internet Best Current Practices for the Internet Community, and requests discussion and suggestions for improvements.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="BCP" value="14" />
+          <seriesInfo name="RFC" value="2119" />
+          <seriesInfo name="DOI" value="10.17487/RFC2119" />
+        </reference>
+        <reference anchor="RFC8174" target="https://www.rfc-editor.org/info/rfc8174" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8174.xml">
+          <front>
+            <title>Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words</title>
+            <author fullname="B. Leiba" initials="B." surname="Leiba" />
+            <date month="May" year="2017" />
+            <abstract>
+              <t>RFC 2119 specifies common key words that may be used in protocol specifications. This document aims to reduce the ambiguity by clarifying that only UPPERCASE usage of the key words have the defined special meanings.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="BCP" value="14" />
+          <seriesInfo name="RFC" value="8174" />
+          <seriesInfo name="DOI" value="10.17487/RFC8174" />
+        </reference>
+      </referencegroup></references>
+      <references anchor="sec-informative-references">
+        <name>Informative References</name>
+        <reference anchor="I-D.ietf-oauth-identity-chaining" target="https://datatracker.ietf.org/doc/html/draft-ietf-oauth-identity-chaining-15">
+          <front>
+            <title>OAuth Identity and Authorization Chaining Across Domains</title>
+            <author initials="A." surname="Schwenkschuster" fullname="Arndt Schwenkschuster">
+              <organization>Defakto Security</organization>
+            </author>
+            <author initials="P." surname="Kasselman" fullname="Pieter Kasselman">
+              <organization>Defakto Security</organization>
+            </author>
+            <author initials="K." surname="Burgin" fullname="Kelley Burgin">
+              <organization>MITRE</organization>
+            </author>
+            <author initials="M. J." surname="Jenkins" fullname="Michael Jenkins">
+              <organization>NSA-CCSS</organization>
+            </author>
+            <author initials="B." surname="Campbell" fullname="Brian Campbell">
+              <organization>Ping Identity</organization>
+            </author>
+            <author initials="A." surname="Parecki" fullname="Aaron Parecki">
+              <organization>Okta</organization>
+            </author>
+            <date year="2026" month="June" day="19" />
+          </front>
+          <seriesInfo name="Internet-Draft" value="draft-ietf-oauth-identity-chaining-15" />
+        </reference>
+        <reference anchor="I-D.ietf-oauth-transaction-tokens" target="https://datatracker.ietf.org/doc/html/draft-ietf-oauth-transaction-tokens-08" xml:base="https://bib.ietf.org/public/rfc/bibxml3/reference.I-D.ietf-oauth-transaction-tokens.xml">
+          <front>
+            <title>Transaction Tokens</title>
+            <author fullname="Atul Tulshibagwale" initials="A." surname="Tulshibagwale">
+              <organization>CrowdStrike</organization>
+            </author>
+            <author fullname="George Fletcher" initials="G." surname="Fletcher">
+              <organization>Practical Identity LLC</organization>
+            </author>
+            <author fullname="Pieter Kasselman" initials="P." surname="Kasselman">
+              <organization>Defakto Security</organization>
+            </author>
+            <date day="2" month="March" year="2026" />
+            <abstract>
+              <t>Transaction Tokens (Txn-Tokens) are designed to maintain and propagate user identity, workload identity and authorization context throughout the Call Chain within a trusted domain during the processing of external requests (e.g. such as API calls) or requests initiated internally within the trust domain. Txn-Tokens ensure that this context is preserved throughout the Call Chain thereby enhancing security and consistency in complex, multi-service architectures.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="Internet-Draft" value="draft-ietf-oauth-transaction-tokens-08" />
+        </reference>
+        <reference anchor="RFC7942" target="https://www.rfc-editor.org/info/rfc7942" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.7942.xml">
+          <front>
+            <title>Improving Awareness of Running Code: The Implementation Status Section</title>
+            <author fullname="Y. Sheffer" initials="Y." surname="Sheffer" />
+            <author fullname="A. Farrel" initials="A." surname="Farrel" />
+            <date month="July" year="2016" />
+            <abstract>
+              <t>This document describes a simple process that allows authors of Internet-Drafts to record the status of known implementations by including an Implementation Status section. This will allow reviewers and working groups to assign due consideration to documents that have the benefit of running code, which may serve as evidence of valuable experimentation and feedback that have made the implemented protocols more mature.</t>
+              <t>This process is not mandatory. Authors of Internet-Drafts are encouraged to consider using the process for their documents, and working groups are invited to think about applying the process to all of their protocol specifications. This document obsoletes RFC 6982, advancing it to a Best Current Practice.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="BCP" value="205" />
+          <seriesInfo name="RFC" value="7942" />
+          <seriesInfo name="DOI" value="10.17487/RFC7942" />
+        </reference>
+        <reference anchor="RFC7523" target="https://www.rfc-editor.org/info/rfc7523" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.7523.xml">
+          <front>
+            <title>JSON Web Token (JWT) Profile for OAuth 2.0 Client Authentication and Authorization Grants</title>
+            <author fullname="M. Jones" initials="M." surname="Jones" />
+            <author fullname="B. Campbell" initials="B." surname="Campbell" />
+            <author fullname="C. Mortimore" initials="C." surname="Mortimore" />
+            <date month="May" year="2015" />
+            <abstract>
+              <t>This specification defines the use of a JSON Web Token (JWT) Bearer Token as a means for requesting an OAuth 2.0 access token as well as for client authentication.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="RFC" value="7523" />
+          <seriesInfo name="DOI" value="10.17487/RFC7523" />
+        </reference>
+        <reference anchor="RFC9449" target="https://www.rfc-editor.org/info/rfc9449" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.9449.xml">
+          <front>
+            <title>OAuth 2.0 Demonstrating Proof of Possession (DPoP)</title>
+            <author fullname="D. Fett" initials="D." surname="Fett" />
+            <author fullname="B. Campbell" initials="B." surname="Campbell" />
+            <author fullname="J. Bradley" initials="J." surname="Bradley" />
+            <author fullname="T. Lodderstedt" initials="T." surname="Lodderstedt" />
+            <author fullname="M. Jones" initials="M." surname="Jones" />
+            <author fullname="D. Waite" initials="D." surname="Waite" />
+            <date month="September" year="2023" />
+            <abstract>
+              <t>This document describes a mechanism for sender-constraining OAuth 2.0 tokens via a proof-of-possession mechanism on the application level. This mechanism allows for the detection of replay attacks with access and refresh tokens.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="RFC" value="9449" />
+          <seriesInfo name="DOI" value="10.17487/RFC9449" />
+        </reference>
+        <reference anchor="RFC9728" target="https://www.rfc-editor.org/info/rfc9728" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.9728.xml">
+          <front>
+            <title>OAuth 2.0 Protected Resource Metadata</title>
+            <author fullname="M.B. Jones" initials="M.B." surname="Jones" />
+            <author fullname="P. Hunt" initials="P." surname="Hunt" />
+            <author fullname="A. Parecki" initials="A." surname="Parecki" />
+            <date month="April" year="2025" />
+            <abstract>
+              <t>This specification defines a metadata format that an OAuth 2.0 client or authorization server can use to obtain the information needed to interact with an OAuth 2.0 protected resource.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="RFC" value="9728" />
+          <seriesInfo name="DOI" value="10.17487/RFC9728" />
+        </reference>
+        <reference anchor="RFC8414" target="https://www.rfc-editor.org/info/rfc8414" xml:base="https://bib.ietf.org/public/rfc/bibxml/reference.RFC.8414.xml">
+          <front>
+            <title>OAuth 2.0 Authorization Server Metadata</title>
+            <author fullname="M. Jones" initials="M." surname="Jones" />
+            <author fullname="N. Sakimura" initials="N." surname="Sakimura" />
+            <author fullname="J. Bradley" initials="J." surname="Bradley" />
+            <date month="June" year="2018" />
+            <abstract>
+              <t>This specification defines a metadata format that an OAuth 2.0 client can use to obtain the information needed to interact with an OAuth 2.0 authorization server, including its endpoint locations and authorization server capabilities.</t>
+            </abstract>
+          </front>
+          <seriesInfo name="RFC" value="8414" />
+          <seriesInfo name="DOI" value="10.17487/RFC8414" />
+        </reference>
+      </references>
+    <section anchor="document-history">
+      <name>Document History</name>
+      <t>Note to RFC Editor: this section is to be removed before publication.</t>
+      <section anchor="changes-from-01-to-02">
+        <name>Changes from -01 to -02</name>
+        <ul spacing="normal">
+          <li>
+            <t>Corrected the description of the implementation's behaviour in the
+transaction-tokens scope open issue (<xref target="open-issue-txn" />). The -01 text
+stated the implementation followed interpretation 1 (treat absent
+parent scope as the empty set, the conservative reading); in fact the
+scope-subset check is skipped when the parent scope is absent, so the
+implementation follows interpretation 2 (absent parent scope treated
+as unconstrained). The open issue and suggested clarification are
+unchanged in substance; only the description of observed behaviour is
+corrected, and the footgun this represents is now noted explicitly.</t>
+          </li>
+        </ul>
+      </section>
+      <section anchor="changes-from-00-to-01">
+        <name>Changes from -00 to -01</name>
+        <ul spacing="normal">
+          <li>
+            <t>Updated the identity-chaining reference from -14 to -15 (an editorial
+revision; the parent draft is now in the RFC Editor queue), including
+the status line in <xref target="reported-drafts" />, the version-compatibility
+field in <xref target="implementation" />, and the heading of <xref target="cov-chaining" />.</t>
+          </li>
+          <li>
+            <t>Refreshed the implementation test surface from 476 tests / 83 percent
+line coverage to 522 tests / 84 percent line coverage.</t>
+          </li>
+          <li>
+            <t>Updated the Section 2.5 open issue in <xref target="open-issue-chaining" /> to
+reflect the -15 wording. The -14-to-15 revision softened the
+scope-control language of Section 2.5 to "need to verify"; that
+change does not address the missing-<tt>sub</tt> claims-transcription case,
+which remains underspecified as of -15. The open issue is retained
+and its quoted text aligned to -15.</t>
+          </li>
+          <li>
+            <t>Corrected the description of the implementation's missing-<tt>sub</tt>
+behaviour in <xref target="open-issue-chaining" />: the implementation does not
+refuse at issuance and does not adjudicate the case in a pluggable
+transcription policy; it mints the grant and rejects the resulting
+assertion at consumption (allow-and-defer). The spec gap itself is
+unchanged.</t>
+          </li>
+          <li>
+            <t>Remapped every transaction-tokens section citation in the
+transaction-tokens coverage map (<xref target="cov-txn" />) and open issue
+(<xref target="open-issue-txn" />) to the section structure of revision -08
+(token type URN to Section 16.1; JWT header to Section 10.1; required
+claims to Section 10.2; <tt>rctx</tt>/<tt>tctx</tt> to Sections 10.2.2/10.2.3;
+response shape to Section 12.4; scope processing to Section 14.6;
+no-refresh-token rule to Sections 14.3 and 12.4). The Section 7
+lifetime citation was already correct.</t>
+          </li>
+          <li>
+            <t>Surfaced interoperability status and out-of-scope coverage explicitly
+in <xref target="implementation" />, and added concrete suggested text to the
+transaction-tokens open issue.</t>
+          </li>
+        </ul>
+      </section>
+    </section>
+    <section anchor="acknowledgments">
+      <name>Acknowledgments</name>
+      <t>The author thanks the editors of <xref target="I-D.ietf-oauth-identity-chaining" />
+(Arndt Schwenkschuster of Defakto Security, Pieter Kasselman of
+Defakto Security, Kelley Burgin of MITRE, Michael Jenkins of NSA-CCSS,
+Brian Campbell of Ping Identity, and Aaron Parecki of Okta) and the
+editors of <xref target="I-D.ietf-oauth-transaction-tokens" /> (Atul Tulshibagwale
+of CrowdStrike, George Fletcher of Practical Identity LLC, and Pieter
+Kasselman of Defakto Security) for the specifications this document
+reports on.</t>
+    </section>
+  </back>
+  
+
+</rfc>
