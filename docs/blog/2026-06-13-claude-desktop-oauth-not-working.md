@@ -5,7 +5,7 @@ target_query: "Claude Desktop OAuth not working"
 publish_targets: ["dev.to", "medium"]
 canonical: https://github.com/authgent/authgent/blob/main/docs/blog/2026-06-13-claude-desktop-oauth-not-working.md
 date: 2026-06-13
-draft: true
+draft: false
 ---
 
 # Claude Desktop OAuth Not Working? Here's the Debug Sequence

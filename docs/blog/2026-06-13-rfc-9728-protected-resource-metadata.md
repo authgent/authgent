@@ -5,7 +5,7 @@ target_query: "RFC 9728 protected resource metadata"
 publish_targets: ["dev.to", "medium"]
 canonical: https://github.com/authgent/authgent/blob/main/docs/blog/2026-06-13-rfc-9728-protected-resource-metadata.md
 date: 2026-06-13
-draft: true
+draft: false
 ---
 
 # RFC 9728 Protected Resource Metadata: A Practical Guide

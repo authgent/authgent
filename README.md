@@ -42,6 +42,7 @@ Apache 2.0 · 521 tests · 3 published packages · IETF Internet-Draft on datatr
 [rfc8693]: https://datatracker.ietf.org/doc/html/rfc8693
 [rfc9449]: https://datatracker.ietf.org/doc/html/rfc9449
 
+[![MCP OAuth Grade](https://authgent.dev/api/badge?url=https://authgent.dev)](https://authgent.dev/scan/?url=https://authgent.dev)
 [![CI](https://github.com/authgent/authgent/actions/workflows/ci.yml/badge.svg)](https://github.com/authgent/authgent/actions/workflows/ci.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/authgent/authgent/badge)](https://securityscorecards.dev/viewer/?uri=github.com/authgent/authgent)
 [![PyPI - Server](https://img.shields.io/pypi/v/authgent-server?label=authgent-server&color=blue)](https://pypi.org/project/authgent-server/)
