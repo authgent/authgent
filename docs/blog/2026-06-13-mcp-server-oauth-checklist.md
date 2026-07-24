@@ -5,7 +5,7 @@ target_query: "MCP server OAuth"
 publish_targets: ["dev.to", "lobste.rs", "medium"]
 canonical: https://github.com/authgent/authgent/blob/main/docs/blog/2026-06-13-mcp-server-oauth-checklist.md
 date: 2026-06-13
-draft: true
+draft: false
 ---
 
 # MCP Server OAuth Checklist: 10 Things to Verify Before You Ship

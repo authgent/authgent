@@ -234,6 +234,35 @@ async def test_txn_token_scope_subset_allowed(test_client):
     assert resp.status_code == 200, resp.text
 
 
+@pytest.mark.asyncio
+async def test_txn_token_no_parent_scope_rejects_nonempty_request(test_client):
+    """§13.14: an undeterminable subject_token scope MUST NOT be treated as
+    unconstrained. A subject_token with no (or empty) scope claim MUST cause a
+    request for any non-empty Txn-Token scope to be rejected, not silently
+    granted."""
+    parent = _register(test_client, grant_types=["client_credentials"], scope="")
+    parent_tok = _client_creds_token(test_client, parent, scope="")["access_token"]
+
+    tts_caller = _register(
+        test_client,
+        grant_types=["client_credentials", TOKEN_EXCHANGE_GRANT],
+        scope="trade.stocks",
+    )
+    resp = test_client.post(
+        "/token",
+        data={
+            "grant_type": TOKEN_EXCHANGE_GRANT,
+            "client_id": tts_caller["client_id"],
+            "client_secret": tts_caller["client_secret"],
+            "subject_token": parent_tok,
+            "requested_token_type": TXN_TOKEN_TYPE,
+            "audience": "https://trust-domain.example/",
+            "scope": "trade.stocks",
+        },
+    )
+    assert resp.status_code in (401, 403)
+
+
 # --- §11 no refresh tokens -----------------------------------------------
 
 
