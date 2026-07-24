@@ -84,9 +84,42 @@ async def check_protected_resource_metadata(
     authorization server. Treat its absence as ``critical`` so the score
     reflects "this is not actually an MCP server" rather than "this MCP
     server has one missing field".
+
+    Tries up to three locations, in order, mirroring ``check_as_metadata``:
+
+    1. Default RFC 9728 path: ``<base_url>/.well-known/oauth-protected-resource``
+       (naively joined onto ``base_url``, which may itself include a path).
+    2. Bare host root: ``<host>/.well-known/oauth-protected-resource`` with no
+       path segment at all. Firecrawl's hosted MCP server
+       (``mcp.firecrawl.dev/v2/mcp``) publishes PRM here — the leading
+       ``/v2/mcp`` path is dropped entirely (verified 2026-07-24).
+    3. RFC 9728 §3.1 path-suffixed variant: ``<host>/.well-known/
+       oauth-protected-resource/<path>``, i.e. the path is moved after the
+       well-known segment instead of being dropped. GitHub's hosted MCP
+       server (``api.githubcopilot.com/mcp/``) uses this form (verified
+       2026-07-24).
+
+    Real deployments are inconsistent about where a resource with a path
+    component publishes PRM, so all three are attempted before reporting it
+    missing.
     """
+    parsed = urlparse(base_url)
+    scheme_host = f"{parsed.scheme}://{parsed.netloc}"
+    path_suffix = parsed.path.strip("/")
+
     url = urljoin(base_url + "/", ".well-known/oauth-protected-resource")
     status, body, _ = await _get_json(client, url)
+
+    if (status != 200 or not isinstance(body, dict)) and path_suffix:
+        for candidate in (
+            f"{scheme_host}/.well-known/oauth-protected-resource",
+            f"{scheme_host}/.well-known/oauth-protected-resource/{path_suffix}",
+        ):
+            candidate_status, candidate_body, _ = await _get_json(client, candidate)
+            if candidate_status == 200 and isinstance(candidate_body, dict):
+                url, status, body = candidate, candidate_status, candidate_body
+                break
+
     findings: list[Finding] = []
     if status != 200 or not isinstance(body, dict):
         findings.append(
