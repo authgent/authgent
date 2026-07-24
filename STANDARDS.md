@@ -210,7 +210,7 @@ pytest tests/ \
 pytest tests/test_identity_chaining.py tests/test_transaction_tokens.py -v
 ```
 
-Expected: **522 tests pass** in ~2 minutes on a 2024-vintage laptop.
+Expected: **524 tests pass** in ~2 minutes on a 2024-vintage laptop.
 
 ---
 
