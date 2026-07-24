@@ -11,7 +11,6 @@ import pytest
 from authgent.client import AgentAuthClient, TokenResult
 from authgent.errors import ServerError
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────
 
 
@@ -251,7 +250,9 @@ async def test_check_exchange_denied(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_introspect_token(monkeypatch):
-    _, client = _patch_client(monkeypatch, 200, {"active": True, "sub": "client:agnt_1", "scope": "read"})
+    _, client = _patch_client(
+        monkeypatch, 200, {"active": True, "sub": "client:agnt_1", "scope": "read"}
+    )
 
     result = await client.introspect_token("access_token_here", client_id="c1")
     assert result["active"] is True

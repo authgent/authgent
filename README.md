@@ -35,7 +35,7 @@ to fix what it found — a reference OAuth 2.1 server implementing
 [`draft-ietf-oauth-identity-chaining-14`][icn] and
 [`draft-ietf-oauth-transaction-tokens-08`][txntok].
 
-Apache 2.0 · 521 tests · 3 published packages · IETF Internet-Draft on datatracker.
+Apache 2.0 · 522 tests · 3 published packages · IETF Internet-Draft on datatracker.
 
 [icn]: https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/
 [txntok]: https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/
@@ -212,7 +212,7 @@ adapters. Full docs: [Python SDK](sdks/python/README.md) ·
 git clone https://github.com/authgent/authgent.git
 cd authgent/server
 pip install -e ".[dev]"
-pytest -v   # 521 tests
+pytest -v   # 522 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Apache 2.0.

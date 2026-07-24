@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import base64
 import json
+from dataclasses import dataclass
+from typing import Self
 
 import httpx
 
@@ -62,7 +62,7 @@ class AgentAuthClient:
             await self._http.aclose()
             self._http = None
 
-    async def __aenter__(self) -> "AgentAuthClient":
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *exc: object) -> None:
@@ -421,7 +421,10 @@ class AgentAuthClient:
         )
 
     async def check_stepup(self, request_id: str) -> dict:
-        """Check the status of a step-up request. Returns {'status': 'pending'|'approved'|'denied'}."""
+        """Check the status of a step-up request.
+
+        Returns {'status': 'pending'|'approved'|'denied'}.
+        """
         resp = await self._get_http().get(f"{self._base}/stepup/{request_id}")
         if resp.status_code != 200:
             raise ServerError(f"Step-up status check failed: {resp.text}")
