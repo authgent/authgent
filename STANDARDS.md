@@ -20,7 +20,7 @@ or cite the per-section maps below.
 | Status | Spec | Section coverage | Tests |
 |---|---|---|---|
 | **WG-track reference impl** | [draft-ietf-oauth-identity-chaining-15](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/) | §2.1, §2.2, §2.3, §2.4, §2.5, §3, §5.1–5.5 | [test_identity_chaining.py](server/tests/test_identity_chaining.py) — 17 tests |
-| **WG-track reference impl** | [draft-ietf-oauth-transaction-tokens-08](https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/) | §3, §7, §11 | [test_transaction_tokens.py](server/tests/test_transaction_tokens.py) — 8 tests |
+| **WG-track reference impl** | [draft-ietf-oauth-transaction-tokens-09](https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/) | §3, §7, §11, §13.6, §13.14 | [test_transaction_tokens.py](server/tests/test_transaction_tokens.py) — 9 tests |
 | **Production** | [RFC 8693](https://datatracker.ietf.org/doc/html/rfc8693) Token Exchange | Full + nested `act` chain extension | test_token_advanced.py, test_delegation.py |
 | **Production** | [RFC 7523](https://datatracker.ietf.org/doc/html/rfc7523) JWT Profile | §3, §3.1 (assertion validation) | test_identity_chaining.py |
 | **Production** | [RFC 9449](https://datatracker.ietf.org/doc/html/rfc9449) DPoP | Full | test_dpop.py, test_dpop_integration.py |
@@ -110,7 +110,7 @@ Advertised by
 
 ---
 
-## draft-ietf-oauth-transaction-tokens-08 — section by section
+## draft-ietf-oauth-transaction-tokens-09 — section by section
 
 ### §3 Token Service request/response
 
@@ -131,21 +131,30 @@ Advertised by
 `secrets.token_urlsafe(24)` so two issuances differ — verified by
 `test_txn_claim_is_unique_across_issuances`.
 
-### §7.2 Scope policy
+### §13.6 / §13.14 Scope policy
 
-> "TTS MUST ensure that the requested `scope` of the Txn-Token is equal or less than the scope(s) identified in the `subject_token`."
+> "TTS MUST ensure that the requested `scope` of the Txn-Token is equal or less
+> than the scope(s) associated with the original `subject_token`." (§13.6)
+>
+> "If the scope associated with a `subject_token` cannot be determined... the
+> TTS MUST reject the Txn-Token Request and MUST NOT treat an unknown scope as
+> unconstrained." (§13.14, added in -09 in response to an authgent-filed
+> [issue](https://github.com/oauth-wg/oauth-transaction-tokens/issues/357))
 
-Enforced inline:
+Enforced inline — an absent or empty `scope` claim on the `subject_token`
+yields an empty available-scope set, so any non-empty request is rejected
+rather than passed through unconstrained:
 
 ```python
-parent_scopes = set((parent_claims.get("scope", "") or "").split())
+parent_scopes = set((parent_claims.get("scope") or "").split())
 requested = set(scope.split()) if scope else set()
-if parent_scopes and requested and not requested.issubset(parent_scopes):
+if requested and not requested.issubset(parent_scopes):
     raise AccessDenied(...)
 ```
 
-Tested by `test_txn_token_scope_escalation_rejected` and
-`test_txn_token_scope_subset_allowed`.
+Tested by `test_txn_token_scope_escalation_rejected`,
+`test_txn_token_scope_subset_allowed`, and
+`test_txn_token_no_parent_scope_rejects_nonempty_request` (§13.14).
 
 ### §11 No refresh tokens
 
@@ -210,7 +219,7 @@ pytest tests/ \
 pytest tests/test_identity_chaining.py tests/test_transaction_tokens.py -v
 ```
 
-Expected: **524 tests pass** in ~2 minutes on a 2024-vintage laptop.
+Expected: **525 tests pass** in ~2 minutes on a 2024-vintage laptop.
 
 ---
 

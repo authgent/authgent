@@ -684,7 +684,7 @@ class TokenService:
         request_details: object,
         ip_address: object | None,
     ) -> TokenResponse:
-        """Issue a Transaction Token per draft-ietf-oauth-transaction-tokens-08.
+        """Issue a Transaction Token per draft-ietf-oauth-transaction-tokens-09.
 
         A Txn-Token is short-lived, audience-bound to a Trust Domain, and carries
         a unique `txn` identifier plus optional immutable `tctx` (transaction
@@ -694,7 +694,9 @@ class TokenService:
         Spec sections enforced here:
         - §3 typ header `txntoken+jwt`, required claims iat/aud/exp/txn/sub/scope/req_wl
         - §7 short-lived (default 120s)
-        - §7.2 scope MUST NOT exceed subject_token's scope
+        - §13.6 / §13.14 scope MUST NOT exceed subject_token's scope; if that scope
+          cannot be determined, the request MUST be rejected rather than treated
+          as unconstrained
         - §7.3 access tokens MUST NOT be embedded
         - §11 no refresh tokens
         """
@@ -711,15 +713,20 @@ class TokenService:
         except Exception as e:
             raise InvalidGrant(f"Invalid subject_token: {e}") from e
 
-        # §7.2: TTS MUST ensure requested scope is equal-or-less than subject_token's scope.
-        parent_scopes = set((parent_claims.get("scope", "") or "").split())
+        # §13.6: TTS MUST ensure requested scope is equal-or-less than subject_token's
+        # scope. §13.14: if that scope cannot be determined (absent or empty `scope`
+        # claim on the subject_token), the TTS MUST reject the request rather than
+        # treat the unknown scope as unconstrained.
+        parent_scopes = set((parent_claims.get("scope") or "").split())
         requested = set(scope.split()) if scope else set()
-        if parent_scopes and requested and not requested.issubset(parent_scopes):
+        if requested and not requested.issubset(parent_scopes):
             escalated = requested - parent_scopes
-            raise AccessDenied(
-                f"Txn-Token scope MUST NOT exceed subject_token scope; "
-                f"escalated: {sorted(escalated)}"
+            reason = (
+                "subject_token carries no determinable scope"
+                if not parent_scopes
+                else f"escalated: {sorted(escalated)}"
             )
+            raise AccessDenied(f"Txn-Token scope MUST NOT exceed subject_token scope; {reason}")
 
         trust_domain = self._settings.txn_token_trust_domain or audience_target
         ttl = self._settings.txn_token_ttl

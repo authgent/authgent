@@ -1,7 +1,7 @@
 # Transaction Tokens in authgent
 
 A walkthrough of how authgent implements
-[draft-ietf-oauth-transaction-tokens-08](https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/),
+[draft-ietf-oauth-transaction-tokens-09](https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/),
 the IETF OAuth WG specification (currently in WG Last Call) for propagating
 authorization context through internal call chains within a Trust Domain.
 
