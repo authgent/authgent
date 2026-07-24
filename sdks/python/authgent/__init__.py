@@ -17,33 +17,33 @@ See <https://github.com/authgent/authgent> and
 <https://github.com/authgent/authgent/blob/main/STANDARDS.md>.
 """
 
-from authgent.verify import verify_token
-from authgent.delegation import verify_delegation_chain
-from authgent.dpop import verify_dpop_proof, DPoPClient
 from authgent.client import AgentAuthClient
-from authgent.models import AgentIdentity, DelegationChain, TokenClaims
+from authgent.delegation import verify_delegation_chain
+from authgent.dpop import DPoPClient, verify_dpop_proof
 from authgent.errors import (
     AuthgentError,
-    InvalidTokenError,
     DelegationError,
     DPoPError,
+    InvalidTokenError,
     ServerError,
 )
+from authgent.models import AgentIdentity, DelegationChain, TokenClaims
+from authgent.verify import verify_token
 
 __version__ = "0.3.4"
 
 __all__ = [
-    "verify_token",
-    "verify_delegation_chain",
-    "verify_dpop_proof",
-    "DPoPClient",
     "AgentAuthClient",
     "AgentIdentity",
-    "DelegationChain",
-    "TokenClaims",
     "AuthgentError",
-    "InvalidTokenError",
-    "DelegationError",
+    "DPoPClient",
     "DPoPError",
+    "DelegationChain",
+    "DelegationError",
+    "InvalidTokenError",
     "ServerError",
+    "TokenClaims",
+    "verify_delegation_chain",
+    "verify_dpop_proof",
+    "verify_token",
 ]
