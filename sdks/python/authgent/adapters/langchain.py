@@ -165,7 +165,7 @@ class AuthgentToolWrapper:
         async def _authed_func(*args: Any, **kwargs: Any) -> Any:
             headers = await wrapper_self.get_auth_headers()
             kwargs["authgent_headers"] = headers
-            if hasattr(original_func, "__call__"):
+            if callable(original_func):
                 return await original_func(*args, **kwargs)
             return original_func(*args, **kwargs)
 
