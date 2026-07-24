@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from authgent.client import AgentAuthClient
-from authgent.verify import verify_token
 from authgent.models import AgentIdentity
+from authgent.verify import verify_token
 
 
 class AgentAuthProvider:
