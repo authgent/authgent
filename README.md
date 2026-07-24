@@ -22,7 +22,7 @@ and [MCP-EMA-001..004](docs/blog/2026-06-19-ema-launch-partner-pkce.md) ID-JAG r
 [ema]: https://thenewstack.io/mcp-gets-its-missing-enterprise-authorization-layer/
 
 - **`authgent-server lint <mcp-url>`** — 10 RFC-mapped checks, A–F grade,
-  embeddable badge. CLI + GitHub Action + hosted at
+  embeddable badge. CLI + [GitHub Action CI gate](docs/ci-integration.md) + hosted at
   [authgent.dev/scan/](https://authgent.dev/scan/).
 - **Public registry**: [authgent.dev/registry/](https://authgent.dev/registry/).
 - **MCP-PKCE-002 — PKCE advertise-drift**: a public-scanner heuristic for
@@ -74,7 +74,8 @@ authgent-server lint https://your-mcp-server.example.com
 
 Or paste a URL into the [hosted scanner](https://authgent.dev/scan/),
 embed an [SVG badge](https://authgent-demo.dhruvagnihotri.com/api/badge?url=https://mcp.example.com)
-in your README, or wire the [GitHub Action](.github/actions/mcp-lint/README.md) into CI.
+in your README, or wire the [GitHub Action CI gate](docs/ci-integration.md)
+into pull requests.
 
 The same code path runs in all three places. The [methodology](docs/methodology.md)
 documents every check, the [calibration set](docs/calibration.md) pins the expected
