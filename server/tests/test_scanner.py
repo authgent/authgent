@@ -217,6 +217,58 @@ async def test_scan_missing_prm_is_blocking(scanner_client):
 
 
 @pytest.mark.asyncio
+async def test_scan_prm_bare_root_variant_is_not_a_false_positive(scanner_client):
+    """A PRM published at the bare host root (path dropped entirely rather
+    than moved after .well-known) MUST NOT be reported as missing. Firecrawl's
+    hosted MCP server (mcp.firecrawl.dev/v2/mcp) uses this form."""
+    base = "http://mcp.example/v2/mcp"
+    as_url = "http://as.example"
+    routes = {
+        ("GET", f"{base}/.well-known/oauth-protected-resource"): httpx.Response(404),
+        ("GET", "http://mcp.example/.well-known/oauth-protected-resource"): httpx.Response(
+            200, json=_good_prm(base, as_url)
+        ),
+        ("GET", f"{as_url}/.well-known/oauth-authorization-server"): httpx.Response(
+            200, json=_good_as_meta(as_url)
+        ),
+        ("GET", base): httpx.Response(404),
+        ("POST", f"{as_url}/register"): [
+            httpx.Response(201, json={"client_id": "agnt_a", "client_secret": "s"}),
+            httpx.Response(201, json={"client_id": "agnt_b", "client_secret": "s"}),
+        ],
+    }
+    client = scanner_client(routes)
+    findings = await scan(base, http_client=client)
+    assert not any(f.check_id == "MCP-PRM-001" for f in findings)
+
+
+@pytest.mark.asyncio
+async def test_scan_prm_path_suffix_variant_is_not_a_false_positive(scanner_client):
+    """RFC 9728 §3.1 path-suffixed PRM (e.g. GitHub's hosted MCP server at
+    api.githubcopilot.com/mcp/) MUST NOT be reported as missing just because
+    the bare-root .well-known path 404s."""
+    base = "http://mcp.example/mcp"
+    as_url = "http://as.example"
+    routes = {
+        ("GET", f"{base}/.well-known/oauth-protected-resource"): httpx.Response(404),
+        ("GET", "http://mcp.example/.well-known/oauth-protected-resource/mcp"): httpx.Response(
+            200, json=_good_prm(base, as_url)
+        ),
+        ("GET", f"{as_url}/.well-known/oauth-authorization-server"): httpx.Response(
+            200, json=_good_as_meta(as_url)
+        ),
+        ("GET", base): httpx.Response(404),
+        ("POST", f"{as_url}/register"): [
+            httpx.Response(201, json={"client_id": "agnt_a", "client_secret": "s"}),
+            httpx.Response(201, json={"client_id": "agnt_b", "client_secret": "s"}),
+        ],
+    }
+    client = scanner_client(routes)
+    findings = await scan(base, http_client=client)
+    assert not any(f.check_id == "MCP-PRM-001" for f in findings)
+
+
+@pytest.mark.asyncio
 async def test_scan_pkce_plain_is_blocking(scanner_client):
     base = "http://mcp.example"
     as_url = "http://as.example"
