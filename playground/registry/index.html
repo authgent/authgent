@@ -3,12 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>MCP-OAuth Registry · authgent</title>
-<meta name="description" content="Public registry of MCP servers ranked by OAuth conformance. Stripe, Notion, Atlassian, Cloudflare, Linear and others — graded A through F against RFC 7591, 7636, 8414, 8707, 9207, 9449, 9728.">
-<meta property="og:title" content="MCP-OAuth Registry — public scan results">
+<title>MCP Registry — MCP Server List Graded on OAuth Security · authgent</title>
+<meta name="description" content="The MCP registry: a public MCP server list ranked by OAuth conformance. Stripe, Notion, Atlassian, Cloudflare, Linear and others — graded A through F against RFC 7591, 7636, 8414, 8707, 9207, 9449, 9728.">
+<meta property="og:title" content="MCP Registry — public MCP server list graded on OAuth security">
 <meta property="og:description" content="See how Stripe, Notion, Atlassian, Cloudflare, Linear and other MCP servers grade against the IETF OAuth specs.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://authgent.dev/registry/">
+<meta property="og:image" content="https://authgent.dev/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://authgent.dev/assets/og-cover.png">
+<link rel="canonical" href="https://authgent.dev/registry/">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='7' height='7' rx='1'/><rect x='14' y='3' width='7' height='7' rx='1'/><rect x='3' y='14' width='7' height='7' rx='1'/><rect x='14' y='14' width='7' height='7' rx='1'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -16,6 +22,20 @@
 <!-- Cloudflare Web Analytics — privacy-respecting (no cookies, no IP storage). Active. -->
 <!-- Until then, the script-tag is dormant and ships no requests. -->
 <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f6a89aeaca804c5d9dbb12afdaf220b3"}'></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "name": "MCP-OAuth Registry",
+  "description": "Public registry of MCP servers ranked by OAuth conformance against RFC 7591, 7636, 8414, 8707, 9207, 9449, and 9728. Includes Stripe, Notion, Atlassian, Cloudflare, Linear, and other production MCP servers.",
+  "url": "https://authgent.dev/registry/",
+  "license": "https://www.apache.org/licenses/LICENSE-2.0",
+  "creator": {
+    "@type": "Person",
+    "name": "Dhruv Agnihotri"
+  }
+}
+</script>
 <script>
 tailwind.config={theme:{extend:{
   fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']},
@@ -62,11 +82,11 @@ th,td{vertical-align:middle}
       <span>Registry · refreshed hourly</span>
     </div>
     <h1 class="text-3xl sm:text-5xl font-extrabold text-zinc-50 tracking-tight glow">
-      MCP-OAuth Registry
+      MCP Registry
     </h1>
     <p class="mt-3 text-zinc-400 text-base sm:text-lg max-w-3xl">
-      Public scan results for every notable MCP server. Each row is graded
-      A&nbsp;through&nbsp;F against RFC&nbsp;7591, 7636, 8414, 8707, 9207, 9449,
+      A public MCP server list — every notable MCP server, graded
+      A&nbsp;through&nbsp;F on OAuth conformance against RFC&nbsp;7591, 7636, 8414, 8707, 9207, 9449,
       and 9728. Click any row for the detailed report.
     </p>
     <p class="mt-4 text-[12px] text-zinc-500 max-w-3xl">

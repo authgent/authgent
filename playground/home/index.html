@@ -9,6 +9,11 @@
 <meta property="og:description" content="See how Stripe, Notion, Atlassian, Cloudflare grade against the IETF OAuth specs. Then run your own.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://authgent.dev/home/">
+<meta property="og:image" content="https://authgent.dev/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://authgent.dev/assets/og-cover.png">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2L2 7l10 5 10-5-10-5z'/><path d='M2 17l10 5 10-5'/><path d='M2 12l10 5 10-5'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -16,6 +21,29 @@
 <!-- Cloudflare Web Analytics — privacy-respecting (no cookies, no IP storage). Active. -->
 <!-- Until then, the script-tag is dormant and ships no requests. -->
 <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "f6a89aeaca804c5d9dbb12afdaf220b3"}'></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "authgent",
+  "applicationCategory": "SecurityApplication",
+  "operatingSystem": "Any",
+  "url": "https://authgent.dev/home/",
+  "description": "Open-source MCP-OAuth compliance scanner and reference OAuth 2.1 authorization server for AI agents. Grades MCP servers against RFC 7591, 7636, 8414, 8707, 9207, 9449, 9728, and MCP Enterprise-Managed Authorization (EMA / ID-JAG) readiness.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "softwareVersion": "0.3.2",
+  "license": "https://www.apache.org/licenses/LICENSE-2.0",
+  "codeRepository": "https://github.com/authgent/authgent",
+  "author": {
+    "@type": "Person",
+    "name": "Dhruv Agnihotri"
+  }
+}
+</script>
 <script>
 tailwind.config={theme:{extend:{
   fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']},
