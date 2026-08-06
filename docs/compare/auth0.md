@@ -1,8 +1,13 @@
 # authgent vs Auth0 (for AI Agents)
 
-A factual comparison for teams choosing between Auth0 for AI Agents
-(closed-source SaaS, GA May 2026) and authgent (open-source self-hosted,
-Apache 2.0). Updated June 2026.
+**Looking for an open-source alternative to Auth0 for AI agents?**
+authgent is the closest one: a self-hosted, Apache 2.0 OAuth 2.1 server
+built specifically for agent delegation, with reference implementations
+of the IETF identity-chaining and transaction-tokens drafts that Auth0's
+own agent-identity feature set doesn't implement. This page is a factual
+comparison for teams choosing between Auth0 for AI Agents (closed-source
+SaaS, GA May 2026) and authgent (open-source self-hosted, Apache 2.0).
+Updated June 2026.
 
 ## TL;DR
 
@@ -116,3 +121,18 @@ If you are **moving** from Auth0 for AI Agents to authgent:
 - Run `authgent-server lint` against your MCP server in CI.
 - See the `examples/` directory for LangChain / OpenAI Agents / CrewAI
   recipes mirroring the Auth0 quickstarts.
+
+## FAQ
+
+**Is there an open-source alternative to Auth0?** Yes — for the AI-agent
+delegation layer specifically, authgent is Apache 2.0, self-hosted, and
+implements the same OBO-style delegation Auth0 offers, but multi-hop and
+with signed receipts. For general human-facing SSO, Keycloak and Ory
+Hydra are the broader open-source Auth0 alternatives; see
+[authgent vs Keycloak](keycloak.md) and [authgent vs Ory Hydra](ory-hydra.md).
+
+**Can I use Auth0 and authgent together?** Yes — this is the common
+pattern. Keep Auth0 for human login and social identity providers;
+bridge each authenticated user into authgent via id_token exchange to
+get multi-hop agent delegation, signed receipts, and an MCP-OAuth
+scanner Auth0 doesn't ship. See "Compose them" above.

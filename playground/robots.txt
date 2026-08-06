@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://authgent.dev/sitemap.xml
