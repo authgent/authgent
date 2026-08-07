@@ -10,17 +10,18 @@ repository-code: "https://github.com/authgent/authgent"
 url: "https://github.com/authgent/authgent"
 identifiers:
   - type: other
-    value: "draft-agnihotri-oauth-agent-impl-status-00"
-    description: "IETF Internet-Draft documenting authgent as the reference implementation of draft-ietf-oauth-identity-chaining-14 and draft-ietf-oauth-transaction-tokens-08, posted 2026-06-12."
+    value: "draft-agnihotri-oauth-agent-impl-status-02"
+    description: "IETF Internet-Draft documenting authgent as the reference implementation of draft-ietf-oauth-identity-chaining (rev -17, RFC Editor Queue) and draft-ietf-oauth-transaction-tokens (rev -11, 3rd WG Last Call), posted 2026-06-12, last revised 2026-07-23."
   - type: url
     value: "https://datatracker.ietf.org/doc/draft-agnihotri-oauth-agent-impl-status/"
     description: "IETF Datatracker page for the Implementation Status I-D."
 abstract: >
   authgent is a self-hosted OAuth 2.1 authorization server for AI agents.
   It is the open-source reference implementation of
-  draft-ietf-oauth-identity-chaining-15 (cross-domain delegation) and
-  draft-ietf-oauth-transaction-tokens-08 (intra-domain transaction
-  context propagation), in addition to RFC 8693 nested-act delegation
+  draft-ietf-oauth-identity-chaining (cross-domain delegation, rev -17,
+  RFC Editor Queue) and draft-ietf-oauth-transaction-tokens (intra-domain
+  transaction context propagation, rev -11, 3rd WG Last Call), in
+  addition to RFC 8693 nested-act delegation
   chains, RFC 9449 DPoP, RFC 9728 Protected Resource Metadata, RFC 7591
   Dynamic Client Registration, and the MCP 2026-07-28 authorization
   spec. Apache 2.0.

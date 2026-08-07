@@ -32,8 +32,8 @@ and [MCP-EMA-001..004](docs/blog/2026-06-19-ema-launch-partner-pkce.md) ID-JAG r
 
 If you fail the scanner, you can run [`pip install authgent-server`](#run-the-server)
 to fix what it found — a reference OAuth 2.1 server implementing
-[`draft-ietf-oauth-identity-chaining-14`][icn] and
-[`draft-ietf-oauth-transaction-tokens-08`][txntok].
+[`draft-ietf-oauth-identity-chaining`][icn] and
+[`draft-ietf-oauth-transaction-tokens`][txntok].
 
 Apache 2.0 · 525 tests · 3 published packages · IETF Internet-Draft on datatracker.
 
@@ -92,7 +92,7 @@ grades for known-good and known-bad shapes (asserted in CI), and the
 | **MCP-server developer** — *"is my OAuth right?"* | A 10-check audit + an embeddable A–F grade badge. Run in CI on every PR. | [`authgent-server lint`](#audit-any-mcp-server-in-10-seconds) |
 | **Security engineer** — *"how does the MCP ecosystem grade against the RFCs?"* | Public registry of how named MCP vendors score. Named-finding catalog with prior-art citations. | [Registry](https://authgent.dev/registry/) · [PKCE Advertise-Drift](docs/attacks/pkce-drift.md) |
 | **MCP-server operator who failed the scan** — *"how do I fix this?"* | A drop-in OAuth 2.1 AS designed not to fail its own scanner. | [Run the server](#run-the-server) |
-| **IETF / spec implementer** — *"a free reference impl to test against."* | Apache-2.0 implementation of identity-chaining-14 + transaction-tokens-08, section-by-section conformance map. | [Standards Report](STANDARDS.md) |
+| **IETF / spec implementer** — *"a free reference impl to test against."* | Apache-2.0 implementation of identity-chaining + transaction-tokens, section-by-section conformance map. | [Standards Report](STANDARDS.md) |
 
 ---
 
@@ -152,8 +152,8 @@ authgent for the agent-delegation layer via RFC 8693 token exchange.
 
 | Spec | Status |
 |---|---|
-| [draft-ietf-oauth-identity-chaining-14][icn] | **Reference impl** — §2.3, §2.4, §2.5, §3, §5.1–5.5 ([map](STANDARDS.md)) |
-| [draft-ietf-oauth-transaction-tokens-08][txntok] | **Reference impl** — §3, §7, §11 ([map](STANDARDS.md)) |
+| [draft-ietf-oauth-identity-chaining][icn] | **Reference impl** — §2.1–§2.5, §3, §5.1–5.5 ([map](STANDARDS.md)) |
+| [draft-ietf-oauth-transaction-tokens][txntok] | **Reference impl** — §3, §7, §11, §13.6, §13.14 ([map](STANDARDS.md)) |
 | OAuth 2.1 (draft) + RFC 6749 | Authorization Code + PKCE (S256), Client Credentials, Refresh, Device Auth |
 | [RFC 8693][rfc8693] | Token Exchange with nested `act` claims |
 | [RFC 9449][rfc9449] | DPoP — sender-constrained access tokens (opt-in via `AUTHGENT_REQUIRE_DPOP=true`) |

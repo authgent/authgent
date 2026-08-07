@@ -4,14 +4,18 @@
 and authgent's source code.** It is written for spec authors, implementers,
 auditors, and reviewers evaluating authgent as a reference implementation.
 
-Last updated: 2026-06-12. authgent version: 0.3.x (see [CHANGELOG.md](CHANGELOG.md)).
-Test count: **476**, all passing. Coverage: **83%**. Lint/format/type: clean.
+Last updated: 2026-08-07. authgent version: 0.3.x (see [CHANGELOG.md](CHANGELOG.md)).
+Test count: **525**, all passing. Coverage: **84%**. Lint/format/type: clean.
 
-**IETF Internet-Draft (canonical citation)**: `draft-agnihotri-oauth-agent-impl-status-00`,
-posted 2026-06-12, available at <https://datatracker.ietf.org/doc/draft-agnihotri-oauth-agent-impl-status/>.
-Editors of `draft-ietf-oauth-identity-chaining` and `draft-ietf-oauth-transaction-tokens`
-considering an Implementation Status section may reference the I-D directly,
-or cite the per-section maps below.
+**IETF Internet-Draft (canonical citation)**: `draft-agnihotri-oauth-agent-impl-status`
+(currently rev -02, first posted 2026-06-12), available at
+<https://datatracker.ietf.org/doc/draft-agnihotri-oauth-agent-impl-status/>.
+Editors of `draft-ietf-oauth-identity-chaining` (currently rev -17, RFC Editor
+Queue) and `draft-ietf-oauth-transaction-tokens` (currently rev -11, 3rd WG
+Last Call) considering an Implementation Status section may reference the
+I-D directly, or cite the per-section maps below. Revision numbers below are
+current as of the "Last updated" date above and will drift as the WG
+publishes new revisions — always check datatracker for the latest.
 
 ---
 
@@ -19,8 +23,8 @@ or cite the per-section maps below.
 
 | Status | Spec | Section coverage | Tests |
 |---|---|---|---|
-| **WG-track reference impl** | [draft-ietf-oauth-identity-chaining-15](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/) | §2.1, §2.2, §2.3, §2.4, §2.5, §3, §5.1–5.5 | [test_identity_chaining.py](server/tests/test_identity_chaining.py) — 17 tests |
-| **WG-track reference impl** | [draft-ietf-oauth-transaction-tokens-09](https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/) | §3, §7, §11, §13.6, §13.14 | [test_transaction_tokens.py](server/tests/test_transaction_tokens.py) — 9 tests |
+| **WG-track reference impl** | [draft-ietf-oauth-identity-chaining](https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/) (rev -17, RFC Editor Queue) | §2.1, §2.2, §2.3, §2.4, §2.5, §3, §5.1–5.5 | [test_identity_chaining.py](server/tests/test_identity_chaining.py) — 17 tests |
+| **WG-track reference impl** | [draft-ietf-oauth-transaction-tokens](https://datatracker.ietf.org/doc/draft-ietf-oauth-transaction-tokens/) (rev -11, 3rd WG Last Call) | §3, §7, §11, §13.6, §13.14 | [test_transaction_tokens.py](server/tests/test_transaction_tokens.py) — 9 tests |
 | **Production** | [RFC 8693](https://datatracker.ietf.org/doc/html/rfc8693) Token Exchange | Full + nested `act` chain extension | test_token_advanced.py, test_delegation.py |
 | **Production** | [RFC 7523](https://datatracker.ietf.org/doc/html/rfc7523) JWT Profile | §3, §3.1 (assertion validation) | test_identity_chaining.py |
 | **Production** | [RFC 9449](https://datatracker.ietf.org/doc/html/rfc9449) DPoP | Full | test_dpop.py, test_dpop_integration.py |
@@ -37,7 +41,7 @@ or cite the per-section maps below.
 
 ---
 
-## draft-ietf-oauth-identity-chaining-15 — section by section
+## draft-ietf-oauth-identity-chaining (rev -17) — section by section
 
 ### §2.1 Overview
 
@@ -110,7 +114,7 @@ Advertised by
 
 ---
 
-## draft-ietf-oauth-transaction-tokens-09 — section by section
+## draft-ietf-oauth-transaction-tokens (rev -11) — section by section
 
 ### §3 Token Service request/response
 
