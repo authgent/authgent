@@ -49,7 +49,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "jose": "^5.9.0"
+    "jose": "^6.2.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
