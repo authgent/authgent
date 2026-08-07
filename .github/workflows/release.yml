@@ -123,7 +123,7 @@ jobs:
           name: authgent-server-dist
           path: dist/
       - name: Generate build provenance attestation
-        uses: actions/attest-build-provenance@8beda2b7ed98355c0e97c0a63bec38ae472e66c4 # v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-path: 'dist/*'
       - name: Sign with Sigstore
@@ -151,7 +151,7 @@ jobs:
           name: authgent-python-sdk-dist
           path: dist/
       - name: Generate build provenance attestation
-        uses: actions/attest-build-provenance@8beda2b7ed98355c0e97c0a63bec38ae472e66c4 # v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-path: 'dist/*'
       - name: Sign with Sigstore
@@ -203,7 +203,7 @@ jobs:
         with:
           path: artifacts/
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@c12583777ecdfd3be55c69cf75464299dc01057e # v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
           generate_release_notes: true
           files: |
