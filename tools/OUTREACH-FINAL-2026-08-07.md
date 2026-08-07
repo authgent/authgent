@@ -30,6 +30,7 @@ contain the errors documented below. This file supersedes them.
 | LangChain/CrewAI code snippets in outreach templates | `auth_client.exchange_token(orchestrator_token, actor_scopes=[...])`, treating a token as if it had `.client_id` | **Wrong — doesn't match the real SDK.** `register_agent()` returns an `AgentResult` (`.client_id`/`.client_secret`), not a token. Real signature: `exchange_token(subject_token, audience, scopes=[...], client_id=..., client_secret=...)`. Fixed below, verified against `sdks/python/authgent/client.py` and the actually-working `examples/crewai/crewai_demo.py`. | Source code diff |
 | awesome-mcp-servers Security section | draft said "create if doesn't exist" | **Already exists** (`### Security`, ~40 entries as of today). Add there — don't create a new section. | Live fetch of punkpeye/awesome-mcp-servers README |
 | GitHub stars / npm / PyPI downloads | not mentioned in drafts | **3 GitHub stars, 69 npm downloads (30d), 90 PyPI downloads (30d) for authgent-server, 72 for the SDK.** Do not lead with these numbers anywhere — they undercut the pitch. Never volunteer them; if asked, answer honestly. | GitHub API, npm API, pypistats.org, checked live |
+| LangChain issue submission method | `gh issue create` (plain title + body) | **Rejected — auto-closed within seconds** by `langchain-oss-automated-triage[bot]` for missing an Issue Type field, which only the web form or a maintainer can set (confirmed via a failed `updateIssueIssueType` GraphQL mutation — `FORBIDDEN` for non-maintainers). Must use the web form at `issues/new/choose` → Feature Request template. See §4a below, rewritten field-by-field. | Live attempt: issue #39314, auto-closed 2026-08-07; GraphQL probe confirmed the permission wall |
 
 ---
 
@@ -197,33 +198,61 @@ Post at most 1-2 of these to start — four issues on four different maintainers
 ### 4a. LangChain
 
 **Repo:** https://github.com/langchain-ai/langchain (143,576 stars, verified)
-**Where:** New GitHub Issue
+**Where:** **Must go through the web form** at
+https://github.com/langchain-ai/langchain/issues/new/choose → **"✨ Feature
+Request"** template. This repo runs `langchain-oss-automated-triage[bot]`,
+which auto-closes any issue that doesn't have an **Issue Type**
+(Task/Bug/Feature) set — and Issue Type can only be set by the web form's
+guided flow or by a maintainer; there is no API/CLI way to set it
+(confirmed: `gh issue create` and a direct GraphQL
+`updateIssueIssueType` mutation both fail with `FORBIDDEN` for a
+non-maintainer). **Do not use `gh issue create` for this repo.** First
+attempt (issue #39314) was auto-closed for exactly this reason — this is
+the corrected version, mapped to the form's actual fields.
 
-**Title:**
+**Title field:**
 ```
 Add authgent as an OAuth/delegation example for multi-agent workflows
 ```
 
-**Body:**
-```markdown
-### Feature request
+**Submission checklist:** check all 5 boxes (title is descriptive, searched
+for duplicates, checked docs, not a langchain-community issue, this is a
+feature request not a bug).
 
-Add an example showing scoped OAuth delegation between LangChain agents — orchestrator → sub-agent, with scope narrowing and an auditable delegation chain per call.
+**Package (Required) — select:**
+```
+Other / not sure / general
+```
+(This is a docs/example request, not tied to a specific installable
+package like `langchain-openai`.)
 
-### Motivation
+**Feature Description field:**
+```
+Add an example showing scoped OAuth delegation between LangChain agents — an orchestrator delegating to a sub-agent, with scope that narrows (never widens) at each hop, and a cryptographically verifiable delegation chain per call.
 
-Multi-agent LangChain workflows commonly share one API key/token across every agent in the chain. That means no per-agent audit trail, no way to scope down what a sub-agent can do, and no way to revoke one agent without killing the whole chain.
+Concretely: a doc page or example under docs/docs/integrations/providers/ (or wherever example integrations live) showing an orchestrator agent registering its own OAuth identity, then delegating a scoped-down token to a sub-agent via RFC 8693 token exchange, so the sub-agent's token is provably a narrower subset of the orchestrator's — not a copy of the same shared credential.
+```
 
-[authgent](https://github.com/authgent/authgent) is an Apache-2.0 OAuth 2.1 server built around exactly this: RFC 8693 token exchange with nested `act` claims, so each hop in a delegation chain is a scoped, independently-revocable, cryptographically verifiable token. It's the reference implementation cited for `draft-ietf-oauth-identity-chaining` (IETF OAuth WG, currently in the RFC Editor Queue).
+**Use Case field:**
+```
+Multi-agent LangChain workflows commonly share one API key/token across every agent in the chain. That means:
+- No per-agent audit trail — can't tell which agent made which call
+- Every agent is over-privileged relative to its actual task
+- No way to revoke one compromised/misbehaving agent without killing the whole chain
 
-### Proposed content
+I'm building multi-agent LangChain pipelines where different sub-agents have very different trust levels (a search agent vs. an agent with write access to a database), and I don't want to hand every sub-agent the same all-access credential just because they're all part of one LangChain run.
+```
 
-A working example already exists in the authgent repo and runs against a real `authgent-server` instance:
+**Proposed Solution field:**
+```
+authgent (https://github.com/authgent/authgent, Apache 2.0) is an OAuth 2.1 server built around exactly this: RFC 8693 token exchange with nested `act` claims, so each hop in a delegation chain is independently scoped, independently revocable, and cryptographically verifiable. It's the reference implementation cited for draft-ietf-oauth-identity-chaining (IETF OAuth WG, currently in the RFC Editor Queue).
+
+A working example already exists in the authgent repo and runs against a real authgent-server instance:
 https://github.com/authgent/authgent/tree/main/examples/langchain_tool
 
-It uses `AuthgentToolWrapper` for automatic token acquisition/caching/refresh — real signature, verified against the SDK:
+It uses AuthgentToolWrapper for automatic token acquisition/caching/refresh — real signature, verified against the SDK:
 
-\`\`\`python
+​```python
 from authgent.client import AgentAuthClient
 from authgent.adapters.langchain import AuthgentToolWrapper
 
@@ -240,14 +269,21 @@ wrapper = AuthgentToolWrapper(
     scope="search:execute summarize:execute",
 )
 headers = await wrapper.get_auth_headers()  # auto-acquires + caches token
-\`\`\`
+​```
 
-Would a doc link to this example fit in `docs/docs/integrations/providers/`, or would you rather I open a PR with a trimmed-down version inline?
+Would a doc link to this example fit in docs/docs/integrations/providers/, or would a PR with a trimmed-down version inline be preferred?
+```
 
-### Additional context
-- Repo: https://github.com/authgent/authgent
-- IETF draft: https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/ (rev -17, RFC Editor Queue)
-- License: Apache 2.0
+**Alternatives Considered field:**
+```
+The common workaround today is giving every sub-agent the same shared API key/token, or building a custom internal token-minting service by hand. Neither gives an auditable, standards-based (RFC 8693) delegation chain, and a hand-rolled version needs to be re-verified for the same scope-escalation bugs authgent already handles (it explicitly rejects a delegation attempt that would widen scope rather than narrow it).
+```
+
+**Additional Context field:**
+```
+Repo: https://github.com/authgent/authgent
+IETF draft: https://datatracker.ietf.org/doc/draft-ietf-oauth-identity-chaining/ (rev -17, RFC Editor Queue)
+License: Apache 2.0
 ```
 
 ### 4b. CrewAI
