@@ -20,7 +20,7 @@ contain the errors documented below. This file supersedes them.
 | awesome-mcp-servers PR | Open — bot asked for a Glama badge, replied explaining authgent isn't an MCP server (OAuth infra + scanner, not a server implementation), cited 58 precedent entries in the same section with no badge. Waiting on maintainer. | [PR #11657](https://github.com/punkpeye/awesome-mcp-servers/pull/11657) |
 | LangChain issue | Open — first attempt (#39314) was auto-closed by a triage bot for missing "Issue Type" (only settable via the web form). Resubmitted correctly through the Feature Request template. | [Issue #39316](https://github.com/langchain-ai/langchain/issues/39316) |
 | CrewAI issue | Open, no bot friction, awaiting maintainer response. | [Issue #6852](https://github.com/crewAIInc/crewAI/issues/6852) |
-| Show HN post | Not yet posted — drafted below (§2), needs a live HN account + a weekday-morning-Pacific window + you available to answer comments for a few hours after. | — |
+| Show HN post | **Posted, then [flagged], 2 points, 0 real engagement.** Account (`dagni132`) is brand new / low karma, which is the single biggest predictor of an HN flag on a Show HN — the community and mod tooling are heavily biased against posts from accounts with no history. This isn't a content problem; retrying with the same account soon will likely flag again. | HN item, posted 2026-08-07 |
 | Journalist email | Not yet sent — drafted below (§3). No email-send tool is wired up in this session; needs to go out from your own inbox. | — |
 | dev.to cross-posts | Not yet posted — plan below (§5). | — |
 | Medium article | Not started — see recommendation below. | — |
