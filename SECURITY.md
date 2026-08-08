@@ -31,9 +31,16 @@ authgent implements defense-in-depth with 10 layers of token security:
 5. **Scope reduction** — Downstream delegation cannot escalate scope
 6. **may_act enforcement** — Explicit delegation authorization
 7. **Delegation depth limit** — Configurable maximum chain depth
-8. **Signed delegation receipts** — Chain splicing prevention
+8. **Cascading revocation** — Revoking a token blocklists every token exchanged from it, both eagerly (a graph walk at revocation time) and lazily (an ancestor-chain check on every subsequent use). See `docs/security-advisories/2026-08-non-cascading-revocation.md` for the vulnerability this closes and its disclosed limitations.
 9. **Refresh token rotation** — Single-use with family-based reuse detection
 10. **Token blocklist** — Explicit revocation with JTI tracking
+
+> **Note on delegation receipts:** signed delegation receipts (`chain_hash`)
+> are written at issuance for audit purposes but are **not currently
+> verified against a presented token**. Do not rely on them as a
+> chain-splicing (token-replay-into-a-different-chain) defense; that
+> verification path does not exist yet. Tracked as a known gap in the
+> same advisory linked above.
 
 ### Secrets Management
 

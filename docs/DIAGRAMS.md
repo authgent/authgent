@@ -413,22 +413,33 @@ graph LR
 
 ---
 
-## Signed Delegation Receipts (Chain Splicing Defense)
+## Signed Delegation Receipts (Chain Splicing Defense) — NOT CURRENTLY IMPLEMENTED
+
+> **This diagram describes a design that does not match the current
+> code.** `compute_chain_hash` (`delegation_service.py`) hashes only
+> the current token's own actor list; it takes no `H_{n-1}` input, so
+> it is not the rolling hash shown below. `verify_chain()` has zero
+> call sites in production code, so no verification step like the one
+> shown ever runs. Kept here as an aspirational design note, not a
+> description of shipped behavior. See
+> `docs/security-advisories/2026-08-non-cascading-revocation.md` for
+> the disclosure and what is actually implemented today (cascading
+> revocation, a different mechanism from the one diagrammed below).
 
 ```mermaid
 graph TD
-    subgraph "Normal Chain"
+    subgraph "Normal Chain (design, not yet implemented)"
         R1[Receipt 1<br/>chain_hash: H₁<br/>parent: tok_001<br/>child: tok_002]
         R2[Receipt 2<br/>chain_hash: H₂ = SHA256{H₁ + tok_002}<br/>parent: tok_002<br/>child: tok_003]
         R1 --> R2
     end
 
-    subgraph "🔴 Splice Attack"
+    subgraph "🔴 Splice Attack (defense not yet implemented)"
         EVIL[Attacker takes tok_002<br/>from Chain X and tries<br/>to use it in Chain Y]
         EVIL -->|"chain_hash won't match!"| FAIL[❌ Receipt verification<br/>FAILS — chain_hash<br/>doesn't match Y's history]
     end
 
-    subgraph "Verification"
+    subgraph "Verification (design, no call sites in production code)"
         V[Verifier recomputes:<br/>expected_hash = SHA256{prev_receipt + parent_jti}<br/>actual_hash from receipt<br/>MUST MATCH]
     end
 

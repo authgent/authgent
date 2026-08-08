@@ -33,7 +33,7 @@ Updated June 2026.
 | `draft-ietf-oauth-identity-chaining-14` reference impl | ❌ | ✅ |
 | `draft-ietf-oauth-transaction-tokens-08` reference impl | ❌ | ✅ |
 | RFC 8693 nested-`act` delegation chain | OBO single-hop | ✅ multi-hop |
-| Signed delegation receipts (chain-splice prevention) | ❌ | ✅ |
+| Cascading revocation across delegation chains | ❌ | ✅ |
 | Token Vault (3rd-party API tokens for agents) | ✅ | manual |
 | Async Authorization (CIBA / human approval) | ✅ | ✅ via HITL step-up |
 | FGA / fine-grained authorization for RAG | ✅ | bring-your-own |
@@ -69,9 +69,12 @@ linked draft datatracker pages.)
 - **IETF reference implementations.** Auth0's marketing of "agent
   identity" predates the IETF drafts that define it; authgent ships
   working code for both WG-track drafts.
-- **Multi-hop nested-`act` chains + signed receipts.** Auth0 OBO
+- **Multi-hop nested-`act` chains + cascading revocation.** Auth0 OBO
   works for a single hop. authgent's chain depth is configurable and
-  receipts close the chain-splice attack RFC 8693 leaves open.
+  revoking a chain's root cascades to every already-issued descendant
+  token, closing a gap RFC 8693's own text explicitly leaves as
+  implementation-specific (see
+  `docs/security-advisories/2026-08-non-cascading-revocation.md`).
 - **DPoP across the surface.** authgent supports DPoP on `/token`,
   `/authorize` (DPoP key bound at code issuance), `/introspect`, and
   `/revoke` — opt-in via `AUTHGENT_REQUIRE_DPOP=true` (default false
