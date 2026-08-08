@@ -531,6 +531,7 @@ class TokenService:
             actor_id=f"client:{client_id}",
             receipt_jwt=receipt_jwt,
             chain_hash=chain_hash,
+            expires_at=claims["exp"] and datetime.fromtimestamp(claims["exp"], tz=UTC),
         )
         db.add(receipt)
         await db.flush()
@@ -1004,20 +1005,106 @@ class TokenService:
         )
         await db.commit()
 
+        await self._cascade_revoke_descendants(db, jti)
+
+    async def _cascade_revoke_descendants(self, db: AsyncSession, root_jti: str) -> None:
+        """Blocklist every token delegated (directly or transitively) from root_jti.
+
+        Walks the delegation_receipts graph breadth-first via parent_token_jti.
+        A token's authority is entirely derived from its parent in the chain
+        (authgent_server.services.delegation_service.build_delegated_claims
+        carries forward sub/scope/act from parent_claims); once the root is
+        revoked, every descendant's authority is void even though each
+        descendant token remains cryptographically valid until it expires.
+        """
+        frontier = [root_jti]
+        visited: set[str] = {root_jti}
+        while frontier:
+            stmt = select(DelegationReceipt).where(DelegationReceipt.parent_token_jti.in_(frontier))
+            result = await db.execute(stmt)
+            receipts = result.scalars().all()
+            frontier = []
+            for receipt in receipts:
+                if receipt.token_jti in visited:
+                    continue
+                visited.add(receipt.token_jti)
+                if await self.is_token_revoked(db, receipt.token_jti):
+                    continue
+                expires_at = receipt.expires_at or datetime.now(UTC) + timedelta(days=1)
+                db.add(
+                    TokenBlocklist(
+                        jti=receipt.token_jti,
+                        expires_at=expires_at,
+                        reason="ancestor_revoked",
+                    )
+                )
+                frontier.append(receipt.token_jti)
+        if visited - {root_jti}:
+            await self._audit.log(
+                db,
+                "token.cascade_revoked",
+                metadata={"root_jti": root_jti, "descendant_jtis": sorted(visited - {root_jti})},
+            )
+        await db.commit()
+
     async def is_token_revoked(self, db: AsyncSession, jti: str) -> bool:
         """Check if a token JTI is in the blocklist."""
         stmt = select(TokenBlocklist).where(TokenBlocklist.jti == jti)
         result = await db.execute(stmt)
         return result.scalar_one_or_none() is not None
 
+    async def _first_revoked_ancestor(self, db: AsyncSession, jti: str) -> str | None:
+        """Walk parent_token_jti up from jti, return the first revoked ancestor's jti (or None).
+
+        This closes the TOCTOU race in _cascade_revoke_descendants: that method
+        walks the delegation_receipts graph DOWNWARD from a newly-revoked root,
+        so a concurrent exchange can mint a fresh descendant receipt after the
+        downward walk has already passed that level, permanently escaping the
+        cascade. This method instead walks UPWARD from the token being checked,
+        on every use (introspection and token exchange), re-deriving revocation
+        status from current blocklist state rather than relying on the
+        downward cascade having already reached this node. Because the root's
+        own blocklist row is committed synchronously in revoke_token before the
+        downward cascade even starts, any descendant that walks up to that root
+        will see it revoked immediately, independent of cascade progress. This
+        is a fencing-token/optimistic-concurrency-control pattern (Kleppmann,
+        "How to do Distributed Locking," 2016; Kung and Robinson, "On
+        Optimistic Methods for Concurrency Control," ACM TODS, 1981): the
+        ancestor lineage is re-validated at the moment of use rather than
+        trusted from a point-in-time cache.
+        """
+        current = jti
+        visited: set[str] = set()
+        while current and current not in visited:
+            visited.add(current)
+            stmt = select(DelegationReceipt).where(DelegationReceipt.token_jti == current)
+            result = await db.execute(stmt)
+            receipt = result.scalar_one_or_none()
+            if receipt is None:
+                return None
+            parent = receipt.parent_token_jti
+            if not parent:
+                return None
+            if await self.is_token_revoked(db, parent):
+                return parent
+            current = parent
+        return None
+
     async def verify_and_check_blocklist(
         self, db: AsyncSession, token: str, audience: str | None = None
     ) -> dict:
-        """Verify a JWT and ensure it hasn't been revoked."""
+        """Verify a JWT and ensure it hasn't been revoked (including by an ancestor)."""
         claims = await self._jwks.verify_jwt(db, token, audience)
         jti = claims.get("jti")
-        if jti and await self.is_token_revoked(db, jti):
+        if not jti:
+            return claims
+        if await self.is_token_revoked(db, jti):
             raise TokenRevoked(f"Token {jti} has been revoked")
+        revoked_ancestor = await self._first_revoked_ancestor(db, jti)
+        if revoked_ancestor:
+            raise TokenRevoked(
+                f"Token {jti} descends from revoked ancestor {revoked_ancestor}"
+            )
         return claims
 
     async def _enrich_claims(

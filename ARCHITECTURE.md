@@ -1019,7 +1019,13 @@ class DelegationService:
 
 #### `may_act` Enforcement (RFC 8693 §4.4)
 
-The `may_act` claim restricts which actors can exchange a given token. This is critical for chain splicing prevention (complementing signed delegation receipts).
+The `may_act` claim restricts which actors can exchange a given token.
+
+> **Known gap (2026-08):** signed delegation receipts are written at
+> issuance but not currently verified against a presented token, so
+> `may_act` does not currently have the chain-splicing backstop this
+> section previously described. See
+> `docs/security-advisories/2026-08-non-cascading-revocation.md`.
 
 **Storage:** `agents.allowed_exchange_targets` (JSON list) defines which audiences an agent can delegate *to*. `oauth_clients.may_act_subs` (JSON list) defines which `sub` values are permitted to exchange tokens issued to this client.
 
@@ -1710,8 +1716,12 @@ Layer 6: Refresh token rotation
 Layer 7: Scope reduction on exchange
   └── Downstream agent cannot escalate privileges
 
-Layer 8: Delegation receipts
-  └── Chain splicing detected via signed chain_hash
+Layer 8: Cascading revocation
+  └── Revoking a token blocklists every token exchanged from it,
+      eagerly (graph walk) and lazily (ancestor-chain check on use).
+      NOTE: delegation receipts are written for audit purposes but not
+      currently verified as a chain-splicing defense — see
+      docs/security-advisories/2026-08-non-cascading-revocation.md
 
 Layer 9: HITL step-up
   └── Sensitive actions require human approval
