@@ -25,8 +25,6 @@ import secrets
 import pytest
 
 from authgent_server.models.token_blocklist import TokenBlocklist
-from authgent_server.utils import utcnow
-from datetime import timedelta
 
 
 def _register_client(test_client, *, grant_types=None, scope="read write"):
@@ -64,7 +62,9 @@ def _get_token(test_client, creds, scope="read"):
     return resp.json()["access_token"]
 
 
-def _exchange(test_client, child_creds, subject_token, scope="read", audience="https://t.example.com"):
+def _exchange(
+    test_client, child_creds, subject_token, scope="read", audience="https://t.example.com"
+):
     resp = test_client.post(
         "/token",
         data={
@@ -103,7 +103,7 @@ async def test_lazy_check_catches_descendant_the_eager_cascade_missed(
         token_service_module.TokenService, "_cascade_revoke_descendants", _noop_cascade
     )
 
-    agent_a, agent_b, agent_c, agent_d = (
+    agent_a, agent_b, _agent_c, agent_d = (
         _agent(test_client),
         _agent(test_client),
         _agent(test_client),

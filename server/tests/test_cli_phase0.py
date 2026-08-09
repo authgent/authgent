@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 from datetime import UTC, datetime
 
 import pytest
@@ -27,6 +28,13 @@ from authgent_server.cli import (
 )
 
 runner = CliRunner()
+
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    """Strip ANSI escape codes so assertions match rendered text, not markup."""
+    return _ANSI_ESCAPE.sub("", text)
 
 
 # ── Helper function tests ────────────────────────────────────────────────
@@ -241,7 +249,7 @@ class TestInspectTokenCommand:
         assert "Delegation Chain" in result.output
         assert "client:orchestrator" in result.output
         assert "client:db-reader" in result.output
-        assert "1 hop" in result.output
+        assert "1 hop" in _strip_ansi(result.output)
 
     def test_inspect_token_with_deep_delegation(self) -> None:
         token = self._make_token(
@@ -258,7 +266,7 @@ class TestInspectTokenCommand:
         )
         result = runner.invoke(app, ["inspect-token", token])
         assert result.exit_code == 0
-        assert "2 hops" in result.output
+        assert "2 hops" in _strip_ansi(result.output)
 
     def test_inspect_token_no_delegation(self) -> None:
         token = self._make_token(
