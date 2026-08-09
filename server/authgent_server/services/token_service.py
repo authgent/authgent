@@ -1102,9 +1102,7 @@ class TokenService:
             raise TokenRevoked(f"Token {jti} has been revoked")
         revoked_ancestor = await self._first_revoked_ancestor(db, jti)
         if revoked_ancestor:
-            raise TokenRevoked(
-                f"Token {jti} descends from revoked ancestor {revoked_ancestor}"
-            )
+            raise TokenRevoked(f"Token {jti} descends from revoked ancestor {revoked_ancestor}")
         return claims
 
     async def _enrich_claims(

@@ -4,8 +4,8 @@
 and authgent's source code.** It is written for spec authors, implementers,
 auditors, and reviewers evaluating authgent as a reference implementation.
 
-Last updated: 2026-08-07. authgent version: 0.3.x (see [CHANGELOG.md](CHANGELOG.md)).
-Test count: **525**, all passing. Coverage: **84%**. Lint/format/type: clean.
+Last updated: 2026-08-09. authgent version: 0.3.x (see [CHANGELOG.md](CHANGELOG.md)).
+Test count: **541**, all passing. Coverage: **84%**. Lint/format/type: clean.
 
 **IETF Internet-Draft (canonical citation)**: `draft-agnihotri-oauth-agent-impl-status`
 (currently rev -02, first posted 2026-06-12), available at
@@ -223,7 +223,7 @@ pytest tests/ \
 pytest tests/test_identity_chaining.py tests/test_transaction_tokens.py -v
 ```
 
-Expected: **525 tests pass** in ~2 minutes on a 2024-vintage laptop.
+Expected: **541 tests pass** in ~2 minutes on a 2024-vintage laptop.
 
 ---
 

@@ -49,7 +49,9 @@ def _get_token(test_client, creds, scope="read"):
     return resp.json()["access_token"]
 
 
-def _exchange(test_client, child_creds, subject_token, scope="read", audience="https://t.example.com"):
+def _exchange(
+    test_client, child_creds, subject_token, scope="read", audience="https://t.example.com"
+):
     resp = test_client.post(
         "/token",
         data={
@@ -75,7 +77,11 @@ def _active(test_client, token):
 def _revoke(test_client, token, creds):
     resp = test_client.post(
         "/revoke",
-        data={"token": token, "client_id": creds["client_id"], "client_secret": creds["client_secret"]},
+        data={
+            "token": token,
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+        },
     )
     assert resp.status_code == 200
 
@@ -93,6 +99,7 @@ def cascade_mode(request, monkeypatch):
     """
     mode = request.param
     if mode == "baseline":
+
         async def _noop_cascade(self, db, root_jti):
             return None
 
@@ -202,8 +209,10 @@ def scenario_sibling_isolation(test_client):
     root2, root2_child = _agent(test_client), _agent(test_client)
     tok_root1 = _get_token(test_client, root1, scope="read write")
     tok_root2 = _get_token(test_client, root2, scope="read write")
-    tok_child1 = _exchange(test_client, root1_child, tok_root1, scope="read", audience="https://c1.example.com")
-    tok_child2 = _exchange(test_client, root2_child, tok_root2, scope="read", audience="https://c2.example.com")
+    _exchange(test_client, root1_child, tok_root1, scope="read", audience="https://c1.example.com")
+    tok_child2 = _exchange(
+        test_client, root2_child, tok_root2, scope="read", audience="https://c2.example.com"
+    )
     _revoke(test_client, tok_root1, root1)
     # Attack framing here is inverted: "success" = incorrect over-revocation.
     return not _active(test_client, tok_child2)
