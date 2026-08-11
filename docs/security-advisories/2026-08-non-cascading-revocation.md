@@ -115,6 +115,19 @@ blocklist entries expire correctly rather than persisting indefinitely.
   addressed by their existing documentation; Keycloak agreed it is
   "worth making explicit in the documentation" and will track that
   separately.
+- 2026-08-11: Requested permission to cite the private disclosure
+  reply publicly. Declined, correctly: the `keycloak-security` mailing
+  list is a private channel and Keycloak cannot authorize quoting or
+  paraphrasing it. Keycloak pointed to its own public documentation
+  (freely citable without permission) and invited a public GitHub
+  issue for the documentation gap.
+- 2026-08-11: Checked keycloak/keycloak's public issue tracker before
+  filing anything, to avoid duplicating existing discussion. Found
+  three closed issues (#33252, #37119, #37120) covering the base
+  non-cascading case, none covering the chain-extension variant.
+  Filed [keycloak/keycloak#51633](https://github.com/keycloak/keycloak/issues/51633),
+  scoped specifically to that gap and citing the three closed issues
+  as prior art.
 
 ## Credit
 
