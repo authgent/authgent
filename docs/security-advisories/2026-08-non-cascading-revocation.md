@@ -100,15 +100,30 @@ blocklist entries expire correctly rather than persisting indefinitely.
 - 2026-08-08: Vulnerability found during security research into
   RFC 8693 delegation chain revocation semantics.
 - 2026-08-08: Fix designed, implemented, and tested (16 dedicated
-  regression tests; 525/525 of the pre-existing suite unaffected).
+  regression tests; 541/541 of the full suite passing).
 - 2026-08-08: Public documentation corrected; fix merged to `main`.
+- 2026-08-08: Cross-implementation finding (the same gap, plus a
+  narrower "chain-extension" variant not covered by Keycloak's existing
+  documentation) reported to the Keycloak project via its stated
+  security channel (`keycloak-security@googlegroups.com`).
+- 2026-08-11: Keycloak Security team responded. Verbatim summary: the
+  base non-cascading-revocation behavior is confirmed as documented,
+  intentional design (avoiding "revocation chain" overhead for access
+  tokens); no CVE will be assigned. The chain-extension variant this
+  report specifically demonstrated, exchanging a descendant token
+  *after* the root's revocation to mint a further token, is not
+  addressed by their existing documentation; Keycloak agreed it is
+  "worth making explicit in the documentation" and will track that
+  separately.
 
 ## Credit
 
 Found by the project's own maintainer during research for an academic
-paper on this class of vulnerability. A related finding, that the
-identical gap is also present and unfixed in Keycloak 26.7.1, an
-unrelated production identity server, is being reported to the
-Keycloak project via its stated security channel
-(`keycloak-security@googlegroups.com`); see that project's own
-security advisory channel for status once filed.
+paper on this class of vulnerability. The identical base gap, plus the
+chain-extension variant, is also present in Keycloak 26.7.1 (an
+unrelated production identity server), confirmed via a real
+reproduction against an unmodified instance. Keycloak's security team
+reviewed the report and confirmed it accurately describes their
+system's behavior (see Timeline above); this is offered as an
+independent, cross-implementation data point that the vulnerability
+class addressed by this advisory is not specific to authgent.
