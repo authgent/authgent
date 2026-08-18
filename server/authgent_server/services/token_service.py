@@ -6,6 +6,7 @@ import base64
 import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import structlog
 from sqlalchemy import select, update
@@ -37,6 +38,9 @@ from authgent_server.services.external_oidc import (
 )
 from authgent_server.services.jwks_service import JWKSService
 from authgent_server.utils import is_expired, utcnow
+
+if TYPE_CHECKING:
+    from authgent_server.providers.caep import CAEPTransmitter, DeliveryResult
 
 # RFC 8693 §3 token type identifiers
 JWT_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:jwt"
@@ -1046,6 +1050,115 @@ class TokenService:
                 metadata={"root_jti": root_jti, "descendant_jtis": sorted(visited - {root_jti})},
             )
         await db.commit()
+
+    async def flag_compromised(
+        self,
+        db: AsyncSession,
+        jti: str,
+        reason: str,
+        *,
+        client_id: str | None = None,
+        actor_id: str | None = None,
+    ) -> list[DeliveryResult]:
+        """Flag a token as compromised: blocklist it, cascade-revoke its
+        descendants, AND push a CAEP session-revoked SET to every configured
+        receiver.
+
+        This is deliberately a separate entry point from `revoke_token`
+        (RFC 7009 client self-revocation), not a parameter or side effect
+        bolted onto it, for three reasons:
+
+          1. Different caller and different trust level. `revoke_token` is
+             called by the token's own client, authenticated with its own
+             client_secret, as a routine, expected action (token no longer
+             needed, credential rotation, session logout). This method is
+             called by an operator or an automated detector acting on a
+             third party's token — a fundamentally different, higher-stakes
+             action that this codebase gates on `caep_operator_scope`
+             (see endpoints/security.py) rather than "does the caller hold
+             this token's client_secret".
+          2. Different externally-visible effect. Routine revocation is a
+             purely local bookkeeping change (a blocklist row); nothing is
+             broadcast. Compromise-flagging additionally transmits a signed
+             SET to external relying parties over the network — an action
+             with cost, latency, and failure modes (partial delivery,
+             receiver downtime) that a routine self-revocation call should
+             never incur or be delayed by.
+          3. Different semantics for the receiving relying party. A CAEP
+             session-revoked event tells a relying party "treat this
+             session as actively dangerous, right now" — appropriate for a
+             detected compromise, not for an agent logging itself out
+             normally. Firing that signal on every ordinary revocation
+             would make it useless as a compromise signal (alert fatigue,
+             and relying parties would have no way to distinguish "routine"
+             from "urgent" without a payload field this prototype does not
+             define).
+
+        Reuses the existing blocklist + cascade path so a compromised
+        token's authority is void for every relying party that checks
+        introspection or blocklist state, exactly as revoke_token does.
+        CAEP transmission is the additional, distinguishing step.
+        """
+        if await self.is_token_revoked(db, jti):
+            logger.info("caep_flag_compromised_already_revoked", jti=jti)
+        else:
+            db.add(
+                TokenBlocklist(
+                    jti=jti,
+                    expires_at=datetime.now(UTC) + timedelta(days=1),
+                    reason="compromised",
+                )
+            )
+            try:
+                await db.commit()
+            except Exception:
+                await db.rollback()
+
+            await self._audit.log(
+                db,
+                "token.flagged_compromised",
+                client_id=client_id,
+                subject=actor_id,
+                metadata={"jti": jti, "reason": reason},
+            )
+            await db.commit()
+
+            await self._cascade_revoke_descendants(db, jti)
+
+        transmitter = self._get_caep_transmitter()
+        results = await transmitter.transmit_session_revoked(
+            db,
+            actor_id=actor_id or "",
+            client_id=client_id or "",
+            jti=jti,
+            reason=reason,
+        )
+
+        await self._audit.log(
+            db,
+            "caep.session_revoked_transmitted",
+            client_id=client_id,
+            subject=actor_id,
+            metadata={
+                "jti": jti,
+                "receivers_attempted": len(results),
+                "receivers_delivered": sum(1 for r in results if r.delivered),
+            },
+        )
+        await db.commit()
+
+        return results
+
+    def _get_caep_transmitter(self) -> CAEPTransmitter:
+        """Lazily construct the CAEP transmitter from current settings.
+
+        Constructed here rather than injected in __init__ so tests can
+        monkeypatch Settings.caep_receiver_urls without needing to thread a
+        new constructor argument through every TokenService call site.
+        """
+        from authgent_server.providers.caep import CAEPTransmitter
+
+        return CAEPTransmitter(self._jwks, self._settings)
 
     async def is_token_revoked(self, db: AsyncSession, jti: str) -> bool:
         """Check if a token JTI is in the blocklist."""

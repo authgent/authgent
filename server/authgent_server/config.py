@@ -101,6 +101,31 @@ class Settings(BaseSettings):
     webhook_retries: int = 3
     webhook_backoff: str = "1,5,30"
 
+    # CAEP (OpenID Continuous Access Evaluation Profile 1.0) SET push delivery.
+    # Prototype scope: session-revoked events only, delivered via a fixed,
+    # comma-separated receiver list (RFC 8935 push semantics). This is NOT a
+    # full SSF stream-management implementation — no registration API, no
+    # poll-based delivery, no per-stream aud negotiation. See
+    # docs/security-advisories/2026-08-caep-transmitter-prototype.md.
+    caep_receiver_urls: str | None = None
+    caep_hmac_secret: str | None = None
+    caep_retries: int = 3
+    caep_backoff: str = "1,5,30"
+    caep_timeout: float = 10.0
+    # Scope required to call POST /security/tokens/compromise. Always
+    # enforced (unlike registration_policy, this is not switchable to "open")
+    # because compromise-flagging both blocklists a token and pushes an
+    # external notification — a materially more consequential action than
+    # routine client self-revocation.
+    caep_operator_scope: str = "admin:security"
+
+    @property
+    def caep_receiver_url_list(self) -> list[str]:
+        """Parsed, whitespace-trimmed receiver URL list."""
+        if not self.caep_receiver_urls:
+            return []
+        return [u.strip() for u in self.caep_receiver_urls.split(",") if u.strip()]
+
     # Advertised scopes for discovery metadata (RFC 8414)
     scopes_supported: list[str] = Field(default_factory=list)
 
