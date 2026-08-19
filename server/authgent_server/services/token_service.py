@@ -1054,15 +1054,31 @@ class TokenService:
     async def flag_compromised(
         self,
         db: AsyncSession,
-        jti: str,
+        token: str,
         reason: str,
         *,
-        client_id: str | None = None,
-        actor_id: str | None = None,
+        operator_client_id: str,
     ) -> list[DeliveryResult]:
         """Flag a token as compromised: blocklist it, cascade-revoke its
         descendants, AND push a CAEP session-revoked SET to every configured
         receiver.
+
+        Takes the actual signed token, not a bare `jti` string, and verifies
+        it exactly as `revoke_token` does (`self._jwks.verify_jwt`) before
+        doing anything else. Two things this closes, found by adversarial
+        review of an earlier version of this method that accepted a bare
+        jti argument supplied directly by the caller: (1) a caller could
+        flag an arbitrary, never-issued jti as "compromised," triggering a
+        real signed SET push to every receiver for a token that never
+        existed; (2) the SET's subject was populated from the *operator's
+        own* client_id/actor_id (the caller's identity, passed in as
+        arguments), not the compromised agent's, so receivers would have
+        been told the operator's own session was revoked instead of the
+        flagged agent's. Requiring and verifying the real token fixes both:
+        `actor_id`/`client_id`/`jti` in the resulting SET are now read from
+        the verified token's own claims (`sub`, `client_id`, `jti`), and an
+        unverifiable or fabricated token is rejected before any signing or
+        network call happens.
 
         This is deliberately a separate entry point from `revoke_token`
         (RFC 7009 client self-revocation), not a parameter or side effect
@@ -1099,6 +1115,22 @@ class TokenService:
         introspection or blocklist state, exactly as revoke_token does.
         CAEP transmission is the additional, distinguishing step.
         """
+        try:
+            claims = await self._jwks.verify_jwt(db, token)
+        except Exception as exc:
+            # Unlike revoke_token (RFC 7009 requires silently succeeding on
+            # an invalid/already-invalid token so as not to leak
+            # information), flag_compromised is an operator-only action
+            # where a clean rejection is the correct signal: an operator
+            # who submits a bad token needs to know it was rejected, not
+            # see it silently no-op.
+            raise InvalidRequest(f"Cannot verify token: {exc}") from exc
+        jti = claims.get("jti")
+        if not jti:
+            raise InvalidRequest("Token has no jti; cannot flag as compromised")
+        actor_id = str(claims.get("sub", ""))
+        client_id = str(claims.get("client_id", ""))
+
         if await self.is_token_revoked(db, jti):
             logger.info("caep_flag_compromised_already_revoked", jti=jti)
         else:
@@ -1117,9 +1149,10 @@ class TokenService:
             await self._audit.log(
                 db,
                 "token.flagged_compromised",
+                actor=operator_client_id,
                 client_id=client_id,
                 subject=actor_id,
-                metadata={"jti": jti, "reason": reason},
+                metadata={"jti": jti, "reason": reason, "operator": operator_client_id},
             )
             await db.commit()
 
@@ -1128,8 +1161,8 @@ class TokenService:
         transmitter = self._get_caep_transmitter()
         results = await transmitter.transmit_session_revoked(
             db,
-            actor_id=actor_id or "",
-            client_id=client_id or "",
+            actor_id=actor_id,
+            client_id=client_id,
             jti=jti,
             reason=reason,
         )
@@ -1137,6 +1170,7 @@ class TokenService:
         await self._audit.log(
             db,
             "caep.session_revoked_transmitted",
+            actor=operator_client_id,
             client_id=client_id,
             subject=actor_id,
             metadata={

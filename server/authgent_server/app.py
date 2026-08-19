@@ -296,6 +296,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         rate=settings.badge_rate_limit,
         paths=["/api/badge"],
     )
+    # Compromise-flagging is already gated on caep_operator_scope, but that
+    # alone doesn't bound how many real ES256 signing operations and
+    # concurrent outbound CAEP pushes a single caller can trigger per
+    # minute — an adversarial review of the prototype found this endpoint
+    # was absent from every rate-limited path list above, unlike every
+    # other state-mutating or outbound-HTTP-triggering endpoint in this
+    # file. Same per-IP default key as the buckets above.
+    app.add_middleware(
+        RateLimitMiddleware,
+        rate=settings.caep_operator_rate_limit,
+        paths=["/security/tokens/compromise"],
+    )
 
     # Routes
     app.include_router(api_router)

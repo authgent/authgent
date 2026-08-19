@@ -70,6 +70,13 @@ class Settings(BaseSettings):
     # README-embedded badges responsive.
     scan_rate_limit: int = 30
     badge_rate_limit: int = 120
+    # Per-IP per-minute cap on POST /security/tokens/compromise. Lower than
+    # the scanner caps above because each call does a real ES256 signing
+    # operation plus a concurrent outbound HTTP push to every configured
+    # CAEP receiver; an unrate-limited version of this endpoint was flagged
+    # by adversarial review as a fan-out amplification / DoS vector against
+    # receivers even for an already-authorized caller.
+    caep_operator_rate_limit: int = 20
 
     # Optional shared cache for multi-worker / multi-replica deployments.
     # When set, scanner caches use Redis. When unset, scanner caches
@@ -118,6 +125,17 @@ class Settings(BaseSettings):
     # external notification — a materially more consequential action than
     # routine client self-revocation.
     caep_operator_scope: str = "admin:security"
+    # Scopes no client may claim via RFC 7591 self-registration, regardless
+    # of registration_policy. Registration under "open" or "token" proves
+    # only possession of the server's door key (nothing, or a shared
+    # initial_access_token), never authority to hold a privileged scope; a
+    # client requesting one of these at registration time is rejected
+    # outright (see ClientService.register_client). A caller that
+    # legitimately needs one of these must be granted it out-of-band by an
+    # operator (there is no in-band elevation path in this prototype).
+    caep_disallowed_self_grant_scopes: list[str] = Field(
+        default_factory=lambda: ["admin:security", "admin:register"]
+    )
 
     @property
     def caep_receiver_url_list(self) -> list[str]:

@@ -318,11 +318,52 @@ def _active(test_client, token):
     return resp.json()["active"]
 
 
+async def _grant_operator_scope_out_of_band(db_session, client_id, scope="admin:security"):
+    """Simulate an operator being granted a privileged scope out-of-band.
+
+    Registration itself now refuses this scope at self-registration time
+    (see ClientService.register_client and
+    test_register_rejects_self_granted_operator_scope below), so tests that
+    need a genuine operator caller must grant it directly against the row,
+    the same way a real deployment would need an out-of-band admin action
+    since this prototype defines no in-band elevation path."""
+    from sqlalchemy import select
+
+    from authgent_server.models.oauth_client import OAuthClient
+
+    stmt = select(OAuthClient).where(OAuthClient.client_id == client_id)
+    result = await db_session.execute(stmt)
+    client = result.scalar_one()
+    client.scope = scope
+    await db_session.commit()
+
+
+async def _sign_test_token(jwks, settings, db_session, *, jti, sub, client_id, ttl=900):
+    """Build and sign a real access token, for tests that need
+    flag_compromised to verify a genuine, previously-issued token rather
+    than a bare jti string."""
+    from datetime import UTC, datetime, timedelta
+
+    now = datetime.now(UTC)
+    claims = {
+        "iss": settings.server_url,
+        "sub": sub,
+        "aud": settings.server_url,
+        "exp": int((now + timedelta(seconds=ttl)).timestamp()),
+        "iat": int(now.timestamp()),
+        "jti": jti,
+        "scope": "read",
+        "client_id": client_id,
+    }
+    return await jwks.sign_jwt(db_session, claims)
+
+
 @pytest.mark.asyncio
 async def test_flag_compromised_via_service_blocklists_and_transmits(db_session, monkeypatch):
-    """Direct service-level test: flag_compromised blocklists the jti,
-    cascades to descendants (none here), logs audit events, and calls the
-    CAEP transmitter exactly once with the right subject fields."""
+    """Direct service-level test: flag_compromised verifies the real token,
+    blocklists its jti, cascades to descendants (none here), logs audit
+    events, and calls the CAEP transmitter exactly once with subject fields
+    read from the token's own verified claims (not caller-supplied ones)."""
     from authgent_server.services.audit_service import AuditService
     from authgent_server.services.delegation_service import DelegationService
     from authgent_server.services.jwks_service import JWKSService
@@ -351,22 +392,70 @@ async def test_flag_compromised_via_service_blocklists_and_transmits(db_session,
         fake_transmit,
     )
 
+    token = await _sign_test_token(
+        jwks, settings, db_session,
+        jti="tok_compromise_test", sub="client:agnt_compromised", client_id="agnt_compromised",
+    )
+
     assert await token_service.is_token_revoked(db_session, "tok_compromise_test") is False
 
     await token_service.flag_compromised(
         db_session,
-        "tok_compromise_test",
+        token,
         "detected_exfiltration",
-        client_id="client_operator",
-        actor_id="agnt_compromised",
+        operator_client_id="client_operator",
     )
 
     assert await token_service.is_token_revoked(db_session, "tok_compromise_test") is True
     assert len(captured_calls) == 1
     assert captured_calls[0]["jti"] == "tok_compromise_test"
-    assert captured_calls[0]["actor_id"] == "agnt_compromised"
-    assert captured_calls[0]["client_id"] == "client_operator"
+    assert captured_calls[0]["actor_id"] == "client:agnt_compromised"
+    assert captured_calls[0]["client_id"] == "agnt_compromised"
     assert captured_calls[0]["reason"] == "detected_exfiltration"
+
+
+@pytest.mark.asyncio
+async def test_flag_compromised_rejects_fabricated_token(db_session, monkeypatch):
+    """A string with no corresponding real, signed token must be rejected
+    before any blocklisting or CAEP transmission — closes the gap an
+    earlier version of this method had (bare jti argument, no proof the
+    token was ever issued by this server)."""
+    from authgent_server.services.audit_service import AuditService
+    from authgent_server.services.delegation_service import DelegationService
+    from authgent_server.services.jwks_service import JWKSService
+    from authgent_server.services.token_service import TokenService
+
+    settings = Settings(
+        secret_key="test-secret-key-for-unit-tests-only-64chars-long-padding!!",
+        server_url="https://authgent.example.com",
+        caep_receiver_urls="https://receiver.example.com/ssf",
+    )
+    jwks = JWKSService(settings)
+    delegation = DelegationService(settings)
+    audit = AuditService()
+    token_service = TokenService(settings=settings, jwks=jwks, delegation=delegation, audit=audit)
+
+    transmit_calls = []
+
+    async def spy_transmit(self, db, **kwargs):
+        transmit_calls.append(kwargs)
+        return []
+
+    monkeypatch.setattr(
+        "authgent_server.providers.caep.CAEPTransmitter.transmit_session_revoked",
+        spy_transmit,
+    )
+
+    with pytest.raises(Exception):
+        await token_service.flag_compromised(
+            db_session,
+            "not-a-real-jwt-just-a-string",
+            "fabricated",
+            operator_client_id="attacker",
+        )
+
+    assert transmit_calls == []
+    assert await token_service.is_token_revoked(db_session, "not-a-real-jwt-just-a-string") is False
 
 
 @pytest.mark.asyncio
@@ -400,8 +489,11 @@ async def test_flag_compromised_cascades_to_descendants(db_session, monkeypatch)
     )
     await db_session.commit()
 
+    root_token = await _sign_test_token(
+        jwks, settings, db_session, jti="tok_root", sub="client:agnt", client_id="agnt",
+    )
     await token_service.flag_compromised(
-        db_session, "tok_root", "compromised", client_id="op", actor_id="agnt"
+        db_session, root_token, "compromised", operator_client_id="op",
     )
 
     assert await token_service.is_token_revoked(db_session, "tok_root") is True
@@ -410,7 +502,7 @@ async def test_flag_compromised_cascades_to_descendants(db_session, monkeypatch)
 
 @pytest.mark.asyncio
 async def test_flag_compromised_is_idempotent(db_session, monkeypatch):
-    """Calling flag_compromised twice on the same jti must not raise."""
+    """Calling flag_compromised twice on the same token must not raise."""
     from authgent_server.services.audit_service import AuditService
     from authgent_server.services.delegation_service import DelegationService
     from authgent_server.services.jwks_service import JWKSService
@@ -426,11 +518,14 @@ async def test_flag_compromised_is_idempotent(db_session, monkeypatch):
     audit = AuditService()
     token_service = TokenService(settings=settings, jwks=jwks, delegation=delegation, audit=audit)
 
-    await token_service.flag_compromised(
-        db_session, "tok_dup", "first", client_id="op", actor_id="agnt"
+    dup_token = await _sign_test_token(
+        jwks, settings, db_session, jti="tok_dup", sub="client:agnt", client_id="agnt",
     )
     await token_service.flag_compromised(
-        db_session, "tok_dup", "second", client_id="op", actor_id="agnt"
+        db_session, dup_token, "first", operator_client_id="op",
+    )
+    await token_service.flag_compromised(
+        db_session, dup_token, "second", operator_client_id="op",
     )
     assert await token_service.is_token_revoked(db_session, "tok_dup") is True
 
@@ -440,7 +535,7 @@ async def test_flag_compromised_is_idempotent(db_session, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_compromise_endpoint_requires_bearer_token(test_client):
-    resp = test_client.post("/security/tokens/compromise", json={"jti": "tok_x"})
+    resp = test_client.post("/security/tokens/compromise", json={"token": "tok_x"})
     assert resp.status_code == 401
 
 
@@ -452,37 +547,72 @@ async def test_compromise_endpoint_requires_operator_scope(test_client):
 
     resp = test_client.post(
         "/security/tokens/compromise",
-        json={"jti": "tok_x"},
+        json={"token": "tok_x"},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_compromise_endpoint_flags_token_with_operator_scope(test_client):
-    """A caller holding admin:security can flag another agent's token; the
-    victim token becomes inactive afterward."""
+async def test_register_rejects_self_granted_operator_scope(test_client):
+    """A client cannot self-register with admin:security (or admin:register):
+    RFC 7591 self-registration under registration_policy=open proves only
+    that the caller can reach the endpoint, never authority to hold a
+    privileged scope. Closes the gap where any anonymous caller could
+    self-grant admin:security and immediately act as a CAEP operator."""
+    resp = test_client.post(
+        "/register",
+        json={
+            "client_name": "self-granted-operator",
+            "grant_types": ["client_credentials"],
+            "scope": "admin:security",
+        },
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_compromise_endpoint_flags_token_with_operator_scope(test_client, db_session):
+    """A caller genuinely holding admin:security (granted out-of-band, since
+    self-registration with this scope is now rejected) can flag another
+    agent's real, previously-issued token; the victim token becomes
+    inactive afterward and the CAEP subject reflects the victim, not the
+    operator."""
     victim_creds = _register_client(test_client, scope="read write")
     victim_token = _get_token(test_client, victim_creds, scope="read write")
     assert _active(test_client, victim_token) is True
 
-    victim_payload = jwt.decode(victim_token, options={"verify_signature": False})
-    victim_jti = victim_payload["jti"]
-
-    operator_creds = _register_client(test_client, scope="admin:security")
+    operator_creds = _register_client(test_client, scope="read write")
+    await _grant_operator_scope_out_of_band(db_session, operator_creds["client_id"])
     operator_token = _get_token(test_client, operator_creds, scope="admin:security")
 
     resp = test_client.post(
         "/security/tokens/compromise",
-        json={"jti": victim_jti, "reason": "detected_exfiltration"},
+        json={"token": victim_token, "reason": "detected_exfiltration"},
         headers={"Authorization": f"Bearer {operator_token}"},
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["jti"] == victim_jti
     assert body["caep_deliveries"] == []  # no receivers configured in tests
 
     assert _active(test_client, victim_token) is False
+
+
+@pytest.mark.asyncio
+async def test_compromise_endpoint_rejects_fabricated_token(test_client, db_session):
+    """An operator holding admin:security still cannot flag a fabricated,
+    never-issued token string — flag_compromised's own verify_jwt call
+    rejects it before any blocklisting or CAEP transmission."""
+    operator_creds = _register_client(test_client, scope="read write")
+    await _grant_operator_scope_out_of_band(db_session, operator_creds["client_id"])
+    operator_token = _get_token(test_client, operator_creds, scope="admin:security")
+
+    resp = test_client.post(
+        "/security/tokens/compromise",
+        json={"token": "not-a-real-jwt", "reason": "fabricated"},
+        headers={"Authorization": f"Bearer {operator_token}"},
+    )
+    assert resp.status_code >= 400
 
 
 @pytest.mark.asyncio

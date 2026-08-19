@@ -160,6 +160,56 @@ receivers as one).
   ack/negative-ack payload protocol (RFC 8935 supports this as an option);
   a receiver returning any 2xx status is treated as successful delivery.
 
+## Fixes applied after adversarial review (2026-08-18)
+
+Independent adversarial review of the first version of this prototype
+found three real problems, all fixed on the same branch before this note
+was finalized:
+
+1. **`admin:security` was self-grantable at registration.** Under this
+   codebase's default `registration_policy = "open"`, any anonymous caller
+   could register a client with `scope="admin:security"` and immediately
+   act as a CAEP operator. RFC 7591 self-registration (open or
+   token-gated) proves the caller can reach the endpoint, never authority
+   to hold a privileged scope. Fixed by rejecting
+   `Settings.caep_disallowed_self_grant_scopes` (`admin:security`,
+   `admin:register`) at registration time, independent of
+   `registration_policy` (`ClientService.register_client`,
+   `server/authgent_server/services/client_service.py`). A caller that
+   needs this scope must be granted it out-of-band by an operator; this
+   prototype defines no in-band elevation path.
+2. **`flag_compromised` accepted a bare `jti` string with no proof it was
+   ever issued.** A caller (even a legitimate operator) could flag an
+   arbitrary, fabricated jti as "compromised," triggering a real signed
+   SET push to every configured receiver for a token that never existed.
+   Fixed by changing the method's signature to take the actual signed
+   token and calling `JWKSService.verify_jwt` on it before doing anything
+   else (`TokenService.flag_compromised`,
+   `server/authgent_server/services/token_service.py:1054`); an
+   unverifiable token is rejected with a 4xx before any blocklisting or
+   network call happens.
+3. **The SET's subject was populated from the operator's own identity, not
+   the compromised agent's.** The original signature took `client_id`/
+   `actor_id` as caller-supplied arguments, and the endpoint passed the
+   *operator's* own claims. Fixed as a side effect of fix #2:
+   `actor_id`/`client_id` are now read from the verified token's own
+   claims (`sub`, `client_id`), so the SET correctly names the compromised
+   agent.
+4. **`POST /security/tokens/compromise` was absent from every rate-limited
+   path list**, unlike every other state-mutating or outbound-HTTP-
+   triggering endpoint in `app.py`. Each call performs a real ES256
+   signing operation and a real concurrent outbound push to every
+   configured receiver; with no cap, even an authorized operator's client
+   could be used (compromised credentials, a buggy detector, a malicious
+   insider) to spam every receiver. Fixed by adding a dedicated
+   `RateLimitMiddleware` bucket (`Settings.caep_operator_rate_limit`,
+   default 20/minute per IP, `server/authgent_server/app.py`).
+
+The benchmark numbers below were regenerated after these fixes (the
+`flag_compromised` call signature changed, so the benchmark script itself
+required a corresponding update to sign a real token first); the fixes
+did not materially change the measured latency characteristics.
+
 ## Benchmark: compromise-flagged to receiver-verified latency
 
 **Methodology.** For each receiver count N in {1, 10, 50, 100, 250}: start N
@@ -186,16 +236,17 @@ first attempt, so the retry+backoff path is never exercised by the
 benchmark itself, only by the dedicated retry tests in `test_caep.py`).
 
 **Measured results** (from `caep_latency_results.json`, generated
-2026-08-18T04:11:39Z; all figures in milliseconds, aggregated across 5 runs
-per N, over every individual receiver's verified latency):
+2026-08-19T02:03:11Z, after the adversarial-review fixes above; all figures
+in milliseconds, aggregated across 5 runs per N, over every individual
+receiver's verified latency):
 
 | N receivers | min (ms) | median (ms) | mean (ms) | max (ms) |
 |---|---|---|---|---|
-| 1 | 6.66 | 7.25 | 11.54 | 28.66 |
-| 10 | 35.90 | 40.11 | 39.86 | 42.44 |
-| 50 | 166.24 | 182.85 | 183.83 | 199.94 |
-| 100 | 315.65 | 351.47 | 351.17 | 379.26 |
-| 250 | 802.87 | 889.99 | 891.83 | 1009.80 |
+| 1 | 6.89 | 7.62 | 11.68 | 29.07 |
+| 10 | 37.34 | 40.25 | 40.25 | 42.92 |
+| 50 | 172.16 | 186.96 | 186.59 | 197.12 |
+| 100 | 322.95 | 346.49 | 345.66 | 373.83 |
+| 250 | 806.54 | 867.59 | 862.06 | 909.59 |
 
 **Baseline comparison.** The alternative to real-time CAEP notification is
 waiting for the compromised token's natural expiry. This codebase's own
@@ -203,7 +254,7 @@ default access-token TTL is 900 seconds (15 minutes):
 `access_token_ttl: int = 900`, `server/authgent_server/config.py:31`. This
 is authgent's own configured default, not an externally assumed value. At
 every N tested, worst-case measured CAEP delivery-and-verification latency
-(up to ~1.01 seconds at N=250) is roughly three orders of magnitude faster
+(up to ~0.91 seconds at N=250) is roughly three orders of magnitude faster
 than the 900-second natural-expiry baseline.
 
 **Honest caveat on scaling.** Latency grows roughly linearly with receiver

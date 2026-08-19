@@ -191,6 +191,22 @@ async def _run_one(n_receivers: int, transmitter_settings: Settings) -> dict:
     async with session_factory() as db:
         await jwks.get_active_key(db)
         jwks_doc = await jwks.get_jwks_document(db)
+        # flag_compromised now requires the actual signed token (verified
+        # via JWKSService.verify_jwt), not a bare jti — mirrors the fix for
+        # the fabricated-jti finding in adversarial review. Sign one here
+        # exactly as a real client_credentials grant would.
+        now = datetime.now(UTC)
+        victim_claims = {
+            "iss": transmitter_settings.server_url,
+            "sub": "client:bench-actor",
+            "aud": transmitter_settings.server_url,
+            "exp": int(now.timestamp()) + 900,
+            "iat": int(now.timestamp()),
+            "jti": "tok_benchmark_jti",
+            "scope": "read",
+            "client_id": "bench-actor",
+        }
+        victim_token = await jwks.sign_jwt(db, victim_claims)
     public_keys = {k["kid"]: _jwk_to_public_key(k) for k in jwks_doc["keys"]}
 
     ports = [BASE_PORT + i for i in range(n_receivers)]
@@ -212,10 +228,9 @@ async def _run_one(n_receivers: int, transmitter_settings: Settings) -> dict:
         t0 = time.perf_counter()
         results = await token_service.flag_compromised(
             db,
-            jti="tok_benchmark_jti",
-            reason="benchmark",
-            client_id="bench-client",
-            actor_id="bench-actor",
+            victim_token,
+            "benchmark",
+            operator_client_id="bench-operator",
         )
         delivered = sum(1 for r in results if r.delivered)
 

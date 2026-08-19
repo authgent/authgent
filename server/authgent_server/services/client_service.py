@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from authgent_server.config import Settings
-from authgent_server.errors import InsufficientScope, InvalidClient, InvalidRequest
+from authgent_server.errors import InsufficientScope, InvalidClient, InvalidRequest, ScopeEscalation
 from authgent_server.models.oauth_client import OAuthClient
 from authgent_server.schemas.client import RegisterRequest, RegisterResponse
 
@@ -43,7 +43,26 @@ class ClientService:
     async def register_client(
         self, db: AsyncSession, request: RegisterRequest, agent_id: str | None = None
     ) -> RegisterResponse:
-        """Register a new OAuth client (RFC 7591 Dynamic Client Registration)."""
+        """Register a new OAuth client (RFC 7591 Dynamic Client Registration).
+
+        Rejects self-registration with any scope in
+        `Settings.caep_disallowed_self_grant_scopes` (e.g. `admin:security`,
+        `admin:register`), independent of `registration_policy`. Possession
+        of a registration_policy="token" initial_access_token, or the
+        absence of any policy at all under "open", proves the caller may
+        create a client; it proves nothing about authority to hold a
+        privileged scope. Without this check, any caller could self-grant
+        `admin:security` and immediately call
+        POST /security/tokens/compromise as an "operator".
+        """
+        requested_scopes = set((request.scope or "").split())
+        disallowed = requested_scopes & set(self._settings.caep_disallowed_self_grant_scopes)
+        if disallowed:
+            raise ScopeEscalation(
+                f"Cannot self-register with privileged scope(s): {', '.join(sorted(disallowed))}. "
+                "These must be granted out-of-band by an operator."
+            )
+
         client_id = _generate_client_id()
         client_secret = _generate_client_secret()
         secret_hash = _hash_secret(client_secret)

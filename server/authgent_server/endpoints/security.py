@@ -9,7 +9,17 @@ who may register a new agent). It requires a valid authgent-issued bearer
 token carrying `caep_operator_scope` (default: "admin:security"), checked
 unconditionally — there is no "open" mode for this endpoint, because it
 both mutates revocation state for a token that is not the caller's own AND
-transmits an external network signal.
+transmits an external network signal. `caep_operator_scope` cannot be
+self-granted at registration (see
+`Settings.caep_disallowed_self_grant_scopes`,
+`ClientService.register_client`) — a caller must be granted it out-of-band
+by an operator.
+
+The request identifies the compromised token by its own signed JWT, not a
+bare jti string: `TokenService.flag_compromised` calls `verify_jwt` on it,
+so a fabricated or never-issued jti is rejected before any blocklisting or
+CAEP transmission happens, and the SET's subject is derived from the
+verified token's own claims rather than the operator's.
 """
 
 from __future__ import annotations
@@ -28,7 +38,7 @@ router = APIRouter(prefix="/security", tags=["security"])
 
 
 class CompromiseFlagRequest(BaseModel):
-    jti: str = Field(description="The JTI of the compromised token")
+    token: str = Field(description="The full signed JWT of the compromised token, not its bare jti")
     reason: str = Field(default="operator_flagged", max_length=255)
 
 
@@ -42,7 +52,6 @@ class DeliveryResultResponse(BaseModel):
 
 
 class CompromiseFlagResponse(BaseModel):
-    jti: str
     blocklisted: bool = True
     caep_deliveries: list[DeliveryResultResponse]
 
@@ -87,24 +96,23 @@ async def flag_token_compromised(
     """Flag a token as compromised: blocklist + cascade-revoke + CAEP push.
 
     See TokenService.flag_compromised for the full design rationale on why
-    this is a separate trigger path from POST /revoke.
+    this is a separate trigger path from POST /revoke, and for why it takes
+    the full signed token rather than a bare jti.
     """
-    if not body.jti:
-        raise InvalidRequest("jti is required")
+    if not body.token:
+        raise InvalidRequest("token is required")
 
     claims = await _require_operator_scope(request, db, jwks, settings)
     operator = str(claims.get("client_id") or claims.get("sub") or "unknown")
 
     results = await token_service.flag_compromised(
         db,
-        body.jti,
+        body.token,
         body.reason,
-        client_id=operator,
-        actor_id=operator,
+        operator_client_id=operator,
     )
 
     return CompromiseFlagResponse(
-        jti=body.jti,
         caep_deliveries=[
             DeliveryResultResponse(
                 receiver_url=r.receiver_url,
